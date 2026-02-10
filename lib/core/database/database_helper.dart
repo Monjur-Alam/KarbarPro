@@ -103,6 +103,7 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_sales_date ON ${DatabaseConstants.tableSales} (${DatabaseConstants.colSaleDate})');
     await db.execute('CREATE INDEX idx_sales_customer ON ${DatabaseConstants.tableSales} (${DatabaseConstants.colCustomerId})');
     await db.execute('CREATE INDEX idx_sales_invoice ON ${DatabaseConstants.tableSales} (${DatabaseConstants.colInvoiceNumber})');
+    await db.execute('CREATE INDEX idx_sales_payment_type ON ${DatabaseConstants.tableSales} (${DatabaseConstants.colPaymentType})');
 
     // 4. Sale Items Table
     await db.execute('''

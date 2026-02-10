@@ -142,5 +142,91 @@ class SalesRepository {
         items: [], // Fetch items lazily if needed
       );
     });
+  Future<Sale?> getSaleById(int id) async {
+    final db = await _dbHelper.database;
+    
+    final result = await db.rawQuery('''
+      SELECT 
+        s.*,
+        c.${DatabaseConstants.colName} as customer_name
+      FROM ${DatabaseConstants.tableSales} s
+      LEFT JOIN ${DatabaseConstants.tableCustomers} c ON s.${DatabaseConstants.colCustomerId} = c.${DatabaseConstants.colId}
+      WHERE s.${DatabaseConstants.colId} = ?
+    ''', [id]);
+
+    if (result.isEmpty) return null;
+
+    final row = result.first;
+    
+    // Fetch Items
+    final List<Map<String, dynamic>> itemMaps = await db.query(
+      DatabaseConstants.tableSaleItems,
+      where: '${DatabaseConstants.colSaleId} = ?',
+      whereArgs: [id],
+    );
+
+    final items = itemMaps.map((m) => SaleItem(
+      productId: m[DatabaseConstants.colProductId].toString(),
+      productName: m[DatabaseConstants.colProductName],
+      quantity: m[DatabaseConstants.colQuantity],
+      unitPrice: (m[DatabaseConstants.colUnitPrice] as num).toDouble(),
+      purchasePrice: (m[DatabaseConstants.colPurchasePrice] as num).toDouble(),
+    )).toList();
+
+    return Sale(
+      id: row[DatabaseConstants.colId] as int,
+      invoiceId: row[DatabaseConstants.colInvoiceNumber] as String,
+      customerId: row[DatabaseConstants.colCustomerId] as int?,
+      customerName: row['customer_name'] as String?,
+      totalAmount: (row[DatabaseConstants.colTotalAmount] as num).toDouble(),
+      discount: (row[DatabaseConstants.colDiscount] as num).toDouble(),
+      paidAmount: (row[DatabaseConstants.colPaidAmount] as num).toDouble(),
+      paymentMethod: row[DatabaseConstants.colPaymentType] as String,
+      saleDate: DateTime.parse(row[DatabaseConstants.colSaleDate] as String),
+      items: items,
+      notes: row[DatabaseConstants.colNotes] as String?,
+    );
+  }
+
+  Future<void> deleteSale(int saleId) async {
+    final db = await _dbHelper.database;
+    
+    await db.transaction((txn) async {
+      final sale = await getSaleById(saleId);
+      if (sale == null) return;
+
+      // 1. Restore Product Stock
+      for (final item in sale.items) {
+        await txn.execute('''
+          UPDATE ${DatabaseConstants.tableProducts} 
+          SET ${DatabaseConstants.colCurrentStock} = ${DatabaseConstants.colCurrentStock} + ?,
+              ${DatabaseConstants.colIsSynced} = 0
+          WHERE ${DatabaseConstants.colId} = ?
+        ''', [item.quantity, int.parse(item.productId)]);
+      }
+
+      // 2. Update Customer Balance (if applicable)
+      if (sale.customerId != null) {
+        final dueAmount = _calculateDueAmount(sale);
+        await txn.execute('''
+          UPDATE ${DatabaseConstants.tableCustomers} 
+          SET ${DatabaseConstants.colCurrentCreditBalance} = ${DatabaseConstants.colCurrentCreditBalance} - ?,
+              ${DatabaseConstants.colTotalPurchases} = ${DatabaseConstants.colTotalPurchases} - ?,
+              ${DatabaseConstants.colIsSynced} = 0
+          WHERE ${DatabaseConstants.colId} = ?
+        ''', [dueAmount, sale.totalAmount, sale.customerId]);
+        
+        // Remove credit payments records for this sale
+        await txn.delete(
+          DatabaseConstants.tableCreditPayments,
+          where: '${DatabaseConstants.colSaleId} = ?',
+          whereArgs: [saleId],
+        );
+      }
+
+      // 3. Delete Sale and Items
+      await txn.delete(DatabaseConstants.tableSaleItems, where: '${DatabaseConstants.colSaleId} = ?', whereArgs: [saleId]);
+      await txn.delete(DatabaseConstants.tableSales, where: '${DatabaseConstants.colId} = ?', whereArgs: [saleId]);
+    });
   }
 }

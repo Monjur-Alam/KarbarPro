@@ -48,6 +48,7 @@ void main() async {
     dashboardRepository: dashboardRepository,
     customerRepository: customerRepository,
     salesRepository: salesRepository,
+    connectivityService: connectivityService,
   ));
 }
 
@@ -57,6 +58,7 @@ class MyApp extends StatelessWidget {
   final DashboardRepository dashboardRepository;
   final CustomerRepository customerRepository;
   final SalesRepository salesRepository;
+  final ConnectivityService connectivityService;
 
   const MyApp({
     super.key, 
@@ -65,6 +67,7 @@ class MyApp extends StatelessWidget {
     required this.dashboardRepository,
     required this.customerRepository,
     required this.salesRepository,
+    required this.connectivityService,
   });
 
   @override
@@ -76,6 +79,7 @@ class MyApp extends StatelessWidget {
         RepositoryProvider.value(value: dashboardRepository),
         RepositoryProvider.value(value: customerRepository),
         RepositoryProvider.value(value: salesRepository),
+        RepositoryProvider.value(value: connectivityService),
       ],
       child: MultiBlocProvider(
         providers: [

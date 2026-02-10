@@ -79,6 +79,13 @@ class CheckoutSale extends SalesEvent {
 
 class ClearCart extends SalesEvent {}
 
+class SearchProducts extends SalesEvent {
+  final String query;
+  const SearchProducts(this.query);
+  @override
+  List<Object?> get props => [query];
+}
+
 // States
 class CartItem extends Equatable {
   final Product product;
@@ -118,6 +125,8 @@ class SalesDataLoaded extends SalesState {
   final double todayTotalSales;
   final double totalAmount;
   final bool isSubmitting;
+  final List<Product> searchResults;
+  final bool isSearching;
 
   const SalesDataLoaded({
     required this.cart,
@@ -127,6 +136,8 @@ class SalesDataLoaded extends SalesState {
     required this.todayTotalSales,
     required this.totalAmount,
     this.isSubmitting = false,
+    this.searchResults = const [],
+    this.isSearching = false,
   });
 
   SalesDataLoaded copyWith({
@@ -138,6 +149,8 @@ class SalesDataLoaded extends SalesState {
     double? todayTotalSales,
     double? totalAmount,
     bool? isSubmitting,
+    List<Product>? searchResults,
+    bool? isSearching,
   }) {
     return SalesDataLoaded(
       cart: cart ?? this.cart,
@@ -147,18 +160,20 @@ class SalesDataLoaded extends SalesState {
       todayTotalSales: todayTotalSales ?? this.todayTotalSales,
       totalAmount: totalAmount ?? this.totalAmount,
       isSubmitting: isSubmitting ?? this.isSubmitting,
+      searchResults: searchResults ?? this.searchResults,
+      isSearching: isSearching ?? this.isSearching,
     );
   }
 
   @override
-  List<Object?> get props => [cart, mode, paymentType, selectedCustomer, todayTotalSales, totalAmount, isSubmitting];
+  List<Object?> get props => [cart, mode, paymentType, selectedCustomer, todayTotalSales, totalAmount, isSubmitting, searchResults, isSearching];
 }
 
 class SalesSuccess extends SalesState {
-  final String invoiceId;
-  const SalesSuccess(this.invoiceId);
+  final Sale sale;
+  const SalesSuccess(this.sale);
   @override
-  List<Object?> get props => [invoiceId];
+  List<Object?> get props => [sale];
 }
 
 class SalesError extends SalesState {
@@ -184,6 +199,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     on<UpdateCartQuantity>(_onUpdateCartQuantity);
     on<CheckoutSale>(_onCheckoutSale);
     on<ClearCart>(_onClearCart);
+    on<SearchProducts>(_onSearchProducts);
   }
 
   Future<void> _onLoadSalesInitialData(LoadSalesInitialData event, Emitter<SalesState> emit) async {
@@ -221,21 +237,28 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
   void _onAddToCart(AddToCart event, Emitter<SalesState> emit) {
     if (state is SalesDataLoaded) {
       final s = state as SalesDataLoaded;
-      final cart = List<CartItem>.from(s.cart);
-      final index = cart.indexWhere((i) => i.product.id == event.product.id);
       
-      if (index >= 0) {
-        cart[index] = cart[index].copyWith(quantity: cart[index].quantity + event.quantity);
+      // Stock Validation
+      final existingItemIndex = s.cart.indexWhere((i) => i.product.id == event.product.id);
+      int currentInCart = 0;
+      if (existingItemIndex >= 0) {
+        currentInCart = s.cart[existingItemIndex].quantity;
+      }
+
+      if (currentInCart + event.quantity > event.product.currentStock) {
+        emit(const SalesError('দুঃখিত, পর্যাপ্ত স্টক নেই!'));
+        emit(s);
+        return;
+      }
+
+      final cart = List<CartItem>.from(s.cart);
+      if (existingItemIndex >= 0) {
+        cart[existingItemIndex] = cart[existingItemIndex].copyWith(quantity: currentInCart + event.quantity);
       } else {
         cart.add(CartItem(product: event.product, quantity: event.quantity));
       }
       
       emit(s.copyWith(cart: cart, totalAmount: _calculateTotal(cart)));
-
-      // If in single mode, we might want to trigger checkout or stay? 
-      // User request says "Single mode: Direct quantity input, instant sale".
-      // But usually user selects product -> auto shows in cart -> then click Sell.
-      // We'll follow the cart flow for both but maybe simplify UI for single.
     }
   }
 
@@ -256,6 +279,12 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
         if (event.quantity <= 0) {
           cart.removeAt(index);
         } else {
+          // Stock Validation
+          if (event.quantity > cart[index].product.currentStock) {
+            emit(const SalesError('দুঃখিত, পর্যাপ্ত স্টক নেই!'));
+            emit(s);
+            return;
+          }
           cart[index] = cart[index].copyWith(quantity: event.quantity);
         }
         emit(s.copyWith(cart: cart, totalAmount: _calculateTotal(cart)));
@@ -270,12 +299,22 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     }
   }
 
+  Future<void> _onSearchProducts(SearchProducts event, Emitter<SalesState> emit) async {
+    if (state is SalesDataLoaded) {
+      final s = state as SalesDataLoaded;
+      emit(s.copyWith(isSearching: true));
+      // In a real app, this would be a repo call. For now, UI does it via BlocBuilder.
+      // But let's assume we want to handle it here if it gets complex.
+      emit(s.copyWith(isSearching: false));
+    }
+  }
+
   Future<void> _onCheckoutSale(CheckoutSale event, Emitter<SalesState> emit) async {
     if (state is SalesDataLoaded) {
       final s = state as SalesDataLoaded;
       if (s.cart.isEmpty) {
         emit(const SalesError('কার্ট ফাঁকা!'));
-        emit(s); // Restore data state
+        emit(s); 
         return;
       }
 
@@ -319,9 +358,11 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
         await _repository.createSale(sale);
         
         final newTodayTotal = await _repository.getTodayTotalSales();
-        emit(SalesSuccess(invoiceId));
         
-        // Reset state after success (loaded via LoadInitial in UI or here)
+        // Return the full sale object for the success dialog
+        emit(SalesSuccess(sale));
+        
+        // Reset state after success
         emit(s.copyWith(
           cart: [], 
           totalAmount: 0.0, 
@@ -330,7 +371,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
           clearCustomer: true,
         ));
       } catch (e) {
-        emit(SalesError(e.toString()));
+        emit(SalesError('বিক্রয় সম্পন্ন করতে সমস্যা হয়েছে: ${e.toString()}'));
         emit(s.copyWith(isSubmitting: false));
       }
     }

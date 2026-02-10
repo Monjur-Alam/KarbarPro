@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:amar_dokan/features/sales/presentation/bloc/sales_bloc.dart';
@@ -6,6 +7,9 @@ import 'package:amar_dokan/features/customers/presentation/bloc/customer_bloc.da
 import 'package:amar_dokan/features/customers/domain/customer.dart';
 import 'package:amar_dokan/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:amar_dokan/features/inventory/domain/product.dart';
+import 'package:amar_dokan/features/sales/domain/sale.dart';
+import 'package:amar_dokan/core/services/invoice_service.dart';
+import 'package:amar_dokan/core/services/connectivity_service.dart';
 
 class SalesScreen extends StatefulWidget {
   const SalesScreen({super.key});
@@ -23,6 +27,9 @@ class _SalesScreenState extends State<SalesScreen> {
   final TextEditingController _paidAmountController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
+  final FocusNode _productFocusNode = FocusNode();
+  final FocusNode _customerFocusNode = FocusNode();
+
   Product? _selectedProduct;
 
   @override
@@ -33,7 +40,6 @@ class _SalesScreenState extends State<SalesScreen> {
     context.read<SalesBloc>().add(LoadSalesInitialData());
   }
 
-
   @override
   void dispose() {
     _productSearchController.dispose();
@@ -43,6 +49,8 @@ class _SalesScreenState extends State<SalesScreen> {
     _discountController.dispose();
     _paidAmountController.dispose();
     _notesController.dispose();
+    _productFocusNode.dispose();
+    _customerFocusNode.dispose();
     super.dispose();
   }
 
@@ -56,11 +64,19 @@ class _SalesScreenState extends State<SalesScreen> {
   }
 
   void _onProductSelected(Product product) {
+    HapticFeedback.mediumImpact();
     setState(() {
       _selectedProduct = product;
       _priceController.text = product.sellingPrice.toStringAsFixed(0);
       _quantityController.text = '1';
     });
+    
+    // In single mode, automatically add to cart (this will replace any previous item)
+    final currentState = context.read<SalesBloc>().state;
+    if (currentState is SalesDataLoaded && currentState.mode == SalesMode.single) {
+      context.read<SalesBloc>().add(ClearCart()); // Clear previous
+      context.read<SalesBloc>().add(AddToCart(product, quantity: 1));
+    }
   }
 
   void _clearSelection() {
@@ -70,6 +86,14 @@ class _SalesScreenState extends State<SalesScreen> {
       _priceController.clear();
       _quantityController.text = '1';
     });
+    
+    // In single mode, also clear the cart when selection is cleared
+    final currentState = context.read<SalesBloc>().state;
+    if (currentState is SalesDataLoaded && currentState.mode == SalesMode.single) {
+      context.read<SalesBloc>().add(ClearCart());
+    }
+    
+    _productFocusNode.requestFocus();
   }
 
   @override
@@ -77,17 +101,14 @@ class _SalesScreenState extends State<SalesScreen> {
     return BlocConsumer<SalesBloc, SalesState>(
       listener: (context, state) {
         if (state is SalesSuccess) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('বিক্রয় সম্পন্ন হয়েছে! ইনভয়েস: ${_toBengaliDigits(state.invoiceId)}'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          HapticFeedback.heavyImpact();
+          _showSaleSuccessDialog(context, state.sale);
           _clearSelection();
           _paidAmountController.clear();
           _discountController.text = '0';
           _notesController.clear();
         } else if (state is SalesError) {
+          HapticFeedback.vibrate();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.message), backgroundColor: Colors.red),
           );
@@ -108,6 +129,7 @@ class _SalesScreenState extends State<SalesScreen> {
             ),
             body: Column(
               children: [
+                _buildConnectivityBanner(),
                 _buildSummaryBar(state.todayTotalSales),
                 Expanded(
                   child: SingleChildScrollView(
@@ -116,19 +138,19 @@ class _SalesScreenState extends State<SalesScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildModeAndPaymentToggles(state),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
                         if (state.paymentType == PaymentType.credit) ...[
                           _buildSectionTitle('গ্রাহক নির্বাচন করুন'),
                           const SizedBox(height: 8),
                           _buildCustomerSelector(state.selectedCustomer),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 16),
                         ],
                         _buildSectionTitle('পণ্য নির্বাচন ও পরিমাণ'),
                         const SizedBox(height: 8),
                         _buildProductSelectorAndInputs(state),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
                         if (state.mode == SalesMode.multiple) ...[
-                          _buildSectionTitle('কার্ট তালিকা (${_toBengaliDigits(state.cart.length.toString())})'),
+                          _buildSectionTitle('কার্ট তালিকা ($_toBengaliDigits(state.cart.length.toString()))'),
                           const SizedBox(height: 8),
                           _buildCartList(state.cart),
                         ],
@@ -142,6 +164,30 @@ class _SalesScreenState extends State<SalesScreen> {
           );
         }
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      },
+    );
+  }
+
+  Widget _buildConnectivityBanner() {
+    return StreamBuilder<ConnectivityState>(
+      stream: context.read<ConnectivityService>().connectivityStream,
+      builder: (context, snapshot) {
+        if (snapshot.data == ConnectivityState.none) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            color: Colors.orange.shade800,
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.wifi_off, size: 14, color: Colors.white),
+                SizedBox(width: 8),
+                Text('অফলাইন মোডে বিক্রয় - ডেটা পরবর্তীতে সিঙ্ক হবে', style: TextStyle(color: Colors.white, fontSize: 12)),
+              ],
+            ),
+          );
+        }
+        return const SizedBox.shrink();
       },
     );
   }
@@ -185,6 +231,7 @@ class _SalesScreenState extends State<SalesScreen> {
                 ],
                 selected: {state.mode},
                 onSelectionChanged: (Set<SalesMode> newSelection) {
+                  HapticFeedback.selectionClick();
                   context.read<SalesBloc>().add(ToggleSalesMode(newSelection.first));
                 },
               ),
@@ -205,7 +252,10 @@ class _SalesScreenState extends State<SalesScreen> {
                     Icons.payments_outlined,
                     state.paymentType == PaymentType.cash,
                     Colors.green,
-                    () => context.read<SalesBloc>().add(const TogglePaymentType(PaymentType.cash)),
+                    () {
+                      HapticFeedback.selectionClick();
+                      context.read<SalesBloc>().add(const TogglePaymentType(PaymentType.cash));
+                    },
                   ),
                   const SizedBox(width: 8),
                   _buildPaymentButton(
@@ -213,7 +263,11 @@ class _SalesScreenState extends State<SalesScreen> {
                     Icons.history_toggle_off,
                     state.paymentType == PaymentType.credit,
                     Colors.red,
-                    () => context.read<SalesBloc>().add(const TogglePaymentType(PaymentType.credit)),
+                    () {
+                      HapticFeedback.selectionClick();
+                      context.read<SalesBloc>().add(const TogglePaymentType(PaymentType.credit));
+                      _customerFocusNode.requestFocus();
+                    },
                   ),
                 ],
               ),
@@ -263,7 +317,9 @@ class _SalesScreenState extends State<SalesScreen> {
             );
           },
           onSelected: (Customer customer) {
+            HapticFeedback.selectionClick();
             context.read<SalesBloc>().add(SelectCustomer(customer));
+            _productFocusNode.requestFocus();
           },
           fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
             if (selectedCustomer != null && controller.text.isEmpty) {
@@ -271,7 +327,7 @@ class _SalesScreenState extends State<SalesScreen> {
             }
             return TextField(
               controller: controller,
-              focusNode: focusNode,
+              focusNode: focusNode.hasFocus ? focusNode : _customerFocusNode,
               decoration: InputDecoration(
                 hintText: 'গ্রাহক খুঁজুন...',
                 prefixIcon: const Icon(Icons.person_search),
@@ -311,7 +367,7 @@ class _SalesScreenState extends State<SalesScreen> {
               fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
                 return TextField(
                   controller: controller,
-                  focusNode: focusNode,
+                  focusNode: focusNode.hasFocus ? focusNode : _productFocusNode,
                   decoration: const InputDecoration(
                     hintText: 'পণ্য খুঁজুন...',
                     prefixIcon: Icon(Icons.search),
@@ -343,6 +399,7 @@ class _SalesScreenState extends State<SalesScreen> {
                     IconButton(
                       icon: const Icon(Icons.remove_circle_outline),
                       onPressed: () {
+                        HapticFeedback.lightImpact();
                         int q = int.tryParse(_quantityController.text) ?? 1;
                         if (q > 1) _quantityController.text = (q - 1).toString();
                       },
@@ -358,6 +415,7 @@ class _SalesScreenState extends State<SalesScreen> {
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline),
                       onPressed: () {
+                        HapticFeedback.lightImpact();
                         int q = int.tryParse(_quantityController.text) ?? 1;
                         if (q < _selectedProduct!.currentStock) {
                           _quantityController.text = (q + 1).toString();
@@ -374,17 +432,14 @@ class _SalesScreenState extends State<SalesScreen> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () {
+                HapticFeedback.selectionClick();
                 final qty = int.tryParse(_quantityController.text) ?? 1;
                 final price = double.tryParse(_priceController.text) ?? _selectedProduct!.sellingPrice;
                 
-                // Temporary product override with user price
                 final productWithPrice = _selectedProduct!.copyWith(sellingPrice: price);
-                
                 context.read<SalesBloc>().add(AddToCart(productWithPrice, quantity: qty));
                 
-                if (state.mode == SalesMode.single) {
-                  // Stay selected but maybe scroll to checkout
-                } else {
+                if (state.mode == SalesMode.multiple) {
                   _clearSelection();
                 }
               },
@@ -449,35 +504,51 @@ class _SalesScreenState extends State<SalesScreen> {
         final item = cart[index];
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: Colors.grey.shade200)),
           child: ListTile(
             title: Text(item.product.name),
             subtitle: Text(
               '${_toBengaliDigits(item.quantity.toString())} x ৳${_toBengaliDigits(item.product.sellingPrice.toStringAsFixed(0))}',
+              style: const TextStyle(color: Colors.blueGrey),
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   '৳${_toBengaliDigits(item.subTotal.toStringAsFixed(0))}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.remove_circle_outline, size: 20),
-                  onPressed: () => context.read<SalesBloc>().add(UpdateCartQuantity(item.product.id!, item.quantity - 1)),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add_circle_outline, size: 20),
-                  onPressed: () {
-                    if (item.quantity < item.product.currentStock) {
-                      context.read<SalesBloc>().add(UpdateCartQuantity(item.product.id!, item.quantity + 1));
-                    }
-                  },
-                ),
+                const SizedBox(width: 8),
+                _buildQtyAction(Icons.remove, () {
+                  HapticFeedback.lightImpact();
+                  context.read<SalesBloc>().add(UpdateCartQuantity(item.product.id!, item.quantity - 1));
+                }),
+                _buildQtyAction(Icons.add, () {
+                  HapticFeedback.lightImpact();
+                  if (item.quantity < item.product.currentStock) {
+                    context.read<SalesBloc>().add(UpdateCartQuantity(item.product.id!, item.quantity + 1));
+                  }
+                }),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildQtyAction(IconData icon, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+          child: Icon(icon, size: 18, color: Colors.blueGrey),
+        ),
+      ),
     );
   }
 
@@ -493,79 +564,152 @@ class _SalesScreenState extends State<SalesScreen> {
         color: Colors.white,
         boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, -5))],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _discountController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'ছাড় (৳)', border: OutlineInputBorder()),
-                  onChanged: (v) => setState(() {}),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _discountController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'ছাড় (৳)', border: OutlineInputBorder()),
+                    onChanged: (v) => setState(() {}),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text('মোট পরিশোধযোগ্য', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    Text(
-                      '৳${_toBengaliDigits(finalTotal.toStringAsFixed(0))}',
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue),
-                    ),
-                  ],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('মোট পরিশোধযোগ্য', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      FittedBox(
+                        child: Text(
+                          '৳${_toBengaliDigits(finalTotal.toStringAsFixed(0))}',
+                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (state.paymentType == PaymentType.credit) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _paidAmountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'জমা পরিমাণ (ঐচ্ছিক)',
+                  hintText: 'কত টাকা জমা দিয়েছেন?',
+                  prefixText: '৳',
+                  border: OutlineInputBorder(),
                 ),
               ),
             ],
-          ),
-          if (state.paymentType == PaymentType.credit) ...[
-            const SizedBox(height: 12),
-            TextField(
-              controller: _paidAmountController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'জমা পরিমাণ (ঐচ্ছিক)',
-                hintText: 'কত টাকা জমা দিয়েছেন?',
-                prefixText: '৳',
-                border: OutlineInputBorder(),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: state.isSubmitting || (state.cart.isEmpty && _selectedProduct == null)
+                    ? null
+                    : () {
+                        HapticFeedback.mediumImpact();
+                        final paid = double.tryParse(_paidAmountController.text) ?? 
+                                    (state.paymentType == PaymentType.cash ? finalTotal : 0.0);
+                        
+                        context.read<SalesBloc>().add(CheckoutSale(
+                          discount: discount,
+                          paidAmount: paid,
+                          notes: _notesController.text,
+                        ));
+                      },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: state.paymentType == PaymentType.cash ? Colors.green.shade700 : Colors.red.shade700,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: state.isSubmitting
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : Text(
+                        'বিক্রয় সম্পন্ন করুন (৳${_toBengaliDigits(finalTotal.toStringAsFixed(0))})',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
               ),
             ),
           ],
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: state.isSubmitting || (state.cart.isEmpty && _selectedProduct == null)
-                  ? null
-                  : () {
-                      final paid = double.tryParse(_paidAmountController.text) ?? 
-                                  (state.paymentType == PaymentType.cash ? finalTotal : 0.0);
-                      
-                      context.read<SalesBloc>().add(CheckoutSale(
-                        discount: discount,
-                        paidAmount: paid,
-                        notes: _notesController.text,
-                      ));
-                    },
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: state.paymentType == PaymentType.cash ? Colors.green.shade700 : Colors.red.shade700,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: state.isSubmitting
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : Text(
-                      'বিক্রয় সম্পন্ন করুন (৳${_toBengaliDigits(finalTotal.toStringAsFixed(0))})',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-            ),
+        ),
+      ),
+    );
+  }
+
+  void _showSaleSuccessDialog(BuildContext context, Sale sale) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Center(child: Column(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 60),
+            SizedBox(height: 10),
+            Text('বিক্রয় সফল হয়েছে!', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        )),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildDataRow('ইনভয়েস:', _toBengaliDigits(sale.invoiceId)),
+            _buildDataRow('মোট পরিমাণ:', '৳${_toBengaliDigits(sale.totalAmount.toStringAsFixed(0))}'),
+            _buildDataRow('পেমেন্ট:', sale.paymentMethod == 'cash' ? 'নগদ' : 'বাকি'),
+            const Divider(),
+            const SizedBox(height: 10),
+            _buildActionTile(Icons.print, 'প্রিন্ট রসিদ', Colors.blue, () => InvoiceService.printReceipt(sale)),
+            _buildActionTile(Icons.share, 'রসিদ শেয়ার করুন', Colors.green, () => InvoiceService.shareReceipt(sale)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('নতুন বিক্রয়', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Navigator.push(context, MaterialPageRoute(builder: (_) => SaleDetailsScreen(saleId: sale.id)));
+            },
+            child: const Text('বিক্রি দেখুন'),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDataRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.grey)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionTile(IconData icon, String label, Color color, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      contentPadding: EdgeInsets.zero,
+      dense: true,
     );
   }
 
@@ -583,6 +727,7 @@ class _SalesScreenState extends State<SalesScreen> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('না')),
           TextButton(
             onPressed: () {
+              HapticFeedback.mediumImpact();
               context.read<SalesBloc>().add(ClearCart());
               Navigator.pop(context);
             },
@@ -612,6 +757,7 @@ class _SalesScreenState extends State<SalesScreen> {
           ElevatedButton(
             onPressed: () {
               if (nameCtrl.text.isNotEmpty && phoneCtrl.text.isNotEmpty) {
+                HapticFeedback.selectionClick();
                 context.read<CustomerBloc>().add(AddCustomer(Customer(name: nameCtrl.text, phone: phoneCtrl.text)));
                 Navigator.pop(context);
               }
