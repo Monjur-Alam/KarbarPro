@@ -14,6 +14,10 @@ import '../core/services/connectivity_service.dart';
 import '../core/database/database_helper.dart';
 import '../features/dashboard/data/dashboard_repository.dart';
 import '../features/dashboard/presentation/bloc/home_bloc.dart';
+import '../features/customers/data/customer_repository.dart';
+import '../features/customers/presentation/bloc/customer_bloc.dart';
+import '../features/sales/presentation/bloc/sales_bloc.dart';
+import '../features/sales/data/sales_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +32,8 @@ void main() async {
   final connectivityService = ConnectivityService();
   final syncService = SyncService(driveService, dbHelper, connectivityService);
   final dashboardRepository = DashboardRepository(dbHelper);
+  final customerRepository = CustomerRepository(dbHelper: dbHelper);
+  final salesRepository = SalesRepository(dbHelper: dbHelper);
 
   // Initialize Background Sync
   BackgroundSyncHelper.initialize().then((_) {
@@ -40,6 +46,8 @@ void main() async {
     authRepository: authRepository,
     syncService: syncService,
     dashboardRepository: dashboardRepository,
+    customerRepository: customerRepository,
+    salesRepository: salesRepository,
   ));
 }
 
@@ -47,12 +55,16 @@ class MyApp extends StatelessWidget {
   final AuthRepository authRepository;
   final SyncService syncService;
   final DashboardRepository dashboardRepository;
+  final CustomerRepository customerRepository;
+  final SalesRepository salesRepository;
 
   const MyApp({
     super.key, 
     required this.authRepository,
     required this.syncService,
     required this.dashboardRepository,
+    required this.customerRepository,
+    required this.salesRepository,
   });
 
   @override
@@ -62,6 +74,8 @@ class MyApp extends StatelessWidget {
         RepositoryProvider.value(value: authRepository),
         RepositoryProvider.value(value: syncService),
         RepositoryProvider.value(value: dashboardRepository),
+        RepositoryProvider.value(value: customerRepository),
+        RepositoryProvider.value(value: salesRepository),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -74,7 +88,14 @@ class MyApp extends StatelessWidget {
               syncService: syncService,
             ),
           ),
+          BlocProvider(
+            create: (context) => CustomerBloc(repository: customerRepository)..add(LoadCustomers()),
+          ),
+          BlocProvider(
+            create: (context) => SalesBloc(repository: salesRepository)..add(LoadSalesInitialData()),
+          ),
         ],
+
         child: MaterialApp(
           title: 'Amar Dokan',
           debugShowCheckedModeBanner: false,

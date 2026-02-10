@@ -1,32 +1,36 @@
 import 'package:equatable/equatable.dart';
 
 class SaleItem extends Equatable {
-  final String id;
-  final String saleId;
-  final String productId;
-  final String productName; // Denormalized for display
+  final int? id;
+  final int? saleId;
+  final int productId;
+  final String productName;
   final int quantity;
   final double unitPrice;
+  final double purchasePrice; // For profit calculation
   final double subTotal;
 
   const SaleItem({
-    required this.id,
-    required this.saleId,
+    this.id,
+    this.saleId,
     required this.productId,
     required this.productName,
     required this.quantity,
     required this.unitPrice,
+    required this.purchasePrice,
     required this.subTotal,
   });
 
+  double get profit => (unitPrice - purchasePrice) * quantity;
+
   @override
-  List<Object?> get props => [id, saleId, productId, productName, quantity, unitPrice, subTotal];
+  List<Object?> get props => [id, saleId, productId, productName, quantity, unitPrice, purchasePrice, subTotal];
 }
 
 class Sale extends Equatable {
-  final String id;
+  final int? id;
   final String invoiceId;
-  final String? customerId;
+  final int? customerId;
   final String? customerName; // Optional display name
   final double totalAmount;
   final double discount;
@@ -34,11 +38,12 @@ class Sale extends Equatable {
   final String paymentMethod;
   final DateTime saleDate;
   final List<SaleItem> items;
+  final String? notes;
   final DateTime createdAt;
   final DateTime updatedAt;
 
   const Sale({
-    required this.id,
+    this.id,
     required this.invoiceId,
     this.customerId,
     this.customerName,
@@ -48,9 +53,17 @@ class Sale extends Equatable {
     this.paymentMethod = 'cash',
     required this.saleDate,
     required this.items,
+    this.notes,
     required this.createdAt,
     required this.updatedAt,
   });
+
+  double get dueAmount {
+    final due = totalAmount - paidAmount;
+    return due > 0 ? due : 0.0;
+  }
+
+  double get totalProfit => items.fold(0.0, (sum, item) => sum + item.profit);
 
   @override
   List<Object?> get props => [
@@ -64,6 +77,7 @@ class Sale extends Equatable {
         paymentMethod,
         saleDate,
         items,
+        notes,
         createdAt,
         updatedAt,
       ];

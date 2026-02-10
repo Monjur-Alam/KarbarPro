@@ -37,6 +37,44 @@ class Product extends Equatable {
     this.isSynced = false,
   });
 
+  Product copyWith({
+    int? id,
+    String? name,
+    String? nameBengali,
+    String? category,
+    double? purchasePrice,
+    double? sellingPrice,
+    int? currentStock,
+    int? minStockAlert,
+    String? unit,
+    String? barcode,
+    String? imagePath,
+    bool? isActive,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? syncedAt,
+    bool? isSynced,
+  }) {
+    return Product(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      nameBengali: nameBengali ?? this.nameBengali,
+      category: category ?? this.category,
+      purchasePrice: purchasePrice ?? this.purchasePrice,
+      sellingPrice: sellingPrice ?? this.sellingPrice,
+      currentStock: currentStock ?? this.currentStock,
+      minStockAlert: minStockAlert ?? this.minStockAlert,
+      unit: unit ?? this.unit,
+      barcode: barcode ?? this.barcode,
+      imagePath: imagePath ?? this.imagePath,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      syncedAt: syncedAt ?? this.syncedAt,
+      isSynced: isSynced ?? this.isSynced,
+    );
+  }
+
   @override
   List<Object?> get props => [
         id,
@@ -57,3 +95,4 @@ class Product extends Equatable {
         isSynced,
       ];
 }
+
