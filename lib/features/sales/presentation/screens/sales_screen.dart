@@ -84,33 +84,43 @@ class SalesScreen extends StatelessWidget {
                            return const Center(child: Text('Cart is empty'));
                          }
 
-                         return ListView.separated(
-                           itemCount: items.length,
-                           separatorBuilder: (context, index) => const Divider(),
-                           itemBuilder: (context, index) {
-                             final item = items[index];
-                             return ListTile(
-                               title: Text(item.product.name),
-                               subtitle: Text('${item.quantity} x ৳${item.product.price}'),
-                               trailing: Row(
-                                 mainAxisSize: MainAxisSize.min,
-                                 children: [
-                                   Text('৳${item.subTotal.toStringAsFixed(2)}', 
-                                     style: const TextStyle(fontWeight: FontWeight.bold)),
-                                   IconButton(
-                                     icon: const Icon(Icons.remove_circle_outline),
-                                     onPressed: () {
-                                        context.read<SalesBloc>().add(UpdateCartQuantity(
-                                          item.product.id, 
-                                          item.quantity - 1,
-                                        ));
-                                     },
-                                   ),
-                                 ],
-                               ),
-                             );
-                           },
-                         );
+                          return ListView.separated(
+                            itemCount: items.length,
+                            separatorBuilder: (context, index) => const Divider(),
+                            itemBuilder: (context, index) {
+                              final item = items[index];
+                              return ListTile(
+                                title: Text(item.product.name),
+                                subtitle: Text('${item.quantity} x ৳${item.product.sellingPrice}'),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('৳${item.subTotal.toStringAsFixed(2)}', 
+                                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    IconButton(
+                                      icon: const Icon(Icons.remove_circle_outline),
+                                      onPressed: () {
+                                         context.read<SalesBloc>().add(UpdateCartQuantity(
+                                           item.product.id!, 
+                                           item.quantity - 1,
+                                         ));
+                                      },
+                                    ),
+                                    Text('${item.quantity}', style: const TextStyle(fontSize: 16)),
+                                    IconButton(
+                                      icon: const Icon(Icons.add_circle_outline),
+                                      onPressed: () {
+                                         context.read<SalesBloc>().add(UpdateCartQuantity(
+                                           item.product.id!, 
+                                           item.quantity + 1,
+                                         ));
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          );
                        },
                      ),
                    ),
@@ -167,19 +177,19 @@ class _ProductCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  Text(
-                    'Stock: ${product.stockQuantity}',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '৳${product.price}',
-                    style: const TextStyle(
-                      color: Colors.green, 
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
+                   Text(
+                     'Stock: ${product.currentStock}',
+                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                   ),
+                   const SizedBox(height: 4),
+                   Text(
+                     '৳${product.sellingPrice}',
+                     style: const TextStyle(
+                       color: Colors.green, 
+                       fontWeight: FontWeight.bold,
+                       fontSize: 16,
+                     ),
+                   ),
                 ],
               ),
             ),

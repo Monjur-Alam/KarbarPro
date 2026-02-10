@@ -1,6 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:uuid/uuid.dart';
 import '../../data/sales_repository.dart';
 import '../../domain/sale.dart';
 import '../../domain/customer.dart';
@@ -21,14 +20,14 @@ class AddToCart extends SalesEvent {
 }
 
 class RemoveFromCart extends SalesEvent {
-  final String productId;
+  final int productId;
   const RemoveFromCart(this.productId);
   @override
   List<Object> get props => [productId];
 }
 
 class UpdateCartQuantity extends SalesEvent {
-  final String productId;
+  final int productId;
   final int quantity;
   const UpdateCartQuantity(this.productId, this.quantity);
   @override
@@ -61,7 +60,7 @@ class CartItem extends Equatable {
 
   const CartItem({required this.product, required this.quantity});
   
-  double get subTotal => product.price * quantity;
+  double get subTotal => product.sellingPrice * quantity;
 
   CartItem copyWith({int? quantity}) {
     return CartItem(
@@ -175,17 +174,17 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     
     try {
       final totalAmount = _cart.fold(0.0, (sum, item) => sum + item.subTotal);
-      final saleId = const Uuid().v4();
+      final saleId = ''; // Handled by DB
       final invoiceId = 'INV-${DateTime.now().millisecondsSinceEpoch}';
 
       final saleItems = _cart.map((cartItem) {
         return SaleItem(
-          id: const Uuid().v4(),
-          saleId: saleId,
-          productId: cartItem.product.id,
+          id: '', // Temporary or handled by DB
+          saleId: '', // Handled by DB transaction
+          productId: cartItem.product.id.toString(),
           productName: cartItem.product.name,
           quantity: cartItem.quantity,
-          unitPrice: cartItem.product.price,
+          unitPrice: cartItem.product.sellingPrice,
           subTotal: cartItem.subTotal,
         );
       }).toList();

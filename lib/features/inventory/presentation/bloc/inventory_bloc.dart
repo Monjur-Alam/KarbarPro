@@ -24,7 +24,7 @@ class UpdateProduct extends InventoryEvent {
   List<Object> get props => [product];
 }
 class DeleteProduct extends InventoryEvent {
-  final String id;
+  final int id;
   const DeleteProduct(this.id);
   @override
   List<Object> get props => [id];

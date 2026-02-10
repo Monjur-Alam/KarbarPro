@@ -2,52 +2,97 @@ class DatabaseConstants {
   static const String databaseName = 'amar_dokan.db';
   static const int databaseVersion = 1;
 
-  // Tables
+  // Table Names
   static const String tableProducts = 'products';
+  static const String tableCustomers = 'customers';
   static const String tableSales = 'sales';
   static const String tableSaleItems = 'sale_items';
-  static const String tableCustomers = 'customers';
-  static const String tableSyncQueue = 'sync_queue';
+  static const String tableExpenses = 'expenses';
+  static const String tableCreditPayments = 'credit_payments';
+  static const String tableActivities = 'activities';
+  static const String tableSyncLog = 'sync_log';
+  static const String tableAppSettings = 'app_settings';
 
   // Common Columns
   static const String colId = 'id';
   static const String colCreatedAt = 'created_at';
   static const String colUpdatedAt = 'updated_at';
+  static const String colSyncedAt = 'synced_at';
   static const String colIsSynced = 'is_synced';
-  static const String colIsDeleted = 'is_deleted';
+  static const String colIsActive = 'is_active';
 
-  // Product Columns
+  // Products Columns
   static const String colName = 'name';
-  static const String colDescription = 'description';
-  static const String colPrice = 'price';
-  static const String colCostPrice = 'cost_price';
-  static const String colStockQuantity = 'stock_quantity';
-  static const String colUnit = 'unit'; // kg, piece, liter
+  static const String colNameBengali = 'name_bengali';
+  static const String colCategory = 'category';
+  static const String colPurchasePrice = 'purchase_price';
+  static const String colSellingPrice = 'selling_price';
+  static const String colCurrentStock = 'current_stock';
+  static const String colMinStockAlert = 'min_stock_alert';
+  static const String colUnit = 'unit';
   static const String colBarcode = 'barcode';
-  static const String colImageUrl = 'image_url';
+  static const String colImagePath = 'image_path';
 
-  // Sale Columns
-  static const String colInvoiceId = 'invoice_id';
+  // Customers Columns
+  static const String colPhone = 'phone';
+  static const String colEmail = 'email';
+  static const String colAddress = 'address';
+  static const String colCreditLimit = 'credit_limit';
+  static const String colCurrentCreditBalance = 'current_credit_balance';
+  static const String colTotalPurchases = 'total_purchases';
+
+  // Sales Columns
+  static const String colInvoiceNumber = 'invoice_number';
   static const String colCustomerId = 'customer_id';
-  static const String colTotalAmount = 'total_amount';
+  static const String colPaymentType = 'payment_type';
+  static const String colSubtotal = 'subtotal';
   static const String colDiscount = 'discount';
+  static const String colTotalAmount = 'total_amount';
+  static const String colTotalProfit = 'total_profit';
+  static const String colPaymentStatus = 'payment_status';
   static const String colPaidAmount = 'paid_amount';
-  static const String colPaymentMethod = 'payment_method';
+  static const String colDueAmount = 'due_amount';
   static const String colSaleDate = 'sale_date';
+  static const String colNotes = 'notes';
 
-  // Sale Item Columns
+  // Sale Items Columns
   static const String colSaleId = 'sale_id';
   static const String colProductId = 'product_id';
+  static const String colProductName = 'product_name';
   static const String colQuantity = 'quantity';
   static const String colUnitPrice = 'unit_price';
-  static const String colSubTotal = 'sub_total';
+  static const String colTotalPrice = 'total_price';
+  static const String colProfit = 'profit';
 
-  // Customer Columns
-  static const String colPhone = 'phone';
-  static const String colAddress = 'address';
-  static const String colTotalPurchases = 'total_purchases';
-  
-  // Sync Logic
-  static const int syncBatchSize = 50;
-  static const int maxRetryAttempts = 3;
+  // Expenses Columns
+  static const String colAmount = 'amount';
+  static const String colDescription = 'description';
+  static const String colExpenseDate = 'expense_date';
+  static const String colPaymentMethod = 'payment_method';
+
+  // Credit Payments Columns
+  static const String colPaymentDate = 'payment_date';
+
+  // Activities Columns
+  static const String colVisitId = 'visit_id';
+  static const String colActivityType = 'activity_type';
+  static const String colOutcome = 'outcome';
+  static const String colOutcomeNotes = 'outcome_notes';
+  static const String colFollowUpRequired = 'follow_up_required';
+  static const String colFollowUpDate = 'follow_up_date';
+  static const String colFollowUpNotes = 'follow_up_notes';
+  static const String colActivityDate = 'activity_date';
+
+  // Sync Log Columns
+  static const String colSyncType = 'sync_type';
+  static const String colSyncStatus = 'sync_status';
+  static const String colTablesSynced = 'tables_synced';
+  static const String colRecordsSynced = 'records_synced';
+  static const String colErrorMessage = 'error_message';
+  static const String colStartedAt = 'started_at';
+  static const String colCompletedAt = 'completed_at';
+
+  // App Settings Columns
+  static const String colKey = 'key';
+  static const String colValue = 'value';
 }

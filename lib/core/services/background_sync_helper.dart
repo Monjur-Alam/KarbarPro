@@ -1,21 +1,17 @@
 import 'package:workmanager/workmanager.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart';
 import '../services/sync_service.dart';
 import '../services/google_drive_service.dart';
+import '../services/connectivity_service.dart';
 import '../database/database_helper.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 const String syncTaskName = 'com.example.amar_dokan.syncTask';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    print('Native called background task: $task');
-    
-    // Note: Background sync with Google Sign-In is complex because
-    // the plugin might need a UI to refresh tokens if they expire.
-    // For this implementation, we attempt a silent sign-in/restore.
-    // In production, you might need a persistent token storage strategy
-    // or a backend service.
+    debugPrint('Background sync task triggered: $task');
     
     try {
       final googleSignIn = GoogleSignIn(
@@ -26,20 +22,21 @@ void callbackDispatcher() {
         ],
       );
       
-      // Attempt to restore previous session silently
       final account = await googleSignIn.signInSilently();
       
       if (account != null) {
         final driveService = GoogleDriveService(googleSignIn);
         final dbHelper = DatabaseHelper();
-        final syncService = SyncService(driveService, dbHelper);
+        final connectivityService = ConnectivityService();
+        final syncService = SyncService(driveService, dbHelper, connectivityService);
         
-        await syncService.syncData();
+        await syncService.performSync();
+        debugPrint('Background sync completed successfully.');
       } else {
-        print('Background Sync: User not signed in silently.');
+        debugPrint('Background Sync: Not signed in.');
       }
     } catch (e) {
-      print('Background Sync Error: $e');
+      debugPrint('Background Sync Error: $e');
       return Future.value(false);
     }
 
@@ -56,13 +53,18 @@ class BackgroundSyncHelper {
 
   static Future<void> registerPeriodicSync() async {
     await Workmanager().registerPeriodicTask(
-      "1", // Unique Name
+      "sync-task-1",
       syncTaskName,
       frequency: const Duration(minutes: 15),
       constraints: Constraints(
         networkType: NetworkType.connected,
         requiresBatteryNotLow: true,
       ),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     );
+  }
+
+  static Future<void> cancelAll() async {
+    await Workmanager().cancelAll();
   }
 }
