@@ -38,6 +38,9 @@ class DatabaseHelper {
     if (oldVersion < 3) {
       await _addTransactionSourceColumn(db);
     }
+    if (oldVersion < 4) {
+      await _upgradeToVersion4(db);
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -234,6 +237,7 @@ class DatabaseHelper {
     });
 
     await _createTransactionTables(db);
+    await _createKhorochCategoryTable(db);
   }
 
   Future<void> _createTransactionTables(Database db) async {
@@ -268,6 +272,8 @@ class DatabaseHelper {
         ${DatabaseConstants.colTransactionDate} TEXT NOT NULL,
         ${DatabaseConstants.colCreatedAt} TEXT,
         ${DatabaseConstants.colSyncedAt} TEXT,
+        ${DatabaseConstants.colTransactionSource} TEXT DEFAULT 'manual_khoroch',
+        ${DatabaseConstants.colCategoryId} INTEGER,
         ${DatabaseConstants.colIsSynced} INTEGER DEFAULT 0
       )
     ''');
@@ -287,17 +293,63 @@ class DatabaseHelper {
     await db.execute('''
       UPDATE ${DatabaseConstants.tableShopTransactions}
       SET ${DatabaseConstants.colTransactionSource} = 'product_sale'
-      WHERE ${DatabaseConstants.colCategory} = 'বিক্রয় থেকে আয়'
+      WHERE ${DatabaseConstants.colCategory} IN ('বিক্রয় থেকে আয়', 'Shop Sale', 'Sale', 'পণ্য বিক্রয়')
     ''');
 
-    // Credit payments
+    // Credit payments / collections
     await db.execute('''
       UPDATE ${DatabaseConstants.tableShopTransactions}
       SET ${DatabaseConstants.colTransactionSource} = 'credit_payment'
-      WHERE ${DatabaseConstants.colCategory} = 'বকেয়া সংগ্রহ'
+      WHERE ${DatabaseConstants.colCategory} IN ('বকেয়া সংগ্রহ', 'Credit Payment', 'Collection', 'হালখাতা', 'বকেয়া পরিশোধ')
+    ''');
+  }
+
+  Future<void> _upgradeToVersion4(Database db) async {
+    await _createKhorochCategoryTable(db);
+
+    // Add category_id to shop_transactions (only for upgrades, onCreate already has it)
+    await db.execute('''
+      ALTER TABLE ${DatabaseConstants.tableShopTransactions}
+      ADD COLUMN ${DatabaseConstants.colCategoryId} INTEGER
+    ''');
+  }
+
+  Future<void> _createKhorochCategoryTable(Database db) async {
+    // 1. Create Categories Table
+    await db.execute('''
+      CREATE TABLE ${DatabaseConstants.tableKhorochCategories} (
+        ${DatabaseConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DatabaseConstants.colName} TEXT NOT NULL UNIQUE,
+        ${DatabaseConstants.colTransactionType} TEXT NOT NULL, -- 'income' or 'expense'
+        ${DatabaseConstants.colIsActive} INTEGER DEFAULT 1,
+        ${DatabaseConstants.colCreatedAt} TEXT,
+        ${DatabaseConstants.colUpdatedAt} TEXT
+      )
     ''');
 
-    // All others remain as 'manual_khoroch' (default)
+    // 2. Pre-populate with default categories
+    final now = DateTime.now().toIso8601String();
+    final categories = [
+      {'name': 'দোকান বিক্রয়', 'type': 'income'},
+      {'name': 'ব্যক্তিগত', 'type': 'income'},
+      {'name': 'ঋণ', 'type': 'income'},
+      {'name': 'বিবিধ', 'type': 'income'},
+      {'name': 'ভাড়া', 'type': 'expense'},
+      {'name': 'বেতন', 'type': 'expense'},
+      {'name': 'পণ্য ক্রয়', 'type': 'expense'},
+      {'name': 'বিদ্যুৎ বিল', 'type': 'expense'},
+      {'name': 'অন্যান্য', 'type': 'expense'},
+    ];
+
+    for (var cat in categories) {
+      await db.insert(DatabaseConstants.tableKhorochCategories, {
+        DatabaseConstants.colName: cat['name'],
+        DatabaseConstants.colTransactionType: cat['type'],
+        DatabaseConstants.colIsActive: 1,
+        DatabaseConstants.colCreatedAt: now,
+        DatabaseConstants.colUpdatedAt: now,
+      });
+    }
   }
 
   // Generic CRUD Operations

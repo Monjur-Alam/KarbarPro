@@ -218,6 +218,7 @@ class ReportRepository {
     required String type, // 'income' or 'expense'
     required double amount,
     String? category,
+    int? categoryId,
     String? description,
     DateTime? date,
     String source = 'manual_khoroch',
@@ -247,6 +248,7 @@ class ReportRepository {
         DatabaseConstants.colAmount: amount,
         DatabaseConstants.colBalanceAfter: newBalance,
         DatabaseConstants.colCategory: category,
+        DatabaseConstants.colCategoryId: categoryId,
         DatabaseConstants.colDescription: description,
         DatabaseConstants.colTransactionDate: transactionDate.toIso8601String(),
         DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
@@ -283,16 +285,24 @@ class ReportRepository {
   Future<List<ShopTransaction>> getManualKhorochTransactions({
     DateTime? startDate,
     DateTime? endDate,
+    int? categoryId,
     String? searchQuery,
   }) async {
     final db = await _dbHelper.database;
     
-    String whereClause = "${DatabaseConstants.colTransactionSource} = 'manual_khoroch'";
+    // Isolation: Strictly manual khoroch entries, with fallback category exclusion for safety
+    String whereClause = "(${DatabaseConstants.colTransactionSource} = 'manual_khoroch' OR ${DatabaseConstants.colTransactionSource} IS NULL) "
+        "AND ${DatabaseConstants.colCategory} NOT IN ('বিক্রয় থেকে আয়', 'বকেয়া সংগ্রহ', 'Shop Sale', 'Sale', 'Collection', 'হালখাতা', 'বকেয়া পরিশোধ', 'পণ্য বিক্রয়')";
     List<dynamic> whereArgs = [];
     
     if (startDate != null && endDate != null) {
       whereClause += " AND ${DatabaseConstants.colTransactionDate} BETWEEN ? AND ?";
       whereArgs.addAll([startDate.toIso8601String(), endDate.toIso8601String()]);
+    }
+
+    if (categoryId != null) {
+      whereClause += " AND ${DatabaseConstants.colCategoryId} = ?";
+      whereArgs.add(categoryId);
     }
     
     if (searchQuery != null && searchQuery.isNotEmpty) {
@@ -315,15 +325,23 @@ class ReportRepository {
   Future<Map<String, dynamic>> getManualKhorochSummary({
     DateTime? startDate,
     DateTime? endDate,
+    int? categoryId,
   }) async {
     final db = await _dbHelper.database;
     
-    String whereClause = "${DatabaseConstants.colTransactionSource} = 'manual_khoroch'";
+    // Isolation: Strictly manual khoroch entries, with fallback category exclusion for safety
+    String whereClause = "(${DatabaseConstants.colTransactionSource} = 'manual_khoroch' OR ${DatabaseConstants.colTransactionSource} IS NULL) "
+        "AND ${DatabaseConstants.colCategory} NOT IN ('বিক্রয় থেকে আয়', 'বকেয়া সংগ্রহ', 'Shop Sale', 'Sale', 'Collection', 'হালখাতা', 'বকেয়া পরিশোধ', 'পণ্য বিক্রয়')";
     List<dynamic> whereArgs = [];
     
     if (startDate != null && endDate != null) {
       whereClause += " AND ${DatabaseConstants.colTransactionDate} BETWEEN ? AND ?";
       whereArgs.addAll([startDate.toIso8601String(), endDate.toIso8601String()]);
+    }
+
+    if (categoryId != null) {
+      whereClause += " AND ${DatabaseConstants.colCategoryId} = ?";
+      whereArgs.add(categoryId);
     }
     
     final result = await db.rawQuery('''
@@ -437,6 +455,7 @@ class ReportRepository {
     required String type,
     required double amount,
     String? category,
+    int? categoryId,
     String? description,
     DateTime? date,
     String source = 'manual_khoroch',
@@ -463,6 +482,7 @@ class ReportRepository {
       DatabaseConstants.colAmount: amount,
       DatabaseConstants.colBalanceAfter: newBalance,
       DatabaseConstants.colCategory: category,
+      DatabaseConstants.colCategoryId: categoryId,
       DatabaseConstants.colDescription: description,
       DatabaseConstants.colTransactionDate: transactionDate.toIso8601String(),
       DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
@@ -476,6 +496,7 @@ class ReportRepository {
     required String type,
     required double amount,
     String? category,
+    int? categoryId,
     String? description,
     DateTime? date,
   }) async {
@@ -520,6 +541,7 @@ class ReportRepository {
           DatabaseConstants.colAmount: amount,
           DatabaseConstants.colBalanceAfter: newBalanceAfter,
           DatabaseConstants.colCategory: category,
+          DatabaseConstants.colCategoryId: categoryId,
           DatabaseConstants.colDescription: description,
           DatabaseConstants.colTransactionDate: transactionDate.toIso8601String(),
           DatabaseConstants.colUpdatedAt: DateTime.now().toIso8601String(),
@@ -594,5 +616,37 @@ class ReportRepository {
         whereArgs: [trans[DatabaseConstants.colId]],
       );
     }
+  }
+
+  // --- Khoroch Categories ---
+  Future<List<KhorochCategory>> getKhorochCategories({String? type}) async {
+    final db = await _dbHelper.database;
+    String? where;
+    List<dynamic>? whereArgs;
+
+    if (type != null) {
+      where = '${DatabaseConstants.colTransactionType} = ? AND ${DatabaseConstants.colIsActive} = 1';
+      whereArgs = [type];
+    } else {
+      where = '${DatabaseConstants.colIsActive} = 1';
+    }
+
+    final result = await db.query(
+      DatabaseConstants.tableKhorochCategories,
+      where: where,
+      whereArgs: whereArgs,
+      orderBy: '${DatabaseConstants.colName} ASC',
+    );
+
+    return result.map((m) => KhorochCategory.fromMap(m)).toList();
+  }
+
+  Future<int> addKhorochCategory(KhorochCategory category) async {
+    final db = await _dbHelper.database;
+    final map = category.toMap();
+    map[DatabaseConstants.colCreatedAt] = DateTime.now().toIso8601String();
+    map[DatabaseConstants.colUpdatedAt] = DateTime.now().toIso8601String();
+    
+    return await db.insert(DatabaseConstants.tableKhorochCategories, map);
   }
 }

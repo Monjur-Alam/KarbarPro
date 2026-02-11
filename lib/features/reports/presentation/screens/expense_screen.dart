@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:async';
 import '../../data/report_repository.dart';
 import '../../domain/expense_model.dart';
 import '../../../../core/database/database_helper.dart';
@@ -28,17 +29,21 @@ class ExpenseView extends StatefulWidget {
 
 class _ExpenseViewState extends State<ExpenseView> {
   List<ShopTransaction> _transactions = [];
+  List<KhorochCategory> _categories = [];
   double _currentBalance = 0;
   double _totalAdded = 0;
   double _totalExpense = 0;
   bool _isLoading = true;
+  bool _isBackgroundLoading = false;
   
   // Filter state
   String _selectedDateFilter = 'এই মাস';
+  KhorochCategory? _selectedCategoryFilter;
   String _searchQuery = '';
   DateTimeRange? _customDateRange;
   
   final _searchController = TextEditingController();
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -46,68 +51,99 @@ class _ExpenseViewState extends State<ExpenseView> {
     _loadData();
   }
 
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
-    
-    // Calculate date range based on filter
-    DateTime? startDate;
-    DateTime? endDate;
-    final now = DateTime.now();
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
 
-    switch (_selectedDateFilter) {
-      case 'আজ':
-        startDate = DateTime(now.year, now.month, now.day);
-        endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
-        break;
-      case 'গতকাল':
-        final yesterday = now.subtract(const Duration(days: 1));
-        startDate = DateTime(yesterday.year, yesterday.month, yesterday.day);
-        endDate = DateTime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59);
-        break;
-      case 'গত ৭ দিন':
-        startDate = now.subtract(const Duration(days: 7));
-        endDate = now;
-        break;
-      case 'গত ৩০ দিন':
-        startDate = now.subtract(const Duration(days: 30));
-        endDate = now;
-        break;
-      case 'এই মাস':
-        startDate = DateTime(now.year, now.month, 1);
-        endDate = now;
-        break;
-      case 'গত মাস':
-        startDate = DateTime(now.year, now.month - 1, 1);
-        endDate = DateTime(now.year, now.month, 0, 23, 59, 59);
-        break;
-      case 'কাস্টম রেঞ্জ':
-        if (_customDateRange != null) {
-          startDate = _customDateRange!.start;
-          endDate = _customDateRange!.end;
-        }
-        break;
+  Future<void> _loadData({bool isBackground = false}) async {
+    if (isBackground) {
+      setState(() => _isBackgroundLoading = true);
+    } else {
+      setState(() => _isLoading = true);
     }
+    try {
+      final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
+      
+      // Calculate date range based on filter
+      DateTime? startDate;
+      DateTime? endDate;
+      final now = DateTime.now();
 
-    final balance = await repo.getShopMainBalance();
-    final transactions = await repo.getManualKhorochTransactions(
-      startDate: startDate,
-      endDate: endDate,
-      searchQuery: _searchQuery,
-    );
-    
-    final summary = await repo.getManualKhorochSummary(
-      startDate: startDate,
-      endDate: endDate,
-    );
-    
-    setState(() {
-      _currentBalance = balance;
-      _totalAdded = (summary['totalIncome'] as num).toDouble();
-      _totalExpense = (summary['totalExpense'] as num).toDouble();
-      _transactions = transactions;
-      _isLoading = false;
-    });
+      switch (_selectedDateFilter) {
+        case 'আজ':
+          startDate = DateTime(now.year, now.month, now.day);
+          endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
+          break;
+        case 'গতকাল':
+          final yesterday = now.subtract(const Duration(days: 1));
+          startDate = DateTime(yesterday.year, yesterday.month, yesterday.day);
+          endDate = DateTime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59);
+          break;
+        case 'গত ৭ দিন':
+          startDate = now.subtract(const Duration(days: 7));
+          endDate = now;
+          break;
+        case 'গত ৩০ দিন':
+          startDate = now.subtract(const Duration(days: 30));
+          endDate = now;
+          break;
+        case 'এই মাস':
+          startDate = DateTime(now.year, now.month, 1);
+          endDate = now;
+          break;
+        case 'গত মাস':
+          startDate = DateTime(now.year, now.month - 1, 1);
+          endDate = DateTime(now.year, now.month, 0, 23, 59, 59);
+          break;
+        case 'কাস্টম রেঞ্জ':
+          if (_customDateRange != null) {
+            startDate = _customDateRange!.start;
+            endDate = _customDateRange!.end;
+          }
+          break;
+      }
+
+      final balance = await repo.getShopMainBalance();
+      final categories = await repo.getKhorochCategories();
+      
+      final transactions = await repo.getManualKhorochTransactions(
+        startDate: startDate,
+        endDate: endDate,
+        categoryId: _selectedCategoryFilter?.id,
+        searchQuery: _searchQuery,
+      );
+      
+      final summary = await repo.getManualKhorochSummary(
+        startDate: startDate,
+        endDate: endDate,
+        categoryId: _selectedCategoryFilter?.id,
+      );
+      
+      setState(() {
+        _currentBalance = balance;
+        _categories = categories;
+        _totalAdded = (summary['totalIncome'] as num).toDouble();
+        _totalExpense = (summary['totalExpense'] as num).toDouble();
+        _transactions = transactions;
+      });
+    } catch (e) {
+      debugPrint('Error loading Khoroch data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ডেটা লোড করতে সমস্যা হয়েছে: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isBackgroundLoading = false;
+        });
+      }
+    }
   }
 
   String _toBengaliDigits(String input) {
@@ -125,12 +161,20 @@ class _ExpenseViewState extends State<ExpenseView> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+
     return Stack(
       children: [
         Column(
           children: [
-            _buildBalanceHeader(),
+            Visibility(
+              visible: !isKeyboardVisible,
+              maintainState: true,
+              child: _buildBalanceHeader(),
+            ),
             _buildFilterSection(),
+            if (_isBackgroundLoading)
+              const LinearProgressIndicator(minHeight: 2),
             Expanded(
               child: _transactions.isEmpty
                   ? _buildEmptyState()
@@ -145,7 +189,10 @@ class _ExpenseViewState extends State<ExpenseView> {
             ),
           ],
         ),
-        _buildStickyBottomButtons(context),
+        Visibility(
+          visible: !isKeyboardVisible,
+          child: _buildStickyBottomButtons(context),
+        ),
       ],
     );
   }
@@ -226,9 +273,11 @@ class _ExpenseViewState extends State<ExpenseView> {
         children: [
           Row(
             children: [
+              // Date Filter
               Expanded(
+                flex: 2,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(8),
@@ -242,7 +291,7 @@ class _ExpenseViewState extends State<ExpenseView> {
                       ].map((String value) {
                         return DropdownMenuItem<String>(
                           value: value,
-                          child: Text(value, style: const TextStyle(fontSize: 14)),
+                          child: Text(value, style: const TextStyle(fontSize: 13)),
                         );
                       }).toList(),
                       onChanged: (value) async {
@@ -261,27 +310,62 @@ class _ExpenseViewState extends State<ExpenseView> {
                           }
                         } else {
                           setState(() => _selectedDateFilter = value!);
-                          _loadData();
+                          _loadData(isBackground: true);
                         }
                       },
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              if (_selectedDateFilter != 'এই মাস' || _searchQuery.isNotEmpty)
+              const SizedBox(width: 8),
+              // Category Filter
+              Expanded(
+                flex: 2,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<KhorochCategory?>(
+                      value: _selectedCategoryFilter,
+                      isExpanded: true,
+                      hint: const Text('সব খাত', style: TextStyle(fontSize: 13)),
+                      items: [
+                        const DropdownMenuItem<KhorochCategory?>(
+                          value: null,
+                          child: Text('সব খাত', style: TextStyle(fontSize: 13)),
+                        ),
+                        ..._categories.map((cat) => DropdownMenuItem(
+                          value: cat,
+                          child: Text(cat.name, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
+                        )),
+                      ],
+                      onChanged: (value) {
+                        setState(() => _selectedCategoryFilter = value);
+                        _loadData(isBackground: true);
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              // Reset Button
+              if (_selectedDateFilter != 'এই মাস' || _selectedCategoryFilter != null || _searchQuery.isNotEmpty)
                 IconButton(
                   onPressed: () {
                     setState(() {
                       _selectedDateFilter = 'এই মাস';
+                      _selectedCategoryFilter = null;
                       _searchQuery = '';
                       _searchController.clear();
                       _customDateRange = null;
                     });
                     _loadData();
                   },
-                  icon: const Icon(Icons.filter_alt_off, color: Colors.red),
-                  tooltip: 'ফিল্টার মুছুন',
+                  icon: const Icon(Icons.refresh, color: Colors.blue, size: 24),
+                  tooltip: 'ফিল্টার রিসেট',
                 ),
             ],
           ),
@@ -291,6 +375,18 @@ class _ExpenseViewState extends State<ExpenseView> {
             decoration: InputDecoration(
               hintText: 'বিবরণ বা খাত দিয়ে খুঁজুন...',
               prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 20),
+                      onPressed: () {
+                        setState(() {
+                          _searchQuery = '';
+                          _searchController.clear();
+                        });
+                        _loadData(isBackground: true);
+                      },
+                    )
+                  : null,
               contentPadding: const EdgeInsets.symmetric(vertical: 0),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -300,8 +396,11 @@ class _ExpenseViewState extends State<ExpenseView> {
               fillColor: Colors.grey.shade100,
             ),
             onChanged: (value) {
-              setState(() => _searchQuery = value);
-              _loadData();
+              if (_debounce?.isActive ?? false) _debounce?.cancel();
+              _debounce = Timer(const Duration(milliseconds: 500), () {
+                setState(() => _searchQuery = value);
+                _loadData(isBackground: true);
+              });
             },
           ),
         ],
@@ -331,7 +430,7 @@ class _ExpenseViewState extends State<ExpenseView> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () => _showTransactionDialog(context, 'income'),
-                icon: const Icon(Icons.add, color: Colors.white),
+                icon: const Icon(Icons.add_circle_outline_rounded, color: Colors.white),
                 label: const Text('টাকা যোগ করুন', style: TextStyle(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
@@ -345,7 +444,7 @@ class _ExpenseViewState extends State<ExpenseView> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () => _showTransactionDialog(context, 'expense'),
-                icon: const Icon(Icons.remove, color: Colors.white),
+                icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.white),
                 label: const Text('খরচ করুন', style: TextStyle(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
@@ -400,10 +499,10 @@ class _ExpenseViewState extends State<ExpenseView> {
           height: 40,
           decoration: BoxDecoration(
             color: isIncome ? Colors.green.shade50 : Colors.red.shade50,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Icon(
-            isIncome ? Icons.add_circle_outline : Icons.remove_circle_outline, 
+            isIncome ? Icons.add : Icons.remove,
             color: isIncome ? Colors.green : Colors.red, 
             size: 24
           ),
@@ -443,10 +542,10 @@ class _ExpenseViewState extends State<ExpenseView> {
                     color: isIncome ? Colors.green : Colors.red
                   ),
                 ),
-                Text(
-                  'ব্যালেন্স: ৳${_toBengaliDigits(trans.balanceAfter.toStringAsFixed(0))}', 
-                  style: const TextStyle(fontSize: 10, color: Colors.grey)
-                ),
+                // Text(
+                //   'ব্যালেন্স: ৳${_toBengaliDigits(trans.balanceAfter.toStringAsFixed(0))}',
+                //   style: const TextStyle(fontSize: 10, color: Colors.grey)
+                // ),
               ],
             ),
             PopupMenuButton<String>(
@@ -478,13 +577,16 @@ class _ExpenseViewState extends State<ExpenseView> {
   void _showEditTransactionDialog(BuildContext context, ShopTransaction trans) {
     final amountController = TextEditingController(text: trans.amount.toString());
     final descriptionController = TextEditingController(text: trans.description ?? '');
-    final categoryController = TextEditingController(text: trans.category ?? '');
     String selectedType = trans.transactionType;
+    KhorochCategory? selectedCategory = _categories.firstWhere(
+      (c) => c.id == trans.categoryId || c.name == trans.category,
+      orElse: () => KhorochCategory(id: trans.categoryId, name: trans.category ?? '', transactionType: trans.transactionType),
+    );
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
+        builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('লেনদেন সম্পাদনা'),
           content: SingleChildScrollView(
@@ -492,7 +594,7 @@ class _ExpenseViewState extends State<ExpenseView> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  initialValue: selectedType,
+                  value: selectedType,
                   decoration: const InputDecoration(
                     labelText: 'ধরন',
                     border: OutlineInputBorder(),
@@ -502,17 +604,47 @@ class _ExpenseViewState extends State<ExpenseView> {
                     DropdownMenuItem(value: 'expense', child: Text('খরচ (Expense)')),
                   ],
                   onChanged: (value) {
-                    setState(() => selectedType = value!);
+                    setDialogState(() {
+                      selectedType = value!;
+                      selectedCategory = null; // Reset category when type changes
+                    });
                   },
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: categoryController,
-                  decoration: InputDecoration(
-                    labelText: selectedType == 'income' ? 'আয়ের উৎস' : 'খরচের খাত',
-                    hintText: selectedType == 'income' ? 'উদা: ইনভেস্টমেন্ট' : 'উদা: দোকান ভাড়া',
-                    border: const OutlineInputBorder(),
+                DropdownButtonFormField<KhorochCategory?>(
+                  value: _categories.any((c) => c.id == selectedCategory?.id) ? selectedCategory : null,
+                  decoration: const InputDecoration(
+                    labelText: 'খাত বা উৎস',
+                    border: OutlineInputBorder(),
                   ),
+                  isExpanded: true,
+                  hint: const Text('খাত নির্বাচন করুন'),
+                  items: [
+                    DropdownMenuItem<KhorochCategory?>(
+                      value: null,
+                      child: Text(
+                        '+ নতুন খাত যোগ করুন',
+                        style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    ..._categories
+                        .where((c) => c.transactionType == selectedType)
+                        .map((cat) => DropdownMenuItem(
+                              value: cat,
+                              child: Text(cat.name),
+                            )),
+                  ],
+                  onChanged: (value) async {
+                    if (value == null) {
+                      final newCat = await _showAddCategoryDialog(context, selectedType);
+                      if (newCat != null) {
+                        await _loadData();
+                        setDialogState(() => selectedCategory = newCat);
+                      }
+                    } else {
+                      setDialogState(() => selectedCategory = value);
+                    }
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -548,13 +680,18 @@ class _ExpenseViewState extends State<ExpenseView> {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('সঠিক পরিমাণ লিখুন')));
                   return;
                 }
+                if (selectedCategory == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('খাত নির্বাচন করুন')));
+                  return;
+                }
 
                 final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
                 await repo.updateShopTransaction(
                   transactionId: trans.id!,
                   type: selectedType,
                   amount: amount,
-                  category: categoryController.text.isNotEmpty ? categoryController.text : null,
+                  category: selectedCategory!.name,
+                  categoryId: selectedCategory!.id,
                   description: descriptionController.text.isNotEmpty ? descriptionController.text : null,
                   date: trans.transactionDate,
                 );
@@ -606,85 +743,169 @@ class _ExpenseViewState extends State<ExpenseView> {
     );
   }
 
-  void _showTransactionDialog(BuildContext context, String type) {
-    final isIncome = type == 'income';
-    final amountController = TextEditingController();
-    final descriptionController = TextEditingController();
-    final categoryController = TextEditingController();
-
-    showDialog(
+  Future<KhorochCategory?> _showAddCategoryDialog(BuildContext context, String type) async {
+    final controller = TextEditingController();
+    return showDialog<KhorochCategory>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(isIncome ? 'টাকা যোগ করুন' : 'খরচ রেকর্ড করুন'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: categoryController,
-                decoration: InputDecoration(
-                  labelText: isIncome ? 'আয়ের উৎস' : 'খরচের খাত',
-                  hintText: isIncome ? 'উদা: জমানো টাকা' : 'উদা: বিদ্যুৎ বিল',
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'টাকার পরিমাণ',
-                  prefixText: '৳',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'বিবরণ (ঐচ্ছিক)',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
-              ),
-            ],
+        title: const Text('নতুন খাত যোগ করুন'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'খাতের নাম',
+            hintText: 'উদা: যাতায়াত',
+            border: OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('বাতিল')),
           ElevatedButton(
             onPressed: () async {
-              final amount = double.tryParse(amountController.text);
-              if (amount == null || amount <= 0) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('সঠিক পরিমাণ লিখুন')));
+              final name = controller.text.trim();
+              if (name.isEmpty) return;
+
+              final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
+              final categories = await repo.getKhorochCategories();
+              
+              if (categories.any((c) => c.name.toLowerCase() == name.toLowerCase())) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('এই নামে ইতিমধ্যে একটি খাত আছে')));
+                }
                 return;
               }
 
-              final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
-              await repo.addShopTransaction(
-                type: type,
-                amount: amount,
-                category: categoryController.text.isNotEmpty ? categoryController.text : null,
-                description: descriptionController.text.isNotEmpty ? descriptionController.text : null,
-                source: 'manual_khoroch',
-              );
-
-              if (!context.mounted) return;
-              Navigator.pop(context);
-              _loadData();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(isIncome ? 'সাফল্যের সাথে যোগ করা হয়েছে' : 'খরচ রেকর্ড করা হয়েছে'))
-              );
+              final category = KhorochCategory(name: name, transactionType: type);
+              final id = await repo.addKhorochCategory(category);
+              
+              if (context.mounted) {
+                Navigator.pop(context, KhorochCategory(id: id, name: name, transactionType: type));
+              }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isIncome ? Colors.green : Colors.red,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text('নিশ্চিত করুন'),
+            child: const Text('সংরক্ষণ করুন'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showTransactionDialog(BuildContext context, String type) {
+    final isIncome = type == 'income';
+    final amountController = TextEditingController();
+    final descriptionController = TextEditingController();
+    KhorochCategory? selectedCategory;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(isIncome ? 'টাকা যোগ করুন' : 'খরচ রেকর্ড করুন'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Category Dropdown with Search-like feel and Add New
+                DropdownButtonFormField<KhorochCategory?>(
+                  value: selectedCategory,
+                  decoration: InputDecoration(
+                    labelText: isIncome ? 'আয়ের উৎস' : 'খরচের খাত',
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  isExpanded: true,
+                  hint: const Text('খাত নির্বাচন করুন'),
+                  items: [
+                    DropdownMenuItem<KhorochCategory?>(
+                      value: null,
+                      child: Text(
+                        '+ নতুন খাত যোগ করুন',
+                        style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    ..._categories
+                        .where((c) => c.transactionType == type)
+                        .map((cat) => DropdownMenuItem(
+                              value: cat,
+                              child: Text(cat.name),
+                            )),
+                  ],
+                  onChanged: (value) async {
+                    if (value == null) {
+                      // Show add new category dialog
+                      final newCat = await _showAddCategoryDialog(context, type);
+                      if (newCat != null) {
+                        await _loadData(); // Refresh main list
+                        setDialogState(() => selectedCategory = newCat);
+                      }
+                    } else {
+                      setDialogState(() => selectedCategory = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'টাকার পরিমাণ',
+                    prefixText: '৳',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'বিবরণ (ঐচ্ছিক)',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('বাতিল')),
+            ElevatedButton(
+              onPressed: () async {
+                final amount = double.tryParse(amountController.text);
+                if (amount == null || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('সঠিক পরিমাণ লিখুন')));
+                  return;
+                }
+                if (selectedCategory == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('খাত নির্বাচন করুন')));
+                  return;
+                }
+
+                final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
+                await repo.addShopTransaction(
+                  type: type,
+                  amount: amount,
+                  category: selectedCategory!.name,
+                  categoryId: selectedCategory!.id,
+                  description: descriptionController.text.isNotEmpty ? descriptionController.text : null,
+                  source: 'manual_khoroch',
+                );
+
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                _loadData();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(isIncome ? 'সাফল্যের সাথে যোগ করা হয়েছে' : 'খরচ রেকর্ড করা হয়েছে'))
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isIncome ? Colors.green : Colors.red,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('নিশ্চিত করুন'),
+            ),
+          ],
+        ),
       ),
     );
   }

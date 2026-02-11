@@ -49,6 +49,7 @@ class ShopTransaction extends Equatable {
   final double amount;
   final double balanceAfter;
   final String? category;
+  final int? categoryId; // Added for version 4
   final String? description;
   final DateTime transactionDate;
 
@@ -58,6 +59,7 @@ class ShopTransaction extends Equatable {
     required this.amount,
     required this.balanceAfter,
     this.category,
+    this.categoryId,
     this.description,
     required this.transactionDate,
   });
@@ -69,11 +71,47 @@ class ShopTransaction extends Equatable {
       amount: (map['amount'] as num).toDouble(),
       balanceAfter: (map['balance_after_transaction'] as num).toDouble(),
       category: map['category'] as String?,
+      categoryId: map['category_id'] as int?,
       description: map['description'] as String?,
       transactionDate: DateTime.parse(map['transaction_date'] as String),
     );
   }
 
   @override
-  List<Object?> get props => [id, transactionType, amount, balanceAfter, category, description, transactionDate];
+  List<Object?> get props => [id, transactionType, amount, balanceAfter, category, categoryId, description, transactionDate];
+}
+
+class KhorochCategory extends Equatable {
+  final int? id;
+  final String name;
+  final String transactionType; // 'income' or 'expense'
+  final bool isActive;
+
+  const KhorochCategory({
+    this.id,
+    required this.name,
+    required this.transactionType,
+    this.isActive = true,
+  });
+
+  factory KhorochCategory.fromMap(Map<String, dynamic> map) {
+    return KhorochCategory(
+      id: map['id'] as int?,
+      name: map['name'] as String,
+      transactionType: map['transaction_type'] as String,
+      isActive: (map['is_active'] as int?) == 1,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'transaction_type': transactionType,
+      'is_active': isActive ? 1 : 0,
+    };
+  }
+
+  @override
+  List<Object?> get props => [id, name, transactionType, isActive];
 }
