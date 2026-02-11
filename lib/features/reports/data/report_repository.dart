@@ -397,4 +397,129 @@ class ReportRepository {
       DatabaseConstants.colIsSynced: 0,
     });
   }
+  // Update existing shop transaction and recalculate all subsequent balances
+  Future<void> updateShopTransaction({
+    required int transactionId,
+    required String type,
+    required double amount,
+    String? category,
+    String? description,
+    DateTime? date,
+  }) async {
+    final db = await _dbHelper.database;
+    final transactionDate = date ?? DateTime.now();
+
+    await db.transaction((txn) async {
+      // Get the transaction being edited
+      final oldTransResult = await txn.query(
+        DatabaseConstants.tableShopTransactions,
+        where: '${DatabaseConstants.colId} = ?',
+        whereArgs: [transactionId],
+      );
+
+      if (oldTransResult.isEmpty) {
+        throw Exception('Transaction not found');
+      }
+
+      // Get the balance before this transaction
+      final prevBalanceResult = await txn.rawQuery('''
+        SELECT ${DatabaseConstants.colBalanceAfter} 
+        FROM ${DatabaseConstants.tableShopTransactions} 
+        WHERE ${DatabaseConstants.colId} < ?
+        ORDER BY ${DatabaseConstants.colId} DESC LIMIT 1
+      ''', [transactionId]);
+
+      double balanceBeforeThis = 0;
+      if (prevBalanceResult.isNotEmpty) {
+        balanceBeforeThis = (prevBalanceResult.first[DatabaseConstants.colBalanceAfter] as num).toDouble();
+      }
+
+      // Calculate new balance after this transaction
+      double newBalanceAfter = type == 'income' 
+          ? balanceBeforeThis + amount 
+          : balanceBeforeThis - amount;
+
+      // Update the transaction
+      await txn.update(
+        DatabaseConstants.tableShopTransactions,
+        {
+          DatabaseConstants.colTransactionType: type,
+          DatabaseConstants.colAmount: amount,
+          DatabaseConstants.colBalanceAfter: newBalanceAfter,
+          DatabaseConstants.colCategory: category,
+          DatabaseConstants.colDescription: description,
+          DatabaseConstants.colTransactionDate: transactionDate.toIso8601String(),
+          DatabaseConstants.colUpdatedAt: DateTime.now().toIso8601String(),
+          DatabaseConstants.colIsSynced: 0,
+        },
+        where: '${DatabaseConstants.colId} = ?',
+        whereArgs: [transactionId],
+      );
+
+      // Recalculate all subsequent transactions
+      await _recalculateSubsequentBalances(txn, transactionId, newBalanceAfter);
+    });
+  }
+
+  // Delete shop transaction and recalculate subsequent balances
+  Future<void> deleteShopTransaction(int transactionId) async {
+    final db = await _dbHelper.database;
+
+    await db.transaction((txn) async {
+      // Get the balance before this transaction
+      final prevBalanceResult = await txn.rawQuery('''
+        SELECT ${DatabaseConstants.colBalanceAfter} 
+        FROM ${DatabaseConstants.tableShopTransactions} 
+        WHERE ${DatabaseConstants.colId} < ?
+        ORDER BY ${DatabaseConstants.colId} DESC LIMIT 1
+      ''', [transactionId]);
+
+      double balanceBeforeThis = 0;
+      if (prevBalanceResult.isNotEmpty) {
+        balanceBeforeThis = (prevBalanceResult.first[DatabaseConstants.colBalanceAfter] as num).toDouble();
+      }
+
+      // Delete the transaction
+      await txn.delete(
+        DatabaseConstants.tableShopTransactions,
+        where: '${DatabaseConstants.colId} = ?',
+        whereArgs: [transactionId],
+      );
+
+      // Recalculate all subsequent transactions
+      await _recalculateSubsequentBalances(txn, transactionId, balanceBeforeThis);
+    });
+  }
+
+  // Helper to recalculate balances for all transactions after a given ID
+  Future<void> _recalculateSubsequentBalances(Transaction txn, int afterId, double startingBalance) async {
+    // Get all transactions after the edited/deleted one
+    final subsequentTrans = await txn.query(
+      DatabaseConstants.tableShopTransactions,
+      where: '${DatabaseConstants.colId} > ?',
+      whereArgs: [afterId],
+      orderBy: '${DatabaseConstants.colId} ASC',
+    );
+
+    double runningBalance = startingBalance;
+
+    for (final trans in subsequentTrans) {
+      final type = trans[DatabaseConstants.colTransactionType] as String;
+      final amount = (trans[DatabaseConstants.colAmount] as num).toDouble();
+      
+      runningBalance = type == 'income' 
+          ? runningBalance + amount 
+          : runningBalance - amount;
+
+      await txn.update(
+        DatabaseConstants.tableShopTransactions,
+        {
+          DatabaseConstants.colBalanceAfter: runningBalance,
+          DatabaseConstants.colUpdatedAt: DateTime.now().toIso8601String(),
+        },
+        where: '${DatabaseConstants.colId} = ?',
+        whereArgs: [trans[DatabaseConstants.colId]],
+      );
+    }
+  }
 }

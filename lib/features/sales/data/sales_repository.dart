@@ -111,6 +111,34 @@ class SalesRepository {
           DatabaseConstants.colIsSynced: 0,
         });
       }
+
+      // 4. Add cash payment to Shop Main Balance
+      if (sale.paidAmount > 0) {
+        // Get current shop balance
+        final balanceResult = await txn.rawQuery('''
+          SELECT ${DatabaseConstants.colBalanceAfter} 
+          FROM ${DatabaseConstants.tableShopTransactions} 
+          ORDER BY ${DatabaseConstants.colId} DESC LIMIT 1
+        ''');
+        
+        double currentBalance = 0;
+        if (balanceResult.isNotEmpty) {
+          currentBalance = (balanceResult.first[DatabaseConstants.colBalanceAfter] as num).toDouble();
+        }
+
+        double newBalance = currentBalance + sale.paidAmount;
+
+        await txn.insert(DatabaseConstants.tableShopTransactions, {
+          DatabaseConstants.colTransactionType: 'income',
+          DatabaseConstants.colAmount: sale.paidAmount,
+          DatabaseConstants.colBalanceAfter: newBalance,
+          DatabaseConstants.colCategory: 'বিক্রয় থেকে আয়',
+          DatabaseConstants.colDescription: 'Invoice: ${sale.invoiceId}',
+          DatabaseConstants.colTransactionDate: sale.saleDate.toIso8601String(),
+          DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
+          DatabaseConstants.colIsSynced: 0,
+        });
+      }
     });
   }
 

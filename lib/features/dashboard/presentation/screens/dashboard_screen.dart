@@ -72,11 +72,10 @@ class DashboardScreenState extends State<DashboardScreen> {
         children: screens,
       ),
       bottomNavigationBar: _buildBottomNav(),
-      floatingActionButton: _selectedIndex == 0 ? FloatingActionButton.extended(
+      floatingActionButton: _selectedIndex == 0 ? FloatingActionButton(
         onPressed: () => _showSaleBottomSheet(context),
-        label: const Text('বিক্রয় করুন', style: TextStyle(fontWeight: FontWeight.bold)),
-        icon: const Icon(Icons.add_shopping_cart),
         backgroundColor: Colors.teal,
+        child: const Icon(Icons.add_shopping_cart),
       ) : null,
     );
   }
@@ -252,6 +251,8 @@ class DashboardHome extends StatelessWidget {
                 children: [
                    _buildSummaryCard(state),
                    const SizedBox(height: 24),
+                   _buildReportOptions(context),
+                   const SizedBox(height: 24),
                    _buildSectionTitle('সাম্প্রতিক বিক্রি'),
                    const SizedBox(height: 12),
                    _buildRecentActivityList(state.summary.recentSales),
@@ -326,6 +327,98 @@ class DashboardHome extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildReportOptions(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('রিপোর্ট'),
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 1.5,
+          children: [
+            _buildReportCard(
+              context,
+              icon: Icons.receipt_long,
+              label: 'বিক্রয় রিপোর্ট',
+              color: Colors.blue,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SalesReportScreen())),
+            ),
+            _buildReportCard(
+              context,
+              icon: Icons.account_balance_wallet,
+              label: 'খরচ রিপোর্ট',
+              color: Colors.orange,
+              onTap: () {
+                final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
+                dashboardState?.setState(() => dashboardState._selectedIndex = 3);
+              },
+            ),
+            _buildReportCard(
+              context,
+              icon: Icons.inventory_2,
+              label: 'স্টক রিপোর্ট',
+              color: Colors.green,
+              onTap: () {
+                final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
+                dashboardState?.setState(() => dashboardState._selectedIndex = 1);
+              },
+            ),
+            _buildReportCard(
+              context,
+              icon: Icons.people,
+              label: 'বাকি খাতা রিপোর্ট',
+              color: Colors.red,
+              onTap: () {
+                final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
+                dashboardState?.setState(() => dashboardState._selectedIndex = 2);
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReportCard(BuildContext context, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 32, color: color),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Color.lerp(color, Colors.black, 0.3)!,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

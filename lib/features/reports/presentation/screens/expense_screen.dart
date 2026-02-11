@@ -196,22 +196,159 @@ class _ExpenseViewState extends State<ExpenseView> {
             ),
           ],
         ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              '${isIncome ? "+" : "-"} ৳${_toBengaliDigits(trans.amount.toStringAsFixed(0))}',
-              style: TextStyle(
-                fontWeight: FontWeight.bold, 
-                fontSize: 16, 
-                color: isIncome ? Colors.green : Colors.red
-              ),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${isIncome ? "+" : "-"} ৳${_toBengaliDigits(trans.amount.toStringAsFixed(0))}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold, 
+                    fontSize: 16, 
+                    color: isIncome ? Colors.green : Colors.red
+                  ),
+                ),
+                Text('ব্যালেন্স: ৳${_toBengaliDigits(trans.balanceAfter.toStringAsFixed(0))}', 
+                  style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              ],
             ),
-            Text('ব্যালেন্স: ৳${_toBengaliDigits(trans.balanceAfter.toStringAsFixed(0))}', 
-              style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 20),
+              onSelected: (value) {
+                if (value == 'edit') {
+                  _showEditTransactionDialog(context, trans);
+                } else if (value == 'delete') {
+                  _showDeleteConfirmation(context, trans);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('সম্পাদনা')])),
+                const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 18, color: Colors.red), SizedBox(width: 8), Text('মুছে ফেলুন', style: TextStyle(color: Colors.red))])),
+              ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showEditTransactionDialog(BuildContext context, ShopTransaction trans) {
+    final amountController = TextEditingController(text: trans.amount.toString());
+    final descriptionController = TextEditingController(text: trans.description ?? '');
+    final categoryController = TextEditingController(text: trans.category ?? '');
+    String selectedType = trans.transactionType;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('লেনদেন সম্পাদনা করুন'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: selectedType,
+                  decoration: const InputDecoration(
+                    labelText: 'ধরন',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'income', child: Text('আয় (Income)')),
+                    DropdownMenuItem(value: 'expense', child: Text('খরচ (Expense)')),
+                  ],
+                  onChanged: (value) {
+                    setState(() => selectedType = value!);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: categoryController,
+                  decoration: InputDecoration(
+                    labelText: selectedType == 'income' ? 'আয়ের উৎস' : 'খরচের খাত',
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'টাকার পরিমাণ',
+                    prefixText: '৳',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'বিবরণ (ঐচ্ছিক)',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('বাতিল')),
+            ElevatedButton(
+              onPressed: () async {
+                final amount = double.tryParse(amountController.text);
+                if (amount == null || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('সঠিক পরিমাণ লিখুন')));
+                  return;
+                }
+
+                final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
+                await repo.updateShopTransaction(
+                  transactionId: trans.id!,
+                  type: selectedType,
+                  amount: amount,
+                  category: categoryController.text.isNotEmpty ? categoryController.text : null,
+                  description: descriptionController.text.isNotEmpty ? descriptionController.text : null,
+                  date: trans.transactionDate,
+                );
+
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                _loadData();
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('লেনদেন সফলভাবে আপডেট করা হয়েছে')));
+              },
+              child: const Text('সংরক্ষণ করুন'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, ShopTransaction trans) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('নিশ্চিত করুন'),
+        content: const Text('আপনি কি এই লেনদেনটি মুছে ফেলতে চান? এটি পূর্বাবস্থায় ফেরানো যাবে না এবং ব্যালেন্স পুনরায় গণনা করা হবে।'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('বাতিল')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
+              await repo.deleteShopTransaction(trans.id!);
+
+              if (!context.mounted) return;
+              Navigator.pop(context);
+              _loadData();
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('লেনদেন মুছে ফেলা হয়েছে')));
+            },
+            child: const Text('মুছে ফেলুন'),
+          ),
+        ],
       ),
     );
   }
