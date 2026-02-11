@@ -35,6 +35,9 @@ class DatabaseHelper {
     if (oldVersion < 2) {
       await _createTransactionTables(db);
     }
+    if (oldVersion < 3) {
+      await _addTransactionSourceColumn(db);
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -270,6 +273,31 @@ class DatabaseHelper {
     ''');
     await db.execute('CREATE INDEX idx_shop_trans_date ON ${DatabaseConstants.tableShopTransactions} (${DatabaseConstants.colTransactionDate})');
     await db.execute('CREATE INDEX idx_shop_trans_type ON ${DatabaseConstants.tableShopTransactions} (${DatabaseConstants.colTransactionType})');
+  }
+
+  Future<void> _addTransactionSourceColumn(Database db) async {
+    // Add transaction_source column to shop_transactions table
+    await db.execute('''
+      ALTER TABLE ${DatabaseConstants.tableShopTransactions} 
+      ADD COLUMN ${DatabaseConstants.colTransactionSource} TEXT DEFAULT 'manual_khoroch'
+    ''');
+
+    // Migrate existing data based on category
+    // Product sales
+    await db.execute('''
+      UPDATE ${DatabaseConstants.tableShopTransactions}
+      SET ${DatabaseConstants.colTransactionSource} = 'product_sale'
+      WHERE ${DatabaseConstants.colCategory} = 'বিক্রয় থেকে আয়'
+    ''');
+
+    // Credit payments
+    await db.execute('''
+      UPDATE ${DatabaseConstants.tableShopTransactions}
+      SET ${DatabaseConstants.colTransactionSource} = 'credit_payment'
+      WHERE ${DatabaseConstants.colCategory} = 'বকেয়া সংগ্রহ'
+    ''');
+
+    // All others remain as 'manual_khoroch' (default)
   }
 
   // Generic CRUD Operations

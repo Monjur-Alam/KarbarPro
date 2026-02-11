@@ -220,6 +220,7 @@ class ReportRepository {
     String? category,
     String? description,
     DateTime? date,
+    String source = 'manual_khoroch',
   }) async {
     final db = await _dbHelper.database;
     final transactionDate = date ?? DateTime.now();
@@ -249,6 +250,7 @@ class ReportRepository {
         DatabaseConstants.colDescription: description,
         DatabaseConstants.colTransactionDate: transactionDate.toIso8601String(),
         DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
+        DatabaseConstants.colTransactionSource: source,
         DatabaseConstants.colIsSynced: 0,
       });
     });
@@ -275,6 +277,74 @@ class ReportRepository {
       orderBy: '${DatabaseConstants.colTransactionDate} DESC',
     );
     return result.map((m) => ShopTransaction.fromMap(m)).toList();
+  }
+
+  // Get only manual khoroch transactions (exclude automatic sales/payments)
+  Future<List<ShopTransaction>> getManualKhorochTransactions({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? searchQuery,
+  }) async {
+    final db = await _dbHelper.database;
+    
+    String whereClause = "${DatabaseConstants.colTransactionSource} = 'manual_khoroch'";
+    List<dynamic> whereArgs = [];
+    
+    if (startDate != null && endDate != null) {
+      whereClause += " AND ${DatabaseConstants.colTransactionDate} BETWEEN ? AND ?";
+      whereArgs.addAll([startDate.toIso8601String(), endDate.toIso8601String()]);
+    }
+    
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      whereClause += " AND (${DatabaseConstants.colDescription} LIKE ? OR ${DatabaseConstants.colCategory} LIKE ? OR CAST(${DatabaseConstants.colAmount} AS TEXT) LIKE ?)";
+      final searchPattern = '%$searchQuery%';
+      whereArgs.addAll([searchPattern, searchPattern, searchPattern]);
+    }
+    
+    final result = await db.query(
+      DatabaseConstants.tableShopTransactions,
+      where: whereClause,
+      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
+      orderBy: '${DatabaseConstants.colTransactionDate} DESC',
+    );
+    
+    return result.map((m) => ShopTransaction.fromMap(m)).toList();
+  }
+
+  // Get summary of manual khoroch transactions
+  Future<Map<String, dynamic>> getManualKhorochSummary({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final db = await _dbHelper.database;
+    
+    String whereClause = "${DatabaseConstants.colTransactionSource} = 'manual_khoroch'";
+    List<dynamic> whereArgs = [];
+    
+    if (startDate != null && endDate != null) {
+      whereClause += " AND ${DatabaseConstants.colTransactionDate} BETWEEN ? AND ?";
+      whereArgs.addAll([startDate.toIso8601String(), endDate.toIso8601String()]);
+    }
+    
+    final result = await db.rawQuery('''
+      SELECT 
+        SUM(CASE WHEN ${DatabaseConstants.colTransactionType} = 'income' THEN ${DatabaseConstants.colAmount} ELSE 0 END) as totalIncome,
+        SUM(CASE WHEN ${DatabaseConstants.colTransactionType} = 'expense' THEN ${DatabaseConstants.colAmount} ELSE 0 END) as totalExpense,
+        COUNT(*) as transactionCount
+      FROM ${DatabaseConstants.tableShopTransactions}
+      WHERE $whereClause
+    ''', whereArgs.isNotEmpty ? whereArgs : null);
+    
+    if (result.isEmpty) {
+      return {'totalIncome': 0.0, 'totalExpense': 0.0, 'transactionCount': 0};
+    }
+    
+    final row = result.first;
+    return {
+      'totalIncome': (row['totalIncome'] as num?)?.toDouble() ?? 0.0,
+      'totalExpense': (row['totalExpense'] as num?)?.toDouble() ?? 0.0,
+      'transactionCount': (row['transactionCount'] as int?) ?? 0,
+    };
   }
 
   // --- Due Ledger & Customer Payments ---
@@ -345,7 +415,8 @@ class ReportRepository {
         amount: amount, 
         category: 'বকেয়া সংগ্রহ', 
         description: 'Customer Payment (ID: $customerId)', 
-        date: paymentDate
+        date: paymentDate,
+        source: 'credit_payment',
       );
     });
   }
@@ -368,6 +439,7 @@ class ReportRepository {
     String? category,
     String? description,
     DateTime? date,
+    String source = 'manual_khoroch',
   }) async {
     final transactionDate = date ?? DateTime.now();
     
@@ -394,6 +466,7 @@ class ReportRepository {
       DatabaseConstants.colDescription: description,
       DatabaseConstants.colTransactionDate: transactionDate.toIso8601String(),
       DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
+      DatabaseConstants.colTransactionSource: source,
       DatabaseConstants.colIsSynced: 0,
     });
   }

@@ -1,6 +1,6 @@
 class DatabaseConstants {
   static const String databaseName = 'amar_dokan.db';
-  static const int databaseVersion = 2;
+  static const int databaseVersion = 3;
 
   // Table Names
   static const String tableProducts = 'products';
@@ -25,6 +25,7 @@ class DatabaseConstants {
   static const String colTransactionType = 'transaction_type'; // sale, payment, income, expense
   static const String colBalanceAfter = 'balance_after_transaction';
   static const String colTransactionDate = 'transaction_date';
+  static const String colTransactionSource = 'transaction_source'; // manual_khoroch, product_sale, credit_payment, system
 
   // Products Columns
   static const String colName = 'name';
