@@ -2,22 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import '../features/auth/data/auth_repository.dart';
-import '../features/auth/presentation/bloc/auth_bloc.dart';
-import '../core/themes/app_theme.dart';
-import '../features/dashboard/presentation/screens/dashboard_screen.dart';
-import '../features/auth/presentation/screens/login_screen.dart';
-import '../core/services/background_sync_helper.dart';
-import '../core/services/sync_service.dart';
-import '../core/services/google_drive_service.dart';
-import '../core/services/connectivity_service.dart';
-import '../core/database/database_helper.dart';
-import '../features/dashboard/data/dashboard_repository.dart';
-import '../features/dashboard/presentation/bloc/home_bloc.dart';
-import '../features/customers/data/customer_repository.dart';
-import '../features/customers/presentation/bloc/customer_bloc.dart';
-import '../features/sales/presentation/bloc/sales_bloc.dart';
-import '../features/sales/data/sales_repository.dart';
+import 'features/auth/data/auth_repository.dart';
+import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'core/themes/app_theme.dart';
+import 'features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'features/auth/presentation/screens/login_screen.dart';
+import 'core/services/background_sync_helper.dart';
+import 'core/services/sync_service.dart';
+import 'core/services/google_drive_service.dart';
+import 'core/services/connectivity_service.dart';
+import 'core/database/database_helper.dart';
+import 'features/dashboard/data/dashboard_repository.dart';
+import 'features/dashboard/presentation/bloc/home_bloc.dart';
+import 'features/customers/data/customer_repository.dart';
+import 'features/customers/presentation/bloc/customer_bloc.dart';
+import 'features/sales/presentation/bloc/sales_bloc.dart';
+import 'features/sales/data/sales_repository.dart';
+import 'features/inventory/data/inventory_repository.dart';
+import 'features/inventory/presentation/bloc/inventory_bloc.dart';
+import 'features/reports/data/report_repository.dart';
+import 'features/reports/presentation/bloc/report_bloc.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +38,8 @@ void main() async {
   final dashboardRepository = DashboardRepository(dbHelper);
   final customerRepository = CustomerRepository(dbHelper: dbHelper);
   final salesRepository = SalesRepository(dbHelper: dbHelper);
+  final inventoryRepository = InventoryRepository(dbHelper: dbHelper);
+  final reportRepository = ReportRepository(dbHelper: dbHelper);
 
   // Initialize Background Sync
   BackgroundSyncHelper.initialize().then((_) {
@@ -48,7 +54,10 @@ void main() async {
     dashboardRepository: dashboardRepository,
     customerRepository: customerRepository,
     salesRepository: salesRepository,
+    inventoryRepository: inventoryRepository,
+    reportRepository: reportRepository,
     connectivityService: connectivityService,
+    dbHelper: dbHelper,
   ));
 }
 
@@ -58,7 +67,10 @@ class MyApp extends StatelessWidget {
   final DashboardRepository dashboardRepository;
   final CustomerRepository customerRepository;
   final SalesRepository salesRepository;
+  final InventoryRepository inventoryRepository;
+  final ReportRepository reportRepository;
   final ConnectivityService connectivityService;
+  final DatabaseHelper dbHelper;
 
   const MyApp({
     super.key, 
@@ -67,7 +79,10 @@ class MyApp extends StatelessWidget {
     required this.dashboardRepository,
     required this.customerRepository,
     required this.salesRepository,
+    required this.inventoryRepository,
+    required this.reportRepository,
     required this.connectivityService,
+    required this.dbHelper,
   });
 
   @override
@@ -79,7 +94,10 @@ class MyApp extends StatelessWidget {
         RepositoryProvider.value(value: dashboardRepository),
         RepositoryProvider.value(value: customerRepository),
         RepositoryProvider.value(value: salesRepository),
+        RepositoryProvider.value(value: inventoryRepository),
+        RepositoryProvider.value(value: reportRepository),
         RepositoryProvider.value(value: connectivityService),
+        RepositoryProvider.value(value: dbHelper),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -97,6 +115,12 @@ class MyApp extends StatelessWidget {
           ),
           BlocProvider(
             create: (context) => SalesBloc(repository: salesRepository)..add(LoadSalesInitialData()),
+          ),
+          BlocProvider(
+            create: (context) => InventoryBloc(repository: inventoryRepository)..add(LoadInventory()),
+          ),
+          BlocProvider(
+            create: (context) => ReportBloc(repository: reportRepository),
           ),
         ],
 

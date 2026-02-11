@@ -3,13 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../bloc/report_bloc.dart';
-import '../domain/report_models.dart';
-import '../../sales/domain/sale.dart';
-import '../../../core/database/database_helper.dart';
-import '../data/report_repository.dart';
-import '../../../core/services/report_export_service.dart';
-import '../../sales/presentation/screens/sale_detail_screen.dart';
-import '../../sales/data/sales_repository.dart';
+import '../../domain/report_models.dart';
+import '../../../sales/domain/sale.dart';
+import '../../../../core/database/database_helper.dart';
+import '../../data/report_repository.dart';
+import '../../../../core/services/report_export_service.dart';
+import '../../../sales/presentation/screens/sale_detail_screen.dart';
+import '../../../sales/data/sales_repository.dart';
 
 class SalesReportScreen extends StatefulWidget {
   const SalesReportScreen({super.key});
@@ -59,10 +59,14 @@ class _SalesReportScreenState extends State<SalesReportScreen> with SingleTicker
         appBar: AppBar(
           title: const Text('বিক্রির রিপোর্ট', style: TextStyle(fontWeight: FontWeight.bold)),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.download_outlined), 
-              onPressed: () => _showExportDialog(context, state),
-              tooltip: 'এক্সপোর্ট',
+            BlocBuilder<ReportBloc, ReportState>(
+              builder: (context, state) {
+                return IconButton(
+                  icon: const Icon(Icons.download_outlined), 
+                  onPressed: state is ReportLoaded ? () => _showExportDialog(context, state) : null,
+                  tooltip: 'এক্সপোর্ট',
+                );
+              },
             ),
             IconButton(
               icon: const Icon(Icons.refresh), 
@@ -129,7 +133,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> with SingleTicker
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Row(
         children: [
@@ -201,7 +205,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> with SingleTicker
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [BoxShadow(color: color.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,40 +286,16 @@ class _SalesReportScreenState extends State<SalesReportScreen> with SingleTicker
         margin: const EdgeInsets.only(right: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
+          color: color.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.1)),
+          border: Border.all(color: color.withValues(alpha: 0.1)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: color, size: 28),
             const SizedBox(height: 8),
-            Text(title, style: TextStyle(color: color.withOpacity(0.8), fontSize: 12, fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickReportCard(String title, IconData icon, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 120,
-        margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.1)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 8),
-            Text(title, style: TextStyle(color: color.withOpacity(0.8), fontSize: 12, fontWeight: FontWeight.bold)),
+            Text(title, style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -384,7 +364,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> with SingleTicker
                     belowBarData: BarAreaData(
                       show: true, 
                       gradient: LinearGradient(
-                        colors: [Colors.blue.withOpacity(0.2), Colors.blue.withOpacity(0.0)],
+                        colors: [Colors.blue.withValues(alpha: 0.2), Colors.blue.withValues(alpha: 0.0)],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                       ),
@@ -733,9 +713,8 @@ class _SalesReportScreenState extends State<SalesReportScreen> with SingleTicker
         _startDate = picked.start;
         _endDate = picked.end;
       });
-      if (mounted) {
-         context.read<ReportBloc>().add(LoadReports(startDate: picked.start, endDate: picked.end));
-      }
+      if (!mounted) return;
+      context.read<ReportBloc>().add(LoadReports(startDate: picked.start, endDate: picked.end));
     }
   }
 }

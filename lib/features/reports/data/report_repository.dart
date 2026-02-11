@@ -1,7 +1,8 @@
-import 'package:sqflite/sqflite.dart';
 import '../../../core/database/database_helper.dart';
 import '../../../core/constants/database_constants.dart';
 import '../domain/report_models.dart';
+import '../domain/expense_model.dart';
+import '../domain/due_ledger_model.dart';
 import '../../sales/domain/sale.dart';
 
 class ReportRepository {
@@ -176,13 +177,52 @@ class ReportRepository {
       paymentMethod: row[DatabaseConstants.colPaymentType] as String,
       saleDate: DateTime.parse(row[DatabaseConstants.colSaleDate] as String),
       items: [], // Items are lazy loaded or fetched separately if needed for report detail
-      notes: row[DatabaseConstants.colNotes] as String?,
+      createdAt: DateTime.parse(row[DatabaseConstants.colCreatedAt] as String),
+      updatedAt: DateTime.parse(row[DatabaseConstants.colUpdatedAt] as String),
     );
+  }
+
   Future<List<Map<String, dynamic>>> getLowStockProducts() async {
     final db = await _dbHelper.database;
     return await db.rawQuery('''
       SELECT * FROM ${DatabaseConstants.tableProducts} 
       WHERE ${DatabaseConstants.colCurrentStock} <= ${DatabaseConstants.colMinStockAlert}
     ''');
+  }
+
+  // --- Expense Management ---
+  Future<List<Expense>> getExpenses(DateTime start, DateTime end) async {
+    final db = await _dbHelper.database;
+    final result = await db.query(
+      DatabaseConstants.tableExpenses,
+      where: '${DatabaseConstants.colExpenseDate} BETWEEN ? AND ?',
+      whereArgs: [start.toIso8601String(), end.toIso8601String()],
+      orderBy: '${DatabaseConstants.colExpenseDate} DESC',
+    );
+    return result.map((m) => Expense.fromMap(m)).toList();
+  }
+
+  Future<int> addExpense(Expense expense) async {
+    final db = await _dbHelper.database;
+    return await db.insert(DatabaseConstants.tableExpenses, {
+      DatabaseConstants.colCategory: expense.category,
+      DatabaseConstants.colAmount: expense.amount,
+      DatabaseConstants.colDescription: expense.description,
+      DatabaseConstants.colExpenseDate: expense.expenseDate.toIso8601String(),
+      DatabaseConstants.colPaymentMethod: expense.paymentMethod,
+      DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
+      DatabaseConstants.colIsSynced: 0,
+    });
+  }
+
+  // --- Due Ledger ---
+  Future<List<CustomerDue>> getDueCustomers() async {
+    final db = await _dbHelper.database;
+    final result = await db.query(
+      DatabaseConstants.tableCustomers,
+      where: '${DatabaseConstants.colCurrentCreditBalance} > 0',
+      orderBy: '${DatabaseConstants.colCurrentCreditBalance} DESC',
+    );
+    return result.map((m) => CustomerDue.fromMap(m)).toList();
   }
 }

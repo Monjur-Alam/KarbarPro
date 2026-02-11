@@ -7,6 +7,8 @@ import 'package:amar_dokan/core/services/sync_service.dart';
 import 'package:amar_dokan/features/inventory/presentation/screens/inventory_screen.dart';
 import 'package:amar_dokan/features/sales/presentation/screens/sales_screen.dart';
 import 'package:amar_dokan/features/reports/presentation/screens/sales_report_screen.dart';
+import 'package:amar_dokan/features/reports/presentation/screens/expense_screen.dart';
+import 'package:amar_dokan/features/reports/presentation/screens/due_ledger_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -246,14 +248,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Navigator.push(context, MaterialPageRoute(builder: (context) => const InventoryScreen()));
       }),
       _QuickAction('আজকের বিক্রি', Icons.receipt_long, Colors.green, () {
-        final today = DateTime.now();
         Navigator.push(context, MaterialPageRoute(builder: (context) => const SalesReportScreen()));
       }),
       _QuickAction('বিক্রির রিপোর্ট', Icons.bar_chart, Colors.orange, () {
         Navigator.push(context, MaterialPageRoute(builder: (context) => const SalesReportScreen()));
       }),
-      _QuickAction('দোকানের খরচ', Icons.account_balance_wallet, Colors.red, () {}),
-      _QuickAction('বাকি খাতা', Icons.menu_book, Colors.purple, () {}),
+      _QuickAction('দোকানের খরচ', Icons.account_balance_wallet, Colors.red, () {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const ExpenseScreen()));
+      }),
+      _QuickAction('বাকি খাতা', Icons.menu_book, Colors.purple, () {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const DueLedgerScreen()));
+      }),
     ];
 
     return GridView.builder(

@@ -1,8 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import '../data/report_repository.dart';
-import '../domain/report_models.dart';
-import '../../sales/domain/sale.dart';
+import '../../data/report_repository.dart';
+import '../../domain/report_models.dart';
+import '../../../sales/domain/sale.dart';
 
 // Events
 abstract class ReportEvent extends Equatable {

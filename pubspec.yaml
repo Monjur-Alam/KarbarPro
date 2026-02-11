@@ -68,6 +68,7 @@ dependencies:
   share_plus: ^12.0.1
   fl_chart: ^0.70.1
   excel: ^4.0.6
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
@@ -82,6 +83,9 @@ dev_dependencies:
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
+
+dependency_overrides:
+  archive: 3.6.1
 
 # The following section is specific to Flutter packages.
 flutter:

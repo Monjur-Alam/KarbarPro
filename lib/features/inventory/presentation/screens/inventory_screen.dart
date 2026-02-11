@@ -10,7 +10,7 @@ class InventoryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Inventory'),
+        title: const Text('স্টক বা ইনভেন্টরি', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: BlocBuilder<InventoryBloc, InventoryState>(
         builder: (context, state) {

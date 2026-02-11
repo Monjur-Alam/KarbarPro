@@ -133,7 +133,6 @@ class InvoiceService {
     await Share.shareXFiles(
       [XFile(file.path)],
       subject: 'ইনভয়েস: ${sale.invoiceId}',
-      text: 'আপনার বিক্রয় রশিদটি সংযুক্ত করা হলো।',
     );
   }
 }

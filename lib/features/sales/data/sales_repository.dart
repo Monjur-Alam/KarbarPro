@@ -142,6 +142,8 @@ class SalesRepository {
         items: [], // Fetch items lazily if needed
       );
     });
+  }
+
   Future<Sale?> getSaleById(int id) async {
     final db = await _dbHelper.database;
     
@@ -166,11 +168,12 @@ class SalesRepository {
     );
 
     final items = itemMaps.map((m) => SaleItem(
-      productId: m[DatabaseConstants.colProductId].toString(),
+      productId: m[DatabaseConstants.colProductId] as int,
       productName: m[DatabaseConstants.colProductName],
-      quantity: m[DatabaseConstants.colQuantity],
+      quantity: (m[DatabaseConstants.colQuantity] as num).toInt(),
       unitPrice: (m[DatabaseConstants.colUnitPrice] as num).toDouble(),
       purchasePrice: (m[DatabaseConstants.colPurchasePrice] as num).toDouble(),
+      subTotal: (m[DatabaseConstants.colTotalPrice] as num).toDouble(),
     )).toList();
 
     return Sale(
@@ -185,6 +188,8 @@ class SalesRepository {
       saleDate: DateTime.parse(row[DatabaseConstants.colSaleDate] as String),
       items: items,
       notes: row[DatabaseConstants.colNotes] as String?,
+      createdAt: DateTime.parse(row[DatabaseConstants.colCreatedAt] as String),
+      updatedAt: DateTime.parse(row[DatabaseConstants.colUpdatedAt] as String),
     );
   }
 
@@ -202,7 +207,7 @@ class SalesRepository {
           SET ${DatabaseConstants.colCurrentStock} = ${DatabaseConstants.colCurrentStock} + ?,
               ${DatabaseConstants.colIsSynced} = 0
           WHERE ${DatabaseConstants.colId} = ?
-        ''', [item.quantity, int.parse(item.productId)]);
+        ''', [item.quantity, item.productId]);
       }
 
       // 2. Update Customer Balance (if applicable)
