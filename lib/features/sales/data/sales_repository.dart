@@ -1,5 +1,5 @@
-import '../../../../core/constants/database_constants.dart';
-import '../../../../core/database/database_helper.dart';
+import '../../../core/constants/database_constants.dart';
+import '../../../core/database/database_helper.dart';
 import '../domain/sale.dart';
 
 class SalesRepository {

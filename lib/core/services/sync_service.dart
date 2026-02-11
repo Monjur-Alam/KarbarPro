@@ -194,7 +194,7 @@ class SyncService {
       
       // Handle decompression if .gz
       File finalRestoreFile = restoreFile;
-      if (fileId.toLowerCase().endsWith('.gz')) {
+      if (fileId.toLowerCase().contains('.gz') || await _isGzipped(restoreFile)) {
         debugPrint('Decompressing restore file...');
         final compressedBytes = await restoreFile.readAsBytes();
         final decompressedBytes = GZipCodec().decode(compressedBytes);
@@ -212,13 +212,54 @@ class SyncService {
       if (finalRestoreFile != restoreFile && await finalRestoreFile.exists()) {
         await finalRestoreFile.delete();
       }
-      await restoreFile.delete();
+      if (await restoreFile.exists()) await restoreFile.delete();
       
       _setStatus(SyncStatus.success);
     } catch (e) {
       debugPrint('Restore failed: $e');
       _setStatus(SyncStatus.failed);
       rethrow;
+    }
+  }
+
+  Future<bool> _isGzipped(File file) async {
+    final bytes = await file.openRead(0, 2).first;
+    if (bytes.length < 2) return false;
+    return bytes[0] == 0x1F && bytes[1] == 0x8B;
+  }
+
+  /// Checks if the DB has any actual data (products, sales, etc.)
+  Future<bool> isDatabaseEmpty() async {
+    final tables = [
+      DatabaseConstants.tableProducts,
+      DatabaseConstants.tableSales,
+      DatabaseConstants.tableCustomers,
+    ];
+    
+    for (final table in tables) {
+      final records = await _dbHelper.queryAll(table);
+      if (records.isNotEmpty) return false;
+    }
+    return true;
+  }
+
+  /// Automatically find and restore the latest backup if DB is empty
+  Future<void> checkAndRestoreFromDrive() async {
+    if (!await isDatabaseEmpty()) return;
+
+    try {
+      final folderId = await _driveService.getOrCreateBackupFolder();
+      final backups = await _driveService.listBackups(folderId);
+      
+      if (backups.isNotEmpty) {
+        // Find the most recent one (listBackups should return them sorted likely, but let's be safe)
+        // Assume the first one is the newest if listBackups returns by modified time desc.
+        // Let's assume listBackups returns file objects with metadata.
+        final latest = backups.first;
+        await restoreFromDrive(latest.id ?? '');
+      }
+    } catch (e) {
+      debugPrint('Auto-restore failed: $e');
     }
   }
 

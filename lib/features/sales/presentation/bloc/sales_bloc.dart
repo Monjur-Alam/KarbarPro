@@ -5,6 +5,7 @@ import '../../data/sales_repository.dart';
 import '../../domain/sale.dart';
 import 'package:amar_dokan/features/customers/domain/customer.dart';
 import '../../../inventory/domain/product.dart';
+import 'package:amar_dokan/core/services/sync_service.dart';
 
 enum SalesMode { single, multiple }
 enum PaymentType { cash, credit }
@@ -186,9 +187,13 @@ class SalesError extends SalesState {
 // Bloc
 class SalesBloc extends Bloc<SalesEvent, SalesState> {
   final SalesRepository _repository;
+  final SyncService _syncService;
 
-  SalesBloc({required SalesRepository repository})
-      : _repository = repository,
+  SalesBloc({
+    required SalesRepository repository,
+    required SyncService syncService,
+  })  : _repository = repository,
+        _syncService = syncService,
         super(SalesInitial()) {
     on<LoadSalesInitialData>(_onLoadSalesInitialData);
     on<ToggleSalesMode>(_onToggleSalesMode);
@@ -359,6 +364,9 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
         
         final newTodayTotal = await _repository.getTodayTotalSales();
         
+        // Trigger sync
+        _syncService.performSync();
+
         // Return the full sale object for the success dialog
         emit(SalesSuccess(sale));
         

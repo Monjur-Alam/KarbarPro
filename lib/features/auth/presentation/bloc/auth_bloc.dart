@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:amar_dokan/core/services/sync_service.dart';
 import '../../data/auth_repository.dart';
 import '../../domain/auth_user.dart';
 
@@ -40,9 +41,13 @@ class AuthFailure extends AuthState {
 // Bloc
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository _authRepository;
+  final SyncService _syncService;
 
-  AuthBloc({required AuthRepository authRepository})
-      : _authRepository = authRepository,
+  AuthBloc({
+    required AuthRepository authRepository,
+    required SyncService syncService,
+  })  : _authRepository = authRepository,
+        _syncService = syncService,
         super(AuthInitial()) {
     on<AuthCheckRequested>(_onAuthCheckRequested);
     on<AuthLoginRequested>(_onAuthLoginRequested);
@@ -66,6 +71,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           displayName: currentUser.displayName ?? '',
           photoUrl: currentUser.photoUrl,
         )));
+        _syncService.checkAndRestoreFromDrive(); // Check for restore on startup/check
         return;
       }
 
@@ -77,6 +83,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       if (user != null) {
         emit(AuthAuthenticated(user));
+        _syncService.checkAndRestoreFromDrive(); // Check for restore on session restore
       } else {
         emit(AuthUnauthenticated());
       }
@@ -94,6 +101,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final user = await _authRepository.signIn();
       if (user != null) {
         emit(AuthAuthenticated(user));
+        _syncService.checkAndRestoreFromDrive(); // Check for restore on login
       } else {
         emit(AuthUnauthenticated());
       }

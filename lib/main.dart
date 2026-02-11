@@ -102,7 +102,10 @@ class MyApp extends StatelessWidget {
       child: MultiBlocProvider(
         providers: [
           BlocProvider(
-            create: (context) => AuthBloc(authRepository: authRepository)..add(AuthCheckRequested()),
+            create: (context) => AuthBloc(
+              authRepository: authRepository,
+              syncService: syncService,
+            )..add(AuthCheckRequested()),
           ),
           BlocProvider(
             create: (context) => HomeBloc(
@@ -114,10 +117,16 @@ class MyApp extends StatelessWidget {
             create: (context) => CustomerBloc(repository: customerRepository)..add(LoadCustomers()),
           ),
           BlocProvider(
-            create: (context) => SalesBloc(repository: salesRepository)..add(LoadSalesInitialData()),
+            create: (context) => SalesBloc(
+              repository: salesRepository,
+              syncService: syncService,
+            )..add(LoadSalesInitialData()),
           ),
           BlocProvider(
-            create: (context) => InventoryBloc(repository: inventoryRepository)..add(LoadInventory()),
+            create: (context) => InventoryBloc(
+              repository: inventoryRepository,
+              syncService: syncService,
+            )..add(LoadProducts()),
           ),
           BlocProvider(
             create: (context) => ReportBloc(repository: reportRepository),

@@ -11,14 +11,81 @@ import '../../../../core/services/report_export_service.dart';
 import '../../../sales/presentation/screens/sale_detail_screen.dart';
 import '../../../sales/data/sales_repository.dart';
 
-class SalesReportScreen extends StatefulWidget {
+class SalesReportScreen extends StatelessWidget {
   const SalesReportScreen({super.key});
-
   @override
-  State<SalesReportScreen> createState() => _SalesReportScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => ReportBloc(
+        repository: ReportRepository(dbHelper: context.read<DatabaseHelper>()),
+      ),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('বিক্রির রিপোর্ট', style: TextStyle(fontWeight: FontWeight.bold)),
+          actions: [
+            BlocBuilder<ReportBloc, ReportState>(
+              builder: (context, state) {
+                return IconButton(
+                  icon: const Icon(Icons.download_outlined), 
+                  onPressed: state is ReportLoaded ? () => SalesReportView.showExportDialog(context, state) : null,
+                  tooltip: 'এক্সপোর্ট',
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh), 
+              onPressed: () {
+                context.read<ReportBloc>().add(RefreshReports());
+              },
+              tooltip: 'রিফ্রেশ',
+            ),
+          ],
+        ),
+        body: const SalesReportView(),
+      ),
+    );
+  }
 }
 
-class _SalesReportScreenState extends State<SalesReportScreen> with SingleTickerProviderStateMixin {
+class SalesReportView extends StatefulWidget {
+  const SalesReportView({super.key});
+
+  static void showExportDialog(BuildContext context, ReportLoaded state) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('রিপোর্ট এক্সপোর্ট করুন'),
+          content: const Text('আপনি কি এই রিপোর্টটি এক্সপোর্ট করতে চান?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('বাতিল করুন'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            ElevatedButton(
+              child: const Text('এক্সপোর্ট করুন'),
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+                await ReportExportService.exportToPdf(state.reportData, state.sales, state.startDate, state.endDate);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('রিপোর্ট এক্সপোর্ট করা হয়েছে!')),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  State<SalesReportView> createState() => _SalesReportViewState();
+}
+
+class _SalesReportViewState extends State<SalesReportView> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
   DateTime _endDate = DateTime.now();
@@ -27,6 +94,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> with SingleTicker
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    context.read<ReportBloc>().add(LoadReports(startDate: _startDate, endDate: _endDate));
   }
 
   @override
@@ -51,45 +119,17 @@ class _SalesReportScreenState extends State<SalesReportScreen> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => ReportBloc(
-        repository: ReportRepository(dbHelper: context.read<DatabaseHelper>()),
-      )..add(LoadReports(startDate: _startDate, endDate: _endDate)),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('বিক্রির রিপোর্ট', style: TextStyle(fontWeight: FontWeight.bold)),
-          actions: [
-            BlocBuilder<ReportBloc, ReportState>(
-              builder: (context, state) {
-                return IconButton(
-                  icon: const Icon(Icons.download_outlined), 
-                  onPressed: state is ReportLoaded ? () => _showExportDialog(context, state) : null,
-                  tooltip: 'এক্সপোর্ট',
-                );
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.refresh), 
-              onPressed: () {
-                context.read<ReportBloc>().add(RefreshReports());
-              },
-              tooltip: 'রিফ্রেশ',
-            ),
-          ],
-        ),
-        body: BlocBuilder<ReportBloc, ReportState>(
-          builder: (context, state) {
-            if (state is ReportLoading) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (state is ReportLoaded) {
-              return _buildReportContent(context, state);
-            } else if (state is ReportError) {
-              return Center(child: Text(state.message, style: const TextStyle(color: Colors.red)));
-            }
-            return const SizedBox.shrink();
-          },
-        ),
-      ),
+    return BlocBuilder<ReportBloc, ReportState>(
+      builder: (context, state) {
+        if (state is ReportLoading) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (state is ReportLoaded) {
+          return _buildReportContent(context, state);
+        } else if (state is ReportError) {
+          return Center(child: Text(state.message, style: const TextStyle(color: Colors.red)));
+        }
+        return const SizedBox.shrink();
+      },
     );
   }
 
@@ -434,7 +474,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> with SingleTicker
                           const SizedBox(width: 8),
                           Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
                           Text(_formatCurrency(s.revenue), style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ],
+                         ],
                       ),
                     );
                   }).toList(),
@@ -654,39 +694,6 @@ class _SalesReportScreenState extends State<SalesReportScreen> with SingleTicker
     }
   }
 
-  void _showExportDialog(BuildContext context, ReportState state) {
-    if (state is! ReportLoaded) return;
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(20),
-            child: Text('রিপোর্ট এক্সপোর্ট করুন', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ),
-          ListTile(
-            leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
-            title: const Text('PDF হিসেবে সেভ করুন'),
-            onTap: () {
-              Navigator.pop(context);
-              ReportExportService.exportToPdf(state.reportData, state.sales, state.startDate, state.endDate);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.table_chart, color: Colors.green),
-            title: const Text('Excel হিসেবে সেভ করুন'),
-            onTap: () {
-              Navigator.pop(context);
-              ReportExportService.exportToExcel(state.reportData, state.sales, state.startDate, state.endDate);
-            },
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
 
   Future<void> _showDateRangePicker(BuildContext context) async {
     final DateTimeRange? picked = await showDateRangePicker(
@@ -713,7 +720,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> with SingleTicker
         _startDate = picked.start;
         _endDate = picked.end;
       });
-      if (!mounted) return;
+      if (!context.mounted) return;
       context.read<ReportBloc>().add(LoadReports(startDate: picked.start, endDate: picked.end));
     }
   }

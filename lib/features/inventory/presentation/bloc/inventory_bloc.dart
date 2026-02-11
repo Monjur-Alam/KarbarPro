@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import '../../../../core/services/sync_service.dart';
 import '../../data/inventory_repository.dart';
 import '../../domain/product.dart';
 
@@ -55,9 +56,13 @@ class InventoryError extends InventoryState {
 // Bloc
 class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
   final InventoryRepository _repository;
+  final SyncService _syncService;
 
-  InventoryBloc({required InventoryRepository repository})
-      : _repository = repository,
+  InventoryBloc({
+    required InventoryRepository repository,
+    required SyncService syncService,
+  })  : _repository = repository,
+        _syncService = syncService,
         super(InventoryInitial()) {
     on<LoadProducts>(_onLoadProducts);
     on<AddProduct>(_onAddProduct);
@@ -85,6 +90,7 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
     try {
       await _repository.addProduct(event.product);
       add(LoadProducts());
+      _syncService.performSync(); // Trigger sync
     } catch (e) {
       emit(InventoryError(e.toString()));
     }
@@ -97,6 +103,7 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
     try {
       await _repository.updateProduct(event.product);
       add(LoadProducts());
+      _syncService.performSync(); // Trigger sync
     } catch (e) {
       emit(InventoryError(e.toString()));
     }
@@ -109,6 +116,7 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
     try {
       await _repository.deleteProduct(event.id);
       add(LoadProducts());
+      _syncService.performSync(); // Trigger sync
     } catch (e) {
       emit(InventoryError(e.toString()));
     }

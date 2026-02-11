@@ -11,14 +11,59 @@ import 'package:amar_dokan/features/sales/domain/sale.dart';
 import 'package:amar_dokan/core/services/invoice_service.dart';
 import 'package:amar_dokan/core/services/connectivity_service.dart';
 
-class SalesScreen extends StatefulWidget {
+class SalesScreen extends StatelessWidget {
   const SalesScreen({super.key});
 
   @override
-  State<SalesScreen> createState() => _SalesScreenState();
+  Widget build(BuildContext context) {
+    return BlocBuilder<SalesBloc, SalesState>(
+      builder: (context, state) {
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('পণ্য বিক্রয় করুন', style: TextStyle(fontWeight: FontWeight.bold)),
+            actions: [
+              if (state is SalesDataLoaded && state.cart.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.delete_sweep_outlined, color: Colors.red),
+                  onPressed: () => _showClearCartDialog(context),
+                ),
+            ],
+          ),
+          body: const SalesView(),
+        );
+      },
+    );
+  }
+
+  void _showClearCartDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('কার্ট খালি করুন'),
+        content: const Text('আপনি কি নিশ্চিত যে আপনি কার্ট থেকে সব পণ্য মুছে ফেলতে চান?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('না')),
+          TextButton(
+            onPressed: () {
+              context.read<SalesBloc>().add(ClearCart());
+              Navigator.pop(context);
+            },
+            child: const Text('হ্যাঁ', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _SalesScreenState extends State<SalesScreen> {
+class SalesView extends StatefulWidget {
+  const SalesView({super.key});
+
+  @override
+  State<SalesView> createState() => _SalesViewState();
+}
+
+class _SalesViewState extends State<SalesView> {
   final TextEditingController _productSearchController = TextEditingController();
   final TextEditingController _customerSearchController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController(text: '1');
@@ -116,38 +161,27 @@ class _SalesScreenState extends State<SalesScreen> {
       },
       builder: (context, state) {
         if (state is SalesDataLoaded) {
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text('পণ্য বিক্রয় করুন', style: TextStyle(fontWeight: FontWeight.bold)),
-              actions: [
-                if (state.cart.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.delete_sweep_outlined, color: Colors.red),
-                    onPressed: () => _showClearCartDialog(context),
-                  ),
-              ],
-            ),
-            body: Column(
-              children: [
-                _buildConnectivityBanner(),
-                _buildSummaryBar(state.todayTotalSales),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildModeAndPaymentToggles(state),
-                        const SizedBox(height: 16),
-                        if (state.paymentType == PaymentType.credit) ...[
-                          _buildSectionTitle('গ্রাহক নির্বাচন করুন'),
-                          const SizedBox(height: 8),
-                          _buildCustomerSelector(state.selectedCustomer),
-                          const SizedBox(height: 16),
-                        ],
-                        _buildSectionTitle('পণ্য নির্বাচন ও পরিমাণ'),
+          return Column(
+            children: [
+              _buildConnectivityBanner(),
+              _buildSummaryBar(state.todayTotalSales),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildModeAndPaymentToggles(state),
+                      const SizedBox(height: 16),
+                      if (state.paymentType == PaymentType.credit) ...[
+                        _buildSectionTitle('গ্রাহক নির্বাচন করুন'),
                         const SizedBox(height: 8),
-                        _buildProductSelectorAndInputs(state),
+                        _buildCustomerSelector(state.selectedCustomer),
+                        const SizedBox(height: 16),
+                      ],
+                      _buildSectionTitle('পণ্য নির্বাচন ও পরিমাণ'),
+                      const SizedBox(height: 8),
+                      _buildProductSelectorAndInputs(state),
                         const SizedBox(height: 20),
                         if (state.mode == SalesMode.multiple) ...[
                           _buildSectionTitle('কার্ট তালিকা ($_toBengaliDigits(state.cart.length.toString()))'),
@@ -160,9 +194,8 @@ class _SalesScreenState extends State<SalesScreen> {
                 ),
                 _buildCheckoutSection(state),
               ],
-            ),
-          );
-        }
+            );
+          }
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       },
     );
@@ -717,26 +750,6 @@ class _SalesScreenState extends State<SalesScreen> {
     return Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87));
   }
 
-  void _showClearCartDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('কার্ট পরিষ্কার করুন?'),
-        content: const Text('আপনি কি নিশ্চিত যে আপনি কার্টের সব পণ্য মুছে ফেলতে চান?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('না')),
-          TextButton(
-            onPressed: () {
-              HapticFeedback.mediumImpact();
-              context.read<SalesBloc>().add(ClearCart());
-              Navigator.pop(context);
-            },
-            child: const Text('হ্যাঁ', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _showAddCustomerDialog(BuildContext context) {
     final nameCtrl = TextEditingController();

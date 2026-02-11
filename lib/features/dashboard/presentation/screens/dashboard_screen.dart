@@ -8,17 +8,22 @@ import 'package:amar_dokan/features/inventory/presentation/screens/inventory_scr
 import 'package:amar_dokan/features/sales/presentation/screens/sales_screen.dart';
 import 'package:amar_dokan/features/reports/presentation/screens/sales_report_screen.dart';
 import 'package:amar_dokan/features/reports/presentation/screens/expense_screen.dart';
-import 'package:amar_dokan/features/reports/presentation/screens/due_ledger_screen.dart';
+import 'package:amar_dokan/features/auth/presentation/screens/profile_screen.dart';
+import '../../../reports/presentation/screens/due_ledger_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  State<DashboardScreen> createState() => DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
+
+  void setIndex(int index) {
+    setState(() => _selectedIndex = index);
+  }
   Timer? _refreshTimer;
 
   @override
@@ -48,71 +53,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return input;
   }
 
-  String _formatCurrency(double amount) {
-    return _toBengaliDigits(amount.toStringAsFixed(0));
-  }
 
   @override
   Widget build(BuildContext context) {
+    final List<Widget> screens = [
+      const DashboardHome(),
+      const InventoryView(),
+      const SalesView(),
+      const SalesReportView(),
+      const ProfileScreen(),
+    ];
+
+    final List<String> titles = [
+      'আমার দোকান',
+      'স্টক বা ইনভেন্টরি',
+      'পণ্য বিক্রয়',
+      'বিক্রির রিপোর্ট',
+      'প্রোফাইল',
+    ];
+
     return Scaffold(
-      appBar: _buildAppBar(),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          context.read<HomeBloc>().add(LoadDashboard());
-          // Optional: Trigger manual sync if needed
-        },
-        child: BlocBuilder<HomeBloc, HomeState>(
-          builder: (context, state) {
-            if (state is HomeLoading) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (state is HomeLoaded) {
-              return SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSummaryCard(state),
-                    const SizedBox(height: 24),
-                    _buildSectionTitle('কুইক অ্যাকশন'),
-                    const SizedBox(height: 12),
-                    _buildQuickActionsGrid(),
-                    const SizedBox(height: 24),
-                    if (state.summary.lowStockProducts.isNotEmpty) ...[
-                      _buildSectionTitle('সতর্কতা (স্টক কম)'),
-                      const SizedBox(height: 12),
-                      _buildAlertsSection(state.summary.lowStockProducts),
-                      const SizedBox(height: 24),
-                    ],
-                    _buildSectionTitle('সাম্প্রতিক বিক্রি'),
-                    const SizedBox(height: 12),
-                    _buildRecentActivityList(state.summary.recentSales),
-                  ],
-                ),
-              );
-            } else if (state is HomeError) {
-              return Center(child: Text('ত্রুটি: ${state.message}'));
-            }
-            return const SizedBox();
-          },
-        ),
+      appBar: _buildAppBar(titles[_selectedIndex]),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: screens,
       ),
       bottomNavigationBar: _buildBottomNav(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const SalesScreen()));
-        },
-        tooltip: 'নতুন বিক্রয়',
-        child: const Icon(Icons.add_shopping_cart),
-      ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget _buildAppBar(String title) {
     return AppBar(
-      title: const Text(
-        'আমার দোকান',
-        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+      title: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
       ),
       actions: [
         BlocBuilder<HomeBloc, HomeState>(
@@ -173,6 +147,98 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Icon(icon, color: color, size: 20),
           Text(label, style: TextStyle(color: color, fontSize: 10)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBottomNav() {
+    return NavigationBar(
+      selectedIndex: _selectedIndex,
+      onDestinationSelected: (index) {
+        setState(() => _selectedIndex = index);
+      },
+      destinations: const [
+        NavigationDestination(icon: Icon(Icons.home), label: 'হোম'),
+        NavigationDestination(icon: Icon(Icons.list_alt), label: 'তালিকা'),
+        NavigationDestination(icon: Icon(Icons.shopping_cart_outlined), label: 'বিক্রয়'),
+        NavigationDestination(icon: Icon(Icons.bar_chart), label: 'রিপোর্ট'),
+        NavigationDestination(icon: Icon(Icons.person_outline), label: 'প্রোফাইল'),
+      ],
+    );
+  }
+}
+
+class _QuickAction {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  _QuickAction(this.label, this.icon, this.color, this.onTap);
+}
+
+class DashboardHome extends StatelessWidget {
+  const DashboardHome({super.key});
+
+  String _toBengaliDigits(String input) {
+    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+    for (int i = 0; i < english.length; i++) {
+        input = input.replaceAll(english[i], bengali[i]);
+    }
+    return input;
+  }
+
+  String _formatCurrency(double amount) {
+    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+    String input = amount.toStringAsFixed(0);
+    for (int i = 0; i < english.length; i++) {
+        input = input.replaceAll(english[i], bengali[i]);
+    }
+    return input;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: () async {
+        context.read<HomeBloc>().add(LoadDashboard());
+      },
+      child: BlocBuilder<HomeBloc, HomeState>(
+        builder: (context, state) {
+          if (state is HomeLoading) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (state is HomeLoaded) {
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   _buildSummaryCard(state),
+                   const SizedBox(height: 24),
+                   _buildSectionTitle('কুইক অ্যাকশন'),
+                   const SizedBox(height: 12),
+                   _buildQuickActionsGrid(context),
+                   const SizedBox(height: 24),
+                   if (state.summary.lowStockProducts.isNotEmpty) ...[
+                     _buildSectionTitle('সতর্কতা (স্টক কম)'),
+                     const SizedBox(height: 12),
+                     _buildAlertsSection(state.summary.lowStockProducts),
+                     const SizedBox(height: 24),
+                   ],
+                   _buildSectionTitle('সাম্প্রতিক বিক্রি'),
+                   const SizedBox(height: 12),
+                   _buildRecentActivityList(state.summary.recentSales),
+                ],
+              ),
+            );
+          } else if (state is HomeError) {
+            return Center(child: Text('ত্রুটি: ${state.message}'));
+          }
+          return const SizedBox();
+        },
       ),
     );
   }
@@ -239,25 +305,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildQuickActionsGrid() {
-    final actions = [
+  Widget _buildQuickActionsGrid(BuildContext context) {
+     final actions = [
       _QuickAction('পণ্য বিক্রয়', Icons.shopping_cart, Colors.blue, () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => const SalesScreen()));
+        final state = context.findAncestorStateOfType<DashboardScreenState>();
+        state?.setIndex(2);
       }),
       _QuickAction('পণ্যের তালিকা', Icons.inventory, Colors.purple, () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => const InventoryScreen()));
+        final state = context.findAncestorStateOfType<DashboardScreenState>();
+        state?.setIndex(1);
       }),
       _QuickAction('আজকের বিক্রি', Icons.receipt_long, Colors.green, () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => const SalesReportScreen()));
+        final state = context.findAncestorStateOfType<DashboardScreenState>();
+        state?.setIndex(3);
       }),
       _QuickAction('বিক্রির রিপোর্ট', Icons.bar_chart, Colors.orange, () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => const SalesReportScreen()));
+        final state = context.findAncestorStateOfType<DashboardScreenState>();
+        state?.setIndex(3);
       }),
       _QuickAction('দোকানের খরচ', Icons.account_balance_wallet, Colors.red, () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => const ExpenseScreen()));
+        Navigator.push(context, MaterialPageRoute(builder: (context) => ExpenseScreen()));
       }),
       _QuickAction('বাকি খাতা', Icons.menu_book, Colors.purple, () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => const DueLedgerScreen()));
+        Navigator.push(context, MaterialPageRoute(builder: (context) => DueLedgerScreen()));
+      }),
+      _QuickAction('সিঙ্ক ড্রাইভ', Icons.cloud_sync, Colors.teal, () {
+        context.read<SyncService>().performSync(isManual: true);
       }),
     ];
 
@@ -376,33 +449,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }).toList(),
     );
   }
-
-  Widget _buildBottomNav() {
-    return NavigationBar(
-      selectedIndex: _selectedIndex,
-      onDestinationSelected: (index) {
-        if (index == 3) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const SalesReportScreen()));
-          return;
-        }
-        setState(() => _selectedIndex = index);
-      },
-      destinations: const [
-        NavigationDestination(icon: Icon(Icons.home), label: 'হোম'),
-        NavigationDestination(icon: Icon(Icons.list_alt), label: 'তালিকা'),
-        NavigationDestination(icon: Icon(Icons.shopping_cart_outlined), label: 'বিক্রয়'),
-        NavigationDestination(icon: Icon(Icons.bar_chart), label: 'রিপোর্ট'),
-        NavigationDestination(icon: Icon(Icons.person_outline), label: 'প্রোফাইল'),
-      ],
-    );
-  }
-}
-
-class _QuickAction {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  _QuickAction(this.label, this.icon, this.color, this.onTap);
 }

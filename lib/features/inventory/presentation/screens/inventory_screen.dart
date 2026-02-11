@@ -12,53 +12,70 @@ class InventoryScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('স্টক বা ইনভেন্টরি', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
-      body: BlocBuilder<InventoryBloc, InventoryState>(
+      body: const InventoryView(),
+    );
+  }
+}
+
+class InventoryView extends StatelessWidget {
+  const InventoryView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<InventoryBloc, InventoryState>(
         builder: (context, state) {
           if (state is InventoryLoading) {
             return const Center(child: CircularProgressIndicator());
           } else if (state is InventoryLoaded) {
             if (state.products.isEmpty) {
-              return const Center(child: Text('No products found. Add one!'));
+              return const Center(child: Text('পণ্য পাওয়া যায়নি। একটি যোগ করুন!'));
             }
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: state.products.length,
-              itemBuilder: (context, index) {
-                final product = state.products[index];
-                return Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.blue.shade50,
-                      child: Text(product.name[0].toUpperCase()),
-                    ),
-                     title: Text(product.name),
-                     subtitle: Text('Stock: ${product.currentStock} ${product.unit}'),
-                     trailing: Text(
-                       '৳${product.sellingPrice}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
-                        fontSize: 16,
+            return Stack(
+              children: [
+                ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: state.products.length,
+                  itemBuilder: (context, index) {
+                    final product = state.products[index];
+                    return Card(
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.blue.shade50,
+                          child: Text(product.name[0].toUpperCase()),
+                        ),
+                         title: Text(product.name),
+                         subtitle: Text('স্টক: ${product.currentStock} ${product.unit}'),
+                         trailing: Text(
+                           '৳${product.sellingPrice}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                            fontSize: 16,
+                          ),
+                        ),
+                        onTap: () {
+                          _showAddEditProductDialog(context, product: product);
+                        },
                       ),
-                    ),
-                    onTap: () {
-                      _showAddEditProductDialog(context, product: product);
-                    },
+                    );
+                  },
+                ),
+                Positioned(
+                  bottom: 16,
+                  right: 16,
+                  child: FloatingActionButton(
+                    onPressed: () => _showAddEditProductDialog(context),
+                    child: const Icon(Icons.add),
                   ),
-                );
-              },
+                ),
+              ],
             );
           } else if (state is InventoryError) {
-            return Center(child: Text('Error: ${state.message}'));
+            return Center(child: Text('ত্রুটি: ${state.message}'));
           }
           return const SizedBox.shrink();
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddEditProductDialog(context),
-        child: const Icon(Icons.add),
-      ),
-    );
+      );
   }
 
   void _showAddEditProductDialog(BuildContext context, {Product? product}) {

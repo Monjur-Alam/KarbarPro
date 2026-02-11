@@ -152,6 +152,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                 );
                 final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
                 await repo.addExpense(expense);
+                if (!context.mounted) return;
                 _categoryController.clear();
                 _amountController.clear();
                 _descriptionController.clear();
