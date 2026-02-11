@@ -8,6 +8,7 @@ class DashboardSummary {
   final double totalProfitToday;
   final List<Map<String, dynamic>> recentSales;
   final List<Map<String, dynamic>> lowStockProducts;
+  final double mainBalance;
 
   DashboardSummary({
     required this.totalSalesToday,
@@ -15,6 +16,7 @@ class DashboardSummary {
     required this.totalProfitToday,
     required this.recentSales,
     required this.lowStockProducts,
+    required this.mainBalance,
   });
 }
 
@@ -52,12 +54,23 @@ class DashboardRepository {
       where: '${DatabaseConstants.colCurrentStock} <= ${DatabaseConstants.colMinStockAlert} AND ${DatabaseConstants.colIsActive} = 1',
     );
 
+    // 4. Shop Main Balance
+    final balanceResult = await db.rawQuery('''
+      SELECT ${DatabaseConstants.colBalanceAfter} 
+      FROM ${DatabaseConstants.tableShopTransactions} 
+      ORDER BY ${DatabaseConstants.colId} DESC LIMIT 1
+    ''');
+    final mainBalance = (balanceResult.isNotEmpty) 
+        ? (balanceResult.first[DatabaseConstants.colBalanceAfter] as num).toDouble() 
+        : 0.0;
+
     return DashboardSummary(
       totalSalesToday: totalSalesToday,
       totalAmountToday: totalAmountToday,
       totalProfitToday: totalProfitToday,
       recentSales: recentSales,
       lowStockProducts: lowStockResult,
+      mainBalance: mainBalance,
     );
   }
 }

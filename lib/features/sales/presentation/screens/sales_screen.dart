@@ -10,6 +10,8 @@ import 'package:amar_dokan/features/inventory/domain/product.dart';
 import 'package:amar_dokan/features/sales/domain/sale.dart';
 import 'package:amar_dokan/core/services/invoice_service.dart';
 import 'package:amar_dokan/core/services/connectivity_service.dart';
+import 'package:amar_dokan/features/dashboard/presentation/bloc/home_bloc.dart';
+import 'package:amar_dokan/features/reports/presentation/bloc/report_bloc.dart';
 
 class SalesScreen extends StatelessWidget {
   const SalesScreen({super.key});
@@ -116,6 +118,11 @@ class _SalesViewState extends State<SalesView> {
           _paidAmountController.clear();
           _discountController.text = '0';
           _notesController.clear();
+          
+          // Refresh other Blocs for real-time update
+          context.read<InventoryBloc>().add(LoadProducts());
+          context.read<HomeBloc>().add(RefreshDashboard());
+          context.read<ReportBloc>().add(RefreshReports());
         } else if (state is SalesError) {
           HapticFeedback.vibrate();
           ScaffoldMessenger.of(context).showSnackBar(

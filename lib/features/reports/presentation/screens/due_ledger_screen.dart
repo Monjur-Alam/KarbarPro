@@ -1,18 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
 import '../../data/report_repository.dart';
 import '../../domain/due_ledger_model.dart';
 import '../../../../core/database/database_helper.dart';
 
-class DueLedgerScreen extends StatefulWidget {
+class DueLedgerScreen extends StatelessWidget {
   const DueLedgerScreen({super.key});
 
   @override
-  State<DueLedgerScreen> createState() => _DueLedgerScreenState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('বাকি খাতা', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+      body: const DueLedgerView(),
+    );
+  }
 }
 
-class _DueLedgerScreenState extends State<DueLedgerScreen> {
+class DueLedgerView extends StatefulWidget {
+  const DueLedgerView({super.key});
+
+  @override
+  State<DueLedgerView> createState() => _DueLedgerViewState();
+}
+
+class _DueLedgerViewState extends State<DueLedgerView> {
   List<CustomerDue> _dueCustomers = [];
   bool _isLoading = true;
 
@@ -45,29 +60,26 @@ class _DueLedgerScreenState extends State<DueLedgerScreen> {
   Widget build(BuildContext context) {
     double totalDue = _dueCustomers.fold(0, (sum, c) => sum + c.currentCreditBalance);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('বাকি খাতা', style: TextStyle(fontWeight: FontWeight.bold)),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                _buildTotalDueHeader(totalDue),
-                Expanded(
-                  child: _dueCustomers.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _dueCustomers.length,
-                          itemBuilder: (context, index) {
-                            final customer = _dueCustomers[index];
-                            return _buildCustomerDueCard(customer);
-                          },
-                        ),
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Column(
+      children: [
+        _buildTotalDueHeader(totalDue),
+        Expanded(
+          child: _dueCustomers.isEmpty
+              ? _buildEmptyState()
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _dueCustomers.length,
+                  itemBuilder: (context, index) {
+                    final customer = _dueCustomers[index];
+                    return _buildCustomerDueCard(customer);
+                  },
                 ),
-              ],
-            ),
+        ),
+      ],
     );
   }
 
@@ -128,11 +140,190 @@ class _DueLedgerScreenState extends State<DueLedgerScreen> {
             const Text('বাকি', style: TextStyle(fontSize: 10, color: Colors.red)),
           ],
         ),
-        onTap: () {
-          if (customer.phone != null) {
-            _showContactOptions(context, customer);
-          }
-        },
+        onTap: () => _showCustomerMenu(context, customer),
+      ),
+    );
+  }
+
+  void _showCustomerMenu(BuildContext context, CustomerDue customer) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.payments_outlined, color: Colors.green),
+            title: const Text('বকেয়া পরিশোধের হিসাব রাখুন'),
+            subtitle: const Text('কাস্টমারের কাছ থেকে টাকা জমা নিন'),
+            onTap: () {
+              Navigator.pop(context);
+              _showPaymentCollectionDialog(context, customer);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.history, color: Colors.blue),
+            title: const Text('বাকি লেনদেনের ইতিহাস'),
+            subtitle: const Text('আগের সব সেল ও পেমেন্ট রেকর্ড'),
+            onTap: () {
+              Navigator.pop(context);
+              _showTransactionHistorySheet(context, customer);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.call_outlined, color: Colors.orange),
+            title: const Text('যোগাযোগ করুন'),
+            onTap: () {
+              Navigator.pop(context);
+              _showContactOptions(context, customer);
+            },
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  void _showPaymentCollectionDialog(BuildContext context, CustomerDue customer) {
+    final amountController = TextEditingController();
+    final notesController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('টাকা জমা নিন'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('কাস্টমার: ${customer.name}'),
+            const SizedBox(height: 8),
+            Text('বর্তমান বাকি: ৳${_toBengaliDigits(customer.currentCreditBalance.toStringAsFixed(0))}', 
+              style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: amountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'জমা করা টাকার পরিমাণ',
+                prefixText: '৳',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: notesController,
+              decoration: const InputDecoration(
+                labelText: 'নোট (ঐচ্ছিক)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('বাতিল')),
+          ElevatedButton(
+            onPressed: () async {
+              final amount = double.tryParse(amountController.text);
+              if (amount == null || amount <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('সঠিক পরিমাণ লিখুন')));
+                return;
+              }
+              if (amount > customer.currentCreditBalance) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('জমা দেওয়ার পরিমাণ বাকির চেয়ে বেশি হতে পারবে না')));
+                return;
+              }
+
+              final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
+              await repo.recordCustomerPayment(
+                customerId: customer.id,
+                amount: amount,
+                notes: notesController.text,
+              );
+
+              if (!mounted) return;
+              Navigator.pop(context);
+              _loadDueLedger();
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('টাকা জমা নেওয়া সফল হয়েছে')));
+            },
+            child: const Text('নিশ্চিত করুন'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTransactionHistorySheet(BuildContext context, CustomerDue customer) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.9,
+        minChildSize: 0.5,
+        expand: false,
+        builder: (context, scrollController) => FutureBuilder<List<CustomerTransaction>>(
+          future: ReportRepository(dbHelper: context.read<DatabaseHelper>()).getCustomerTransactionHistory(customer.id),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+            final history = snapshot.data!;
+
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text('লেনদেনের ইতিহাস - ${customer.name}', 
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                ),
+                const Divider(),
+                Expanded(
+                  child: history.isEmpty
+                      ? const Center(child: Text('কোনো লেনদেনের ইতিহাস নেই'))
+                      : ListView.separated(
+                          controller: scrollController,
+                          itemCount: history.length,
+                          separatorBuilder: (context, index) => const Divider(),
+                          itemBuilder: (context, index) {
+                            final trans = history[index];
+                            final isSale = trans.transactionType == 'sale';
+                            return ListTile(
+                              title: Text(isSale ? 'পণ্য ক্রয় (বাকি)' : 'টাকা পরিশোধ'),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (trans.description != null) Text(trans.description!, style: const TextStyle(fontSize: 12)),
+                                  Text(DateFormat('dd MMM yyyy, hh:mm a').format(trans.transactionDate), 
+                                    style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                                ],
+                              ),
+                              trailing: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '${isSale ? "+" : "-"} ৳${_toBengaliDigits(trans.amount.toStringAsFixed(0))}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: isSale ? Colors.red : Colors.green,
+                                    ),
+                                  ),
+                                  Text('ব্যালেন্স: ৳${_toBengaliDigits(trans.balanceAfter.toStringAsFixed(0))}', 
+                                    style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

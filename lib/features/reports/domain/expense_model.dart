@@ -42,3 +42,38 @@ class Expense extends Equatable {
   @override
   List<Object?> get props => [id, category, amount, description, expenseDate, paymentMethod];
 }
+
+class ShopTransaction extends Equatable {
+  final int? id;
+  final String transactionType; // 'income' or 'expense'
+  final double amount;
+  final double balanceAfter;
+  final String? category;
+  final String? description;
+  final DateTime transactionDate;
+
+  const ShopTransaction({
+    this.id,
+    required this.transactionType,
+    required this.amount,
+    required this.balanceAfter,
+    this.category,
+    this.description,
+    required this.transactionDate,
+  });
+
+  factory ShopTransaction.fromMap(Map<String, dynamic> map) {
+    return ShopTransaction(
+      id: map['id'] as int?,
+      transactionType: map['transaction_type'] as String,
+      amount: (map['amount'] as num).toDouble(),
+      balanceAfter: (map['balance_after_transaction'] as num).toDouble(),
+      category: map['category'] as String?,
+      description: map['description'] as String?,
+      transactionDate: DateTime.parse(map['transaction_date'] as String),
+    );
+  }
+
+  @override
+  List<Object?> get props => [id, transactionType, amount, balanceAfter, category, description, transactionDate];
+}

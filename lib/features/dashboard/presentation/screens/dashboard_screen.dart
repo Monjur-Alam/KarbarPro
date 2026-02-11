@@ -8,7 +8,8 @@ import 'package:amar_dokan/features/inventory/presentation/screens/inventory_scr
 import 'package:amar_dokan/features/sales/presentation/screens/sales_screen.dart';
 import 'package:amar_dokan/features/reports/presentation/screens/sales_report_screen.dart';
 import 'package:amar_dokan/features/reports/presentation/screens/expense_screen.dart';
-import 'package:amar_dokan/features/auth/presentation/screens/profile_screen.dart';
+
+import '../../../auth/presentation/screens/profile_screen.dart';
 import '../../../reports/presentation/screens/due_ledger_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -44,14 +45,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     super.dispose();
   }
 
-  String _toBengaliDigits(String input) {
-    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-    for (int i = 0; i < english.length; i++) {
-      input = input.replaceAll(english[i], bengali[i]);
-    }
-    return input;
-  }
+
 
 
   @override
@@ -59,19 +53,18 @@ class DashboardScreenState extends State<DashboardScreen> {
     final List<Widget> screens = [
       const DashboardHome(),
       const InventoryView(),
-      const SalesView(),
-      const SalesReportView(),
+      const DueLedgerView(),
+      const ExpenseView(),
       const ProfileScreen(),
     ];
 
     final List<String> titles = [
       'আমার দোকান',
-      'স্টক বা ইনভেন্টরি',
-      'পণ্য বিক্রয়',
-      'বিক্রির রিপোর্ট',
+      'পণ্যের তালিকা',
+      'বাকি খাতা',
+      'খরচপাতি',
       'প্রোফাইল',
     ];
-
     return Scaffold(
       appBar: _buildAppBar(titles[_selectedIndex]),
       body: IndexedStack(
@@ -79,7 +72,37 @@ class DashboardScreenState extends State<DashboardScreen> {
         children: screens,
       ),
       bottomNavigationBar: _buildBottomNav(),
+      floatingActionButton: _selectedIndex == 0 ? FloatingActionButton.extended(
+        onPressed: () => _showSaleBottomSheet(context),
+        label: const Text('বিক্রয় করুন', style: TextStyle(fontWeight: FontWeight.bold)),
+        icon: const Icon(Icons.add_shopping_cart),
+        backgroundColor: Colors.teal,
+      ) : null,
     );
+  }
+
+  void _showSaleBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          child: const SalesView(),
+        ),
+      ),
+    ).then((_) {
+      // Refresh dashboard after returning from sale sheet
+      if (mounted) {
+        context.read<HomeBloc>().add(RefreshDashboard());
+      }
+    });
   }
 
   PreferredSizeWidget _buildAppBar(String title) {
@@ -158,23 +181,34 @@ class DashboardScreenState extends State<DashboardScreen> {
         setState(() => _selectedIndex = index);
       },
       destinations: const [
-        NavigationDestination(icon: Icon(Icons.home), label: 'হোম'),
-        NavigationDestination(icon: Icon(Icons.list_alt), label: 'তালিকা'),
-        NavigationDestination(icon: Icon(Icons.shopping_cart_outlined), label: 'বিক্রয়'),
-        NavigationDestination(icon: Icon(Icons.bar_chart), label: 'রিপোর্ট'),
-        NavigationDestination(icon: Icon(Icons.person_outline), label: 'প্রোফাইল'),
+        NavigationDestination(
+          icon: Icon(Icons.home_outlined), 
+          selectedIcon: Icon(Icons.home),
+          label: 'হোম'
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.inventory_2_outlined), 
+          selectedIcon: Icon(Icons.inventory_2),
+          label: 'তালিকা'
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.menu_book_outlined), 
+          selectedIcon: Icon(Icons.menu_book),
+          label: 'বাকি খাতা'
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.account_balance_wallet_outlined), 
+          selectedIcon: Icon(Icons.account_balance_wallet),
+          label: 'খরচ'
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.person_outline), 
+          selectedIcon: Icon(Icons.person),
+          label: 'প্রোফাইল'
+        ),
       ],
     );
   }
-}
-
-class _QuickAction {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  _QuickAction(this.label, this.icon, this.color, this.onTap);
 }
 
 class DashboardHome extends StatelessWidget {
@@ -218,9 +252,9 @@ class DashboardHome extends StatelessWidget {
                 children: [
                    _buildSummaryCard(state),
                    const SizedBox(height: 24),
-                   _buildSectionTitle('কুইক অ্যাকশন'),
+                   _buildSectionTitle('সাম্প্রতিক বিক্রি'),
                    const SizedBox(height: 12),
-                   _buildQuickActionsGrid(context),
+                   _buildRecentActivityList(state.summary.recentSales),
                    const SizedBox(height: 24),
                    if (state.summary.lowStockProducts.isNotEmpty) ...[
                      _buildSectionTitle('সতর্কতা (স্টক কম)'),
@@ -228,9 +262,6 @@ class DashboardHome extends StatelessWidget {
                      _buildAlertsSection(state.summary.lowStockProducts),
                      const SizedBox(height: 24),
                    ],
-                   _buildSectionTitle('সাম্প্রতিক বিক্রি'),
-                   const SizedBox(height: 12),
-                   _buildRecentActivityList(state.summary.recentSales),
                 ],
               ),
             );
@@ -276,6 +307,17 @@ class DashboardHome extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('দোকানের মেইন ব্যালেন্স', style: TextStyle(color: Colors.white70, fontSize: 14)),
+              Text('৳${_formatCurrency(state.summary.mainBalance)}', 
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(color: Colors.white24, height: 1),
+          const SizedBox(height: 12),
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildSummaryItem('মোট বিক্রি (আজ)', _toBengaliDigits(state.summary.totalSalesToday.toString())),
@@ -287,6 +329,7 @@ class DashboardHome extends StatelessWidget {
       ),
     );
   }
+
 
   Widget _buildSummaryItem(String label, String value) {
     return Column(
@@ -305,79 +348,6 @@ class DashboardHome extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickActionsGrid(BuildContext context) {
-     final actions = [
-      _QuickAction('পণ্য বিক্রয়', Icons.shopping_cart, Colors.blue, () {
-        final state = context.findAncestorStateOfType<DashboardScreenState>();
-        state?.setIndex(2);
-      }),
-      _QuickAction('পণ্যের তালিকা', Icons.inventory, Colors.purple, () {
-        final state = context.findAncestorStateOfType<DashboardScreenState>();
-        state?.setIndex(1);
-      }),
-      _QuickAction('আজকের বিক্রি', Icons.receipt_long, Colors.green, () {
-        final state = context.findAncestorStateOfType<DashboardScreenState>();
-        state?.setIndex(3);
-      }),
-      _QuickAction('বিক্রির রিপোর্ট', Icons.bar_chart, Colors.orange, () {
-        final state = context.findAncestorStateOfType<DashboardScreenState>();
-        state?.setIndex(3);
-      }),
-      _QuickAction('দোকানের খরচ', Icons.account_balance_wallet, Colors.red, () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => ExpenseScreen()));
-      }),
-      _QuickAction('বাকি খাতা', Icons.menu_book, Colors.purple, () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => DueLedgerScreen()));
-      }),
-      _QuickAction('সিঙ্ক ড্রাইভ', Icons.cloud_sync, Colors.teal, () {
-        context.read<SyncService>().performSync(isManual: true);
-      }),
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.9,
-      ),
-      itemCount: actions.length,
-      itemBuilder: (context, index) {
-        final action = actions[index];
-        return InkWell(
-          onTap: action.onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withValues(alpha: 0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(action.icon, color: action.color, size: 30),
-                const SizedBox(height: 8),
-                Text(
-                  action.label,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   Widget _buildAlertsSection(List<Map<String, dynamic>> lowStock) {
     return SizedBox(

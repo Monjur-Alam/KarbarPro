@@ -1,3 +1,4 @@
+import 'package:sqflite/sqflite.dart';
 import '../../../core/database/database_helper.dart';
 import '../../../core/constants/database_constants.dart';
 import '../domain/report_models.dart';
@@ -203,19 +204,80 @@ class ReportRepository {
   }
 
   Future<int> addExpense(Expense expense) async {
+    return await addShopTransaction(
+      type: 'expense',
+      amount: expense.amount,
+      category: expense.category,
+      description: expense.description,
+      date: expense.expenseDate,
+    );
+  }
+
+  // --- Shop Balance & Transactions ---
+  Future<int> addShopTransaction({
+    required String type, // 'income' or 'expense'
+    required double amount,
+    String? category,
+    String? description,
+    DateTime? date,
+  }) async {
     final db = await _dbHelper.database;
-    return await db.insert(DatabaseConstants.tableExpenses, {
-      DatabaseConstants.colCategory: expense.category,
-      DatabaseConstants.colAmount: expense.amount,
-      DatabaseConstants.colDescription: expense.description,
-      DatabaseConstants.colExpenseDate: expense.expenseDate.toIso8601String(),
-      DatabaseConstants.colPaymentMethod: expense.paymentMethod,
-      DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
-      DatabaseConstants.colIsSynced: 0,
+    final transactionDate = date ?? DateTime.now();
+
+    return await db.transaction((txn) async {
+      // Get current balance
+      final result = await txn.rawQuery('''
+        SELECT ${DatabaseConstants.colBalanceAfter} 
+        FROM ${DatabaseConstants.tableShopTransactions} 
+        ORDER BY ${DatabaseConstants.colId} DESC LIMIT 1
+      ''');
+      
+      double currentBalance = 0;
+      if (result.isNotEmpty) {
+        currentBalance = (result.first[DatabaseConstants.colBalanceAfter] as num).toDouble();
+      }
+
+      double newBalance = type == 'income' 
+          ? currentBalance + amount 
+          : currentBalance - amount;
+
+      return await txn.insert(DatabaseConstants.tableShopTransactions, {
+        DatabaseConstants.colTransactionType: type,
+        DatabaseConstants.colAmount: amount,
+        DatabaseConstants.colBalanceAfter: newBalance,
+        DatabaseConstants.colCategory: category,
+        DatabaseConstants.colDescription: description,
+        DatabaseConstants.colTransactionDate: transactionDate.toIso8601String(),
+        DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
+        DatabaseConstants.colIsSynced: 0,
+      });
     });
   }
 
-  // --- Due Ledger ---
+  Future<double> getShopMainBalance() async {
+    final db = await _dbHelper.database;
+    final result = await db.rawQuery('''
+      SELECT ${DatabaseConstants.colBalanceAfter} 
+      FROM ${DatabaseConstants.tableShopTransactions} 
+      ORDER BY ${DatabaseConstants.colId} DESC LIMIT 1
+    ''');
+    
+    if (result.isEmpty) return 0.0;
+    return (result.first[DatabaseConstants.colBalanceAfter] as num).toDouble();
+  }
+
+  Future<List<ShopTransaction>> getShopTransactions(DateTime start, DateTime end) async {
+    final db = await _dbHelper.database;
+    final result = await db.query(
+      DatabaseConstants.tableShopTransactions,
+      where: '${DatabaseConstants.colTransactionDate} BETWEEN ? AND ?',
+      whereArgs: [start.toIso8601String(), end.toIso8601String()],
+      orderBy: '${DatabaseConstants.colTransactionDate} DESC',
+    );
+    return result.map((m) => ShopTransaction.fromMap(m)).toList();
+  }
+
+  // --- Due Ledger & Customer Payments ---
   Future<List<CustomerDue>> getDueCustomers() async {
     final db = await _dbHelper.database;
     final result = await db.query(
@@ -224,5 +286,115 @@ class ReportRepository {
       orderBy: '${DatabaseConstants.colCurrentCreditBalance} DESC',
     );
     return result.map((m) => CustomerDue.fromMap(m)).toList();
+  }
+
+  Future<void> recordCustomerPayment({
+    required int customerId,
+    required double amount,
+    String? notes,
+    DateTime? date,
+  }) async {
+    final db = await _dbHelper.database;
+    final paymentDate = date ?? DateTime.now();
+
+    await db.transaction((txn) async {
+      // 1. Update Customer Balance
+      await txn.execute('''
+        UPDATE ${DatabaseConstants.tableCustomers} 
+        SET ${DatabaseConstants.colCurrentCreditBalance} = ${DatabaseConstants.colCurrentCreditBalance} - ?,
+            ${DatabaseConstants.colUpdatedAt} = ?,
+            ${DatabaseConstants.colIsSynced} = 0
+        WHERE ${DatabaseConstants.colId} = ?
+      ''', [amount, DateTime.now().toIso8601String(), customerId]);
+
+      // Get new balance for history
+      final customerResult = await txn.query(
+        DatabaseConstants.tableCustomers,
+        columns: [DatabaseConstants.colCurrentCreditBalance],
+        where: '${DatabaseConstants.colId} = ?',
+        whereArgs: [customerId],
+      );
+      final newBalance = (customerResult.first[DatabaseConstants.colCurrentCreditBalance] as num).toDouble();
+
+      // 2. Log in credit_payments (legacy support/detailed tracking)
+      await txn.insert(DatabaseConstants.tableCreditPayments, {
+        DatabaseConstants.colCustomerId: customerId,
+        DatabaseConstants.colAmount: amount,
+        DatabaseConstants.colPaymentMethod: 'Cash',
+        DatabaseConstants.colPaymentDate: paymentDate.toIso8601String(),
+        DatabaseConstants.colNotes: notes,
+        DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
+        DatabaseConstants.colIsSynced: 0,
+      });
+
+      // 3. Log in customer_transactions (Ledger History)
+      await txn.insert(DatabaseConstants.tableCustomerTransactions, {
+        DatabaseConstants.colCustomerId: customerId,
+        DatabaseConstants.colTransactionType: 'payment',
+        DatabaseConstants.colAmount: amount,
+        DatabaseConstants.colBalanceAfter: newBalance,
+        DatabaseConstants.colDescription: notes ?? 'হালখাতা/বকেয়া পরিশোধ',
+        DatabaseConstants.colTransactionDate: paymentDate.toIso8601String(),
+        DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
+        DatabaseConstants.colIsSynced: 0,
+      });
+      
+      // 4. Optionally add to Shop Main Balance as Income
+      await _addShopTransactionTxn(txn, 
+        type: 'income', 
+        amount: amount, 
+        category: 'বকেয়া সংগ্রহ', 
+        description: 'Customer Payment (ID: $customerId)', 
+        date: paymentDate
+      );
+    });
+  }
+
+  Future<List<CustomerTransaction>> getCustomerTransactionHistory(int customerId) async {
+    final db = await _dbHelper.database;
+    final result = await db.query(
+      DatabaseConstants.tableCustomerTransactions,
+      where: '${DatabaseConstants.colCustomerId} = ?',
+      whereArgs: [customerId],
+      orderBy: '${DatabaseConstants.colTransactionDate} DESC',
+    );
+    return result.map((m) => CustomerTransaction.fromMap(m)).toList();
+  }
+
+  // Helper for adding shop transaction within existing transaction
+  Future<void> _addShopTransactionTxn(Transaction txn, {
+    required String type,
+    required double amount,
+    String? category,
+    String? description,
+    DateTime? date,
+  }) async {
+    final transactionDate = date ?? DateTime.now();
+    
+    final result = await txn.rawQuery('''
+      SELECT ${DatabaseConstants.colBalanceAfter} 
+      FROM ${DatabaseConstants.tableShopTransactions} 
+      ORDER BY ${DatabaseConstants.colId} DESC LIMIT 1
+    ''');
+    
+    double currentBalance = 0;
+    if (result.isNotEmpty) {
+      currentBalance = (result.first[DatabaseConstants.colBalanceAfter] as num).toDouble();
+    }
+
+    double newBalance = type == 'income' 
+        ? currentBalance + amount 
+        : currentBalance - amount;
+
+    await txn.insert(DatabaseConstants.tableShopTransactions, {
+      DatabaseConstants.colTransactionType: type,
+      DatabaseConstants.colAmount: amount,
+      DatabaseConstants.colBalanceAfter: newBalance,
+      DatabaseConstants.colCategory: category,
+      DatabaseConstants.colDescription: description,
+      DatabaseConstants.colTransactionDate: transactionDate.toIso8601String(),
+      DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
+      DatabaseConstants.colIsSynced: 0,
+    });
   }
 }

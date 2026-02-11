@@ -88,6 +88,28 @@ class SalesRepository {
             DatabaseConstants.colIsSynced: 0,
           });
         }
+
+        // Log the transaction in Customer Transactions (Ledger History)
+        final customerResult = await txn.query(
+          DatabaseConstants.tableCustomers,
+          columns: [DatabaseConstants.colCurrentCreditBalance],
+          where: '${DatabaseConstants.colId} = ?',
+          whereArgs: [sale.customerId],
+        );
+        final currentBalance = (customerResult.first[DatabaseConstants.colCurrentCreditBalance] as num).toDouble();
+
+        String productDetails = sale.items.map((i) => '${i.productName} (${i.quantity})').join(', ');
+        
+        await txn.insert(DatabaseConstants.tableCustomerTransactions, {
+          DatabaseConstants.colCustomerId: sale.customerId,
+          DatabaseConstants.colTransactionType: 'sale',
+          DatabaseConstants.colAmount: dueAmount, // Amount added to debt
+          DatabaseConstants.colBalanceAfter: currentBalance,
+          DatabaseConstants.colDescription: 'Invoice: ${sale.invoiceId}\nProducts: $productDetails',
+          DatabaseConstants.colTransactionDate: sale.saleDate.toIso8601String(),
+          DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
+          DatabaseConstants.colIsSynced: 0,
+        });
       }
     });
   }

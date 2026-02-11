@@ -22,12 +22,19 @@ class DatabaseHelper {
       path,
       version: DatabaseConstants.databaseVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
       onConfigure: _onConfigure,
     );
   }
 
   Future _onConfigure(Database db) async {
     await db.execute('PRAGMA foreign_keys = ON');
+  }
+
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await _createTransactionTables(db);
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -222,6 +229,47 @@ class DatabaseHelper {
       DatabaseConstants.colValue: 'Bengali',
       DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String()
     });
+
+    await _createTransactionTables(db);
+  }
+
+  Future<void> _createTransactionTables(Database db) async {
+    // 10. Customer Transactions Table (Ledger History)
+    await db.execute('''
+      CREATE TABLE ${DatabaseConstants.tableCustomerTransactions} (
+        ${DatabaseConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DatabaseConstants.colCustomerId} INTEGER NOT NULL,
+        ${DatabaseConstants.colTransactionType} TEXT NOT NULL,
+        ${DatabaseConstants.colAmount} REAL NOT NULL,
+        ${DatabaseConstants.colBalanceAfter} REAL NOT NULL,
+        ${DatabaseConstants.colDescription} TEXT,
+        ${DatabaseConstants.colTransactionDate} TEXT NOT NULL,
+        ${DatabaseConstants.colCreatedAt} TEXT,
+        ${DatabaseConstants.colSyncedAt} TEXT,
+        ${DatabaseConstants.colIsSynced} INTEGER DEFAULT 0,
+        FOREIGN KEY (${DatabaseConstants.colCustomerId}) REFERENCES ${DatabaseConstants.tableCustomers} (${DatabaseConstants.colId}) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_customer_trans_cust ON ${DatabaseConstants.tableCustomerTransactions} (${DatabaseConstants.colCustomerId})');
+    await db.execute('CREATE INDEX idx_customer_trans_date ON ${DatabaseConstants.tableCustomerTransactions} (${DatabaseConstants.colTransactionDate})');
+
+    // 11. Shop Transactions Table (Main Balance History)
+    await db.execute('''
+      CREATE TABLE ${DatabaseConstants.tableShopTransactions} (
+        ${DatabaseConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DatabaseConstants.colTransactionType} TEXT NOT NULL,
+        ${DatabaseConstants.colAmount} REAL NOT NULL,
+        ${DatabaseConstants.colBalanceAfter} REAL NOT NULL,
+        ${DatabaseConstants.colCategory} TEXT,
+        ${DatabaseConstants.colDescription} TEXT,
+        ${DatabaseConstants.colTransactionDate} TEXT NOT NULL,
+        ${DatabaseConstants.colCreatedAt} TEXT,
+        ${DatabaseConstants.colSyncedAt} TEXT,
+        ${DatabaseConstants.colIsSynced} INTEGER DEFAULT 0
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_shop_trans_date ON ${DatabaseConstants.tableShopTransactions} (${DatabaseConstants.colTransactionDate})');
+    await db.execute('CREATE INDEX idx_shop_trans_type ON ${DatabaseConstants.tableShopTransactions} (${DatabaseConstants.colTransactionType})');
   }
 
   // Generic CRUD Operations
