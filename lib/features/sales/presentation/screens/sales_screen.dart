@@ -16,43 +16,7 @@ class SalesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<SalesBloc, SalesState>(
-      builder: (context, state) {
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('পণ্য বিক্রয় করুন', style: TextStyle(fontWeight: FontWeight.bold)),
-            actions: [
-              if (state is SalesDataLoaded && state.cart.isNotEmpty)
-                IconButton(
-                  icon: const Icon(Icons.delete_sweep_outlined, color: Colors.red),
-                  onPressed: () => _showClearCartDialog(context),
-                ),
-            ],
-          ),
-          body: const SalesView(),
-        );
-      },
-    );
-  }
-
-  void _showClearCartDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('কার্ট খালি করুন'),
-        content: const Text('আপনি কি নিশ্চিত যে আপনি কার্ট থেকে সব পণ্য মুছে ফেলতে চান?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('না')),
-          TextButton(
-            onPressed: () {
-              context.read<SalesBloc>().add(ClearCart());
-              Navigator.pop(context);
-            },
-            child: const Text('হ্যাঁ', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
+    return const SalesView();
   }
 }
 
@@ -160,44 +124,101 @@ class _SalesViewState extends State<SalesView> {
         }
       },
       builder: (context, state) {
-        if (state is SalesDataLoaded) {
-          return Column(
-            children: [
-              _buildConnectivityBanner(),
-              _buildSummaryBar(state.todayTotalSales),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildModeAndPaymentToggles(state),
-                      const SizedBox(height: 16),
-                      if (state.paymentType == PaymentType.credit) ...[
-                        _buildSectionTitle('গ্রাহক নির্বাচন করুন'),
-                        const SizedBox(height: 8),
-                        _buildCustomerSelector(state.selectedCustomer),
-                        const SizedBox(height: 16),
-                      ],
-                      _buildSectionTitle('পণ্য নির্বাচন ও পরিমাণ'),
-                      const SizedBox(height: 8),
-                      _buildProductSelectorAndInputs(state),
-                        const SizedBox(height: 20),
-                        if (state.mode == SalesMode.multiple) ...[
-                          _buildSectionTitle('কার্ট তালিকা ($_toBengaliDigits(state.cart.length.toString()))'),
-                          const SizedBox(height: 8),
-                          _buildCartList(state.cart),
-                        ],
-                      ],
-                    ),
-                  ),
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('পণ্য বিক্রয় করুন', style: TextStyle(fontWeight: FontWeight.bold)),
+            actions: [
+              if (state is SalesDataLoaded && state.cart.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.delete_sweep_outlined, color: Colors.red),
+                  onPressed: () => _showClearCartDialog(context),
                 ),
-                _buildCheckoutSection(state),
-              ],
-            );
-          }
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+            ],
+          ),
+          body: _buildBody(state),
+        );
       },
+    );
+  }
+
+  Widget _buildBody(SalesState state) {
+    if (state is SalesLoading || state is SalesInitial) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
+    if (state is SalesError && state.message.contains('লোড')) {
+       return Center(
+         child: Column(
+           mainAxisAlignment: MainAxisAlignment.center,
+           children: [
+             Text(state.message),
+             const SizedBox(height: 16),
+             ElevatedButton(
+               onPressed: () => context.read<SalesBloc>().add(LoadSalesInitialData()),
+               child: const Text('পুনরায় চেষ্টা করুন'),
+             ),
+           ],
+         ),
+       );
+    }
+
+    if (state is SalesDataLoaded) {
+      return Column(
+        children: [
+          _buildConnectivityBanner(),
+          _buildSummaryBar(state.todayTotalSales),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildModeAndPaymentToggles(state),
+                  const SizedBox(height: 16),
+                  if (state.paymentType == PaymentType.credit) ...[
+                    _buildSectionTitle('গ্রাহক নির্বাচন করুন'),
+                    const SizedBox(height: 8),
+                    _buildCustomerSelector(state.selectedCustomer),
+                    const SizedBox(height: 16),
+                  ],
+                  _buildSectionTitle('পণ্য নির্বাচন ও পরিমাণ'),
+                  const SizedBox(height: 8),
+                  _buildProductSelectorAndInputs(state),
+                  const SizedBox(height: 20),
+                  if (state.mode == SalesMode.multiple) ...[
+                    _buildSectionTitle('কার্ট তালিকা (${_toBengaliDigits(state.cart.length.toString())})'),
+                    const SizedBox(height: 8),
+                    _buildCartList(state.cart),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          _buildCheckoutSection(state),
+        ],
+      );
+    }
+    
+    return const Center(child: Text('বিক্রয় ডাটা লোড করা যাচ্ছে না'));
+  }
+
+  void _showClearCartDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('কার্ট খালি করুন'),
+        content: const Text('আপনি কি নিশ্চিত যে আপনি কার্ট থেকে সব পণ্য মুছে ফেলতে চান?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('না')),
+          TextButton(
+            onPressed: () {
+              context.read<SalesBloc>().add(ClearCart());
+              Navigator.pop(context);
+            },
+            child: const Text('হ্যাঁ', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -340,43 +361,69 @@ class _SalesViewState extends State<SalesView> {
         List<Customer> customers = [];
         if (state is CustomerLoaded) customers = state.customers;
 
-        return Autocomplete<Customer>(
-          displayStringForOption: (c) => '${c.name} (${c.phone})',
-          optionsBuilder: (TextEditingValue textEditingValue) {
-            if (textEditingValue.text.isEmpty) return const Iterable<Customer>.empty();
-            return customers.where((c) => 
-              c.name.toLowerCase().contains(textEditingValue.text.toLowerCase()) || 
-              c.phone.contains(textEditingValue.text)
+        final displayValue = selectedCustomer != null 
+            ? '${selectedCustomer.name} (${selectedCustomer.phone})' 
+            : 'গ্রাহক নির্বাচন করুন...';
+
+        return InkWell(
+          onTap: () {
+            _showSearchablePicker<Customer>(
+              title: 'গ্রাহক নির্বাচন করুন',
+              items: customers,
+              itemLabel: (c) => c.name,
+              itemSublabel: (c) => c.phone,
+              onSelected: (Customer customer) {
+                HapticFeedback.selectionClick();
+                context.read<SalesBloc>().add(SelectCustomer(customer));
+                _productFocusNode.requestFocus();
+              },
+              hintText: 'গ্রাহক খুঁজুন...',
             );
           },
-          onSelected: (Customer customer) {
-            HapticFeedback.selectionClick();
-            context.read<SalesBloc>().add(SelectCustomer(customer));
-            _productFocusNode.requestFocus();
-          },
-          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-            if (selectedCustomer != null && controller.text.isEmpty) {
-              controller.text = '${selectedCustomer.name} (${selectedCustomer.phone})';
-            }
-            return TextField(
-              controller: controller,
-              focusNode: focusNode.hasFocus ? focusNode : _customerFocusNode,
-              decoration: InputDecoration(
-                hintText: 'গ্রাহক খুঁজুন...',
-                prefixIcon: const Icon(Icons.person_search),
-                suffixIcon: selectedCustomer != null 
-                  ? IconButton(
-                      icon: const Icon(Icons.clear), 
-                      onPressed: () {
-                        controller.clear();
-                        context.read<SalesBloc>().add(const SelectCustomer(null));
-                      }
-                    ) 
-                  : IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => _showAddCustomerDialog(context)),
-                border: const OutlineInputBorder(),
-              ),
-            );
-          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade400),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.person_outline, color: Colors.grey),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    displayValue,
+                    style: TextStyle(
+                      color: selectedCustomer != null ? Colors.black : Colors.grey.shade600,
+                    ),
+                  ),
+                ),
+                if (selectedCustomer != null)
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () {
+                       context.read<SalesBloc>().add(const SelectCustomer(null));
+                    },
+                  )
+                else
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline, color: Colors.blue, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => _showAddCustomerDialog(context),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                    ],
+                  ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -388,27 +435,45 @@ class _SalesViewState extends State<SalesView> {
         BlocBuilder<InventoryBloc, InventoryState>(
           builder: (context, invState) {
             List<Product> products = [];
-            if (invState is InventoryLoaded) products = invState.products;
+            if (invState is InventoryLoaded) {
+              products = invState.products.where((p) => p.currentStock > 0).toList();
+            }
 
-            return Autocomplete<Product>(
-              displayStringForOption: (p) => p.name,
-              optionsBuilder: (TextEditingValue textEditingValue) {
-                if (textEditingValue.text.isEmpty) return const Iterable<Product>.empty();
-                return products.where((p) => p.name.toLowerCase().contains(textEditingValue.text.toLowerCase()) && p.currentStock > 0);
-              },
-              onSelected: _onProductSelected,
-              fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                return TextField(
-                  controller: controller,
-                  focusNode: focusNode.hasFocus ? focusNode : _productFocusNode,
-                  decoration: const InputDecoration(
-                    hintText: 'পণ্য খুঁজুন...',
-                    prefixIcon: Icon(Icons.search),
-                    suffixIcon: Icon(Icons.qr_code_scanner),
-                    border: OutlineInputBorder(),
-                  ),
+            return InkWell(
+              onTap: () {
+                _showSearchablePicker<Product>(
+                  title: 'পণ্য নির্বাচন করুন',
+                  items: products,
+                  itemLabel: (p) => p.name,
+                  itemSublabel: (p) => 'স্টক: ${_toBengaliDigits(p.currentStock.toString())} ${p.unit}',
+                  onSelected: _onProductSelected,
+                  hintText: 'পণ্য খুঁজুন...',
                 );
               },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade400),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search, color: Colors.grey),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _selectedProduct != null 
+                            ? _selectedProduct!.name 
+                            : 'পণ্য নির্বাচন করুন...',
+                        style: TextStyle(
+                          color: _selectedProduct != null ? Colors.black : Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                  ],
+                ),
+              ),
             );
           },
         ),
@@ -427,35 +492,45 @@ class _SalesViewState extends State<SalesView> {
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.remove_circle_outline),
-                      onPressed: () {
-                        HapticFeedback.lightImpact();
-                        int q = int.tryParse(_quantityController.text) ?? 1;
-                        if (q > 1) _quantityController.text = (q - 1).toString();
-                      },
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _quantityController,
-                        textAlign: TextAlign.center,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'পরিমাণ', border: OutlineInputBorder()),
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove, color: Colors.blue),
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          int q = int.tryParse(_quantityController.text) ?? 1;
+                          if (q > 1) _quantityController.text = (q - 1).toString();
+                        },
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
-                      onPressed: () {
-                        HapticFeedback.lightImpact();
-                        int q = int.tryParse(_quantityController.text) ?? 1;
-                        if (q < _selectedProduct!.currentStock) {
-                          _quantityController.text = (q + 1).toString();
-                        }
-                      },
-                    ),
-                  ],
+                      Expanded(
+                        child: TextField(
+                          controller: _quantityController,
+                          textAlign: TextAlign.center,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add, color: Colors.blue),
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          int q = int.tryParse(_quantityController.text) ?? 1;
+                          if (q < _selectedProduct!.currentStock) {
+                            _quantityController.text = (q + 1).toString();
+                          }
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -545,25 +620,33 @@ class _SalesViewState extends State<SalesView> {
               '${_toBengaliDigits(item.quantity.toString())} x ৳${_toBengaliDigits(item.product.sellingPrice.toStringAsFixed(0))}',
               style: const TextStyle(color: Colors.blueGrey),
             ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '৳${_toBengaliDigits(item.subTotal.toStringAsFixed(0))}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(width: 8),
-                _buildQtyAction(Icons.remove, () {
-                  HapticFeedback.lightImpact();
-                  context.read<SalesBloc>().add(UpdateCartQuantity(item.product.id!, item.quantity - 1));
-                }),
-                _buildQtyAction(Icons.add, () {
-                  HapticFeedback.lightImpact();
-                  if (item.quantity < item.product.currentStock) {
-                    context.read<SalesBloc>().add(UpdateCartQuantity(item.product.id!, item.quantity + 1));
-                  }
-                }),
-              ],
+            trailing: Container(
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildQtyAction(Icons.remove, () {
+                    HapticFeedback.lightImpact();
+                    context.read<SalesBloc>().add(UpdateCartQuantity(item.product.id!, item.quantity - 1));
+                  }),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      _toBengaliDigits(item.quantity.toString()),
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                    ),
+                  ),
+                  _buildQtyAction(Icons.add, () {
+                    HapticFeedback.lightImpact();
+                    if (item.quantity < item.product.currentStock) {
+                      context.read<SalesBloc>().add(UpdateCartQuantity(item.product.id!, item.quantity + 1));
+                    }
+                  }),
+                ],
+              ),
             ),
           ),
         );
@@ -572,15 +655,13 @@ class _SalesViewState extends State<SalesView> {
   }
 
   Widget _buildQtyAction(IconData icon, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
-          child: Icon(icon, size: 18, color: Colors.blueGrey),
-        ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: const BoxDecoration(shape: BoxShape.circle),
+        child: Icon(icon, size: 18, color: Colors.blue),
       ),
     );
   }
@@ -776,6 +857,128 @@ class _SalesViewState extends State<SalesView> {
               }
             },
             child: const Text('সংরক্ষণ করুন'),
+          ),
+        ],
+      ),
+    );
+  }
+  void _showSearchablePicker<T>({
+    required String title,
+    required List<T> items,
+    required String Function(T) itemLabel,
+    required String Function(T) itemSublabel,
+    required void Function(T) onSelected,
+    String? hintText,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _SearchablePicker<T>(
+        title: title,
+        items: items,
+        itemLabel: itemLabel,
+        itemSublabel: itemSublabel,
+        onSelected: onSelected,
+        hintText: hintText,
+      ),
+    );
+  }
+}
+
+class _SearchablePicker<T> extends StatefulWidget {
+  final String title;
+  final List<T> items;
+  final String Function(T) itemLabel;
+  final String Function(T) itemSublabel;
+  final void Function(T) onSelected;
+  final String? hintText;
+
+  const _SearchablePicker({
+    required this.title,
+    required this.items,
+    required this.itemLabel,
+    required this.itemSublabel,
+    required this.onSelected,
+    this.hintText,
+  });
+
+  @override
+  State<_SearchablePicker<T>> createState() => _SearchablePickerState<T>();
+}
+
+class _SearchablePickerState<T> extends State<_SearchablePicker<T>> {
+  late List<T> _filteredItems;
+  final TextEditingController _searchCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredItems = widget.items;
+  }
+
+  void _filter(String query) {
+    setState(() {
+      _filteredItems = widget.items
+          .where((item) =>
+              widget.itemLabel(item).toLowerCase().contains(query.toLowerCase()) ||
+              widget.itemSublabel(item).toLowerCase().contains(query.toLowerCase()))
+          .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.7,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(widget.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: InputDecoration(
+                hintText: widget.hintText ?? 'খুঁজুন...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onChanged: _filter,
+            ),
+          ),
+          Expanded(
+            child: _filteredItems.isEmpty 
+              ? const Center(child: Text('কোনো তথ্য পাওয়া যায়নি'))
+              : ListView.builder(
+              itemCount: _filteredItems.length,
+              itemBuilder: (context, index) {
+                final item = _filteredItems[index];
+                return ListTile(
+                  title: Text(widget.itemLabel(item), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(widget.itemSublabel(item)),
+                  onTap: () {
+                    widget.onSelected(item);
+                    Navigator.pop(context);
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),

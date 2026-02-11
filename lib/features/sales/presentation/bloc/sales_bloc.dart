@@ -208,14 +208,18 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
   }
 
   Future<void> _onLoadSalesInitialData(LoadSalesInitialData event, Emitter<SalesState> emit) async {
-    final todayTotal = await _repository.getTodayTotalSales();
-    emit(SalesDataLoaded(
-      cart: const [],
-      mode: SalesMode.single,
-      paymentType: PaymentType.cash,
-      todayTotalSales: todayTotal,
-      totalAmount: 0.0,
-    ));
+    try {
+      final todayTotal = await _repository.getTodayTotalSales();
+      emit(SalesDataLoaded(
+        cart: const [],
+        mode: SalesMode.single,
+        paymentType: PaymentType.cash,
+        todayTotalSales: todayTotal,
+        totalAmount: 0.0,
+      ));
+    } catch (e) {
+      emit(SalesError('ডাটা লোড করতে সমস্যা হয়েছে: ${e.toString()}'));
+    }
   }
 
   void _onToggleSalesMode(ToggleSalesMode event, Emitter<SalesState> emit) {
