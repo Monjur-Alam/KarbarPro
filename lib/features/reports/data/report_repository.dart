@@ -312,12 +312,14 @@ class ReportRepository {
       whereArgs.addAll([searchPattern, searchPattern, searchPattern]);
     }
     
+    // print('DB_LOG: getManualKhorochTransactions - Query: $whereClauseArgs');
     final result = await db.query(
       DatabaseConstants.tableShopTransactions,
       where: whereClause,
       whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
       orderBy: '${DatabaseConstants.colTransactionDate} DESC',
     );
+    print('DB_LOG: getManualKhorochTransactions - Result Count: ${result.length}');
     
     return result.map((m) => ShopTransaction.fromMap(m)).toList();
   }
@@ -344,6 +346,7 @@ class ReportRepository {
       whereArgs.add(categoryId);
     }
     
+    // print('DB_LOG: getManualKhorochSummary - Query: $whereClauseArgs');
     final result = await db.rawQuery('''
       SELECT 
         SUM(CASE WHEN ${DatabaseConstants.colTransactionType} = 'income' THEN ${DatabaseConstants.colAmount} ELSE 0 END) as totalIncome,
@@ -352,6 +355,7 @@ class ReportRepository {
       FROM ${DatabaseConstants.tableShopTransactions}
       WHERE $whereClause
     ''', whereArgs.isNotEmpty ? whereArgs : null);
+    print('DB_LOG: getManualKhorochSummary - Result: $result');
     
     if (result.isEmpty) {
       return {'totalIncome': 0.0, 'totalExpense': 0.0, 'transactionCount': 0};
@@ -505,6 +509,7 @@ class ReportRepository {
   }) async {
     final db = await _dbHelper.database;
     final transactionDate = date ?? DateTime.now();
+    print('DB_LOG: updateShopTransaction - ID: $transactionId, Amount: $amount, Type: $type');
 
     await db.transaction((txn) async {
       // Get the transaction being edited
@@ -554,14 +559,17 @@ class ReportRepository {
         whereArgs: [transactionId],
       );
 
+      print('DB_LOG: updateShopTransaction - Recalculating from balanceAfter: $newBalanceAfter');
       // Recalculate all subsequent transactions
       await _recalculateSubsequentBalances(txn, transactionId, newBalanceAfter);
     });
+    print('DB_LOG: updateShopTransaction - Success.');
   }
 
   // Delete shop transaction and recalculate subsequent balances
   Future<void> deleteShopTransaction(int transactionId) async {
     final db = await _dbHelper.database;
+    print('DB_LOG: deleteShopTransaction - ID: $transactionId');
 
     await db.transaction((txn) async {
       // Get the balance before this transaction
@@ -589,9 +597,11 @@ class ReportRepository {
         whereArgs: [transactionId],
       );
 
+      print('DB_LOG: deleteShopTransaction - Soft Deleted. Recalculating from balanceBefore: $balanceBeforeThis');
       // Recalculate all subsequent balances starting from the balance before the deleted one
       await _recalculateSubsequentBalances(txn, transactionId, balanceBeforeThis);
     });
+    print('DB_LOG: deleteShopTransaction - Success.');
   }
 
   // Helper to recalculate balances for all transactions after a given ID

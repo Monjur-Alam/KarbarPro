@@ -487,81 +487,54 @@ class _ExpenseViewState extends State<ExpenseView> {
           ],
         ),
       ),
-      child: GestureDetector(
-        onTap: () => _showEditTransactionDialog(context, trans),
-        child: Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12), 
-            side: BorderSide(color: Colors.grey.shade100)
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12), 
+          side: BorderSide(color: Colors.grey.shade100)
+        ),
+        elevation: 0,
+        child: ListTile(
+          onTap: () => _showEditTransactionDialog(context, trans),
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: isIncome ? Colors.green.shade50 : Colors.red.shade50,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(
+              isIncome ? Icons.add : Icons.remove,
+              color: isIncome ? Colors.green : Colors.red, 
+              size: 24
+            ),
           ),
-          elevation: 0,
-          child: ListTile(
-            leading: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: isIncome ? Colors.green.shade50 : Colors.red.shade50,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Icon(
-                isIncome ? Icons.add : Icons.remove,
-                color: isIncome ? Colors.green : Colors.red, 
-                size: 24
-              ),
-            ),
-            title: Text(
-              trans.category ?? (isIncome ? 'টাকা যোগ' : 'খরচ'), 
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (trans.description != null && trans.description!.isNotEmpty) 
-                  Text(
-                    trans.description!, 
-                    style: const TextStyle(fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+          title: Text(
+            trans.category ?? (isIncome ? 'টাকা যোগ' : 'খরচ'), 
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (trans.description != null && trans.description!.isNotEmpty) 
                 Text(
-                  _toBengaliDigits(DateFormat('dd MMM, yyyy').format(trans.transactionDate)),
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                  trans.description!, 
+                  style: const TextStyle(fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${isIncome ? "+" : "-"} ৳${_toBengaliDigits(trans.amount.toStringAsFixed(0))}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: isIncome ? Colors.green : Colors.red
-                  ),
-                ),
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, size: 20),
-                  onSelected: (value) {
-                    if (value == 'edit') {
-                      _showEditTransactionDialog(context, trans);
-                    } else if (value == 'delete') {
-                      _showDeleteConfirmation(context, trans);
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'edit', 
-                      child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('সম্পাদনা')])
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete', 
-                      child: Row(children: [Icon(Icons.delete, size: 18, color: Colors.red), SizedBox(width: 8), Text('মুছে ফেলুন', style: TextStyle(color: Colors.red))])
-                    ),
-                  ],
-                ),
-              ],
+              Text(
+                _toBengaliDigits(DateFormat('dd MMM, yyyy').format(trans.transactionDate)),
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+          trailing: Text(
+            '${isIncome ? "+" : "-"} ৳${_toBengaliDigits(trans.amount.toStringAsFixed(0))}',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isIncome ? Colors.green : Colors.red
             ),
           ),
         ),
@@ -680,23 +653,32 @@ class _ExpenseViewState extends State<ExpenseView> {
                   return;
                 }
 
-                final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
-                await repo.updateShopTransaction(
-                  transactionId: trans.id!,
-                  type: selectedType,
-                  amount: amount,
-                  category: selectedCategory!.name,
-                  categoryId: selectedCategory!.id,
-                  description: descriptionController.text.isNotEmpty ? descriptionController.text : null,
-                  date: trans.transactionDate,
-                );
+                try {
+                  final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
+                  await repo.updateShopTransaction(
+                    transactionId: trans.id!,
+                    type: selectedType,
+                    amount: amount,
+                    category: selectedCategory!.name,
+                    categoryId: selectedCategory!.id,
+                    description: descriptionController.text.isNotEmpty ? descriptionController.text : null,
+                    date: trans.transactionDate,
+                  );
 
-                if (!context.mounted) return;
-                Navigator.pop(context);
-                _loadData(isBackground: true);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('লেনদেন আপডেট করা হয়েছে')),
-                );
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+                  _loadData(isBackground: true);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('লেনদেন আপডেট করা হয়েছে')),
+                  );
+                } catch (e) {
+                  print('ERR_LOG: Update failed: $e');
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('আপডেট করতে সমস্যা হয়েছে: $e')),
+                    );
+                  }
+                }
               },
               style: ElevatedButton.styleFrom(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -774,15 +756,25 @@ class _ExpenseViewState extends State<ExpenseView> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () async {
-              final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
-              await repo.deleteShopTransaction(trans.id!);
+              try {
+                final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
+                await repo.deleteShopTransaction(trans.id!);
 
-              if (!context.mounted) return;
-              Navigator.pop(context, true);
-              _loadData(isBackground: true);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('লেনদেন মুছে ফেলা হয়েছে')),
-              );
+                if (!context.mounted) return;
+                Navigator.pop(context, true);
+                _loadData(isBackground: true);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('লেনদেন মুছে ফেলা হয়েছে')),
+                );
+              } catch (e) {
+                print('ERR_LOG: Delete failed: $e');
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('মুছে ফেলতে সমস্যা হয়েছে: $e')),
+                  );
+                }
+                Navigator.pop(context, false);
+              }
             },
             child: const Text('মুছে ফেলুন'),
           ),

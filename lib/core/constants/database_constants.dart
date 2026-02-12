@@ -1,6 +1,6 @@
 class DatabaseConstants {
   static const String databaseName = 'amar_dokan.db';
-  static const int databaseVersion = 5;
+  static const int databaseVersion = 6;
 
   // Table Names
   static const String tableProducts = 'products';

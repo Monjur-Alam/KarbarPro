@@ -12,7 +12,9 @@ class DatabaseHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
+    print('DB_LOG: Initializing Database...');
     _database = await _initDatabase();
+    print('DB_LOG: Database Initialized.');
     return _database!;
   }
 
@@ -38,11 +40,19 @@ class DatabaseHelper {
     if (oldVersion < 3) {
       await _addTransactionSourceColumn(db);
     }
+    print('DB_LOG: Upgrading DB from $oldVersion to $newVersion');
     if (oldVersion < 4) {
       await _upgradeToVersion4(db);
     }
     if (oldVersion < 5) {
+      print('DB_LOG: Upgrading to Version 5...');
       await _upgradeToVersion5(db);
+      print('DB_LOG: Upgrade to Version 5 Complete.');
+    }
+    if (oldVersion < 6) {
+      print('DB_LOG: Upgrading to Version 6...');
+      await _upgradeToVersion6(db);
+      print('DB_LOG: Upgrade to Version 6 Complete.');
     }
   }
 
@@ -274,6 +284,7 @@ class DatabaseHelper {
         ${DatabaseConstants.colDescription} TEXT,
         ${DatabaseConstants.colTransactionDate} TEXT NOT NULL,
         ${DatabaseConstants.colCreatedAt} TEXT,
+        ${DatabaseConstants.colUpdatedAt} TEXT,
         ${DatabaseConstants.colSyncedAt} TEXT,
         ${DatabaseConstants.colTransactionSource} TEXT DEFAULT 'manual_khoroch',
         ${DatabaseConstants.colCategoryId} INTEGER,
@@ -333,11 +344,21 @@ class DatabaseHelper {
     ''');
 
     // Initialize is_manual: 1 for manual_khoroch, 0 for others
-    await db.execute('''
+    final count = await db.execute('''
       UPDATE ${DatabaseConstants.tableShopTransactions}
       SET ${DatabaseConstants.colIsManual} = 1
       WHERE ${DatabaseConstants.colTransactionSource} = 'manual_khoroch'
     ''');
+    print('DB_LOG: Version 5 Migration - is_manual initialized.');
+  }
+
+  Future<void> _upgradeToVersion6(Database db) async {
+    // Add missing updated_at column to shop_transactions
+    await db.execute('''
+      ALTER TABLE ${DatabaseConstants.tableShopTransactions}
+      ADD COLUMN ${DatabaseConstants.colUpdatedAt} TEXT
+    ''');
+    print('DB_LOG: Version 6 Migration - updated_at added to shop_transactions.');
   }
 
   Future<void> _createKhorochCategoryTable(Database db) async {
