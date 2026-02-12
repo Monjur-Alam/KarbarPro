@@ -384,26 +384,55 @@ class ReportRepository {
   Future<Map<String, dynamic>> getBakirKhataSummary({DateTime? startDate, DateTime? endDate}) async {
     final db = await _dbHelper.database;
     
+    String whereClause = "";
+    List<dynamic> whereArgs = [];
+    if (startDate != null && endDate != null) {
+      whereClause = " AND ct.${DatabaseConstants.colTransactionDate} BETWEEN ? AND ?";
+      whereArgs.addAll([startDate.toIso8601String(), endDate.toIso8601String()]);
+    }
+
     // Total Receivable (Customers)
+    // We calculate "how much was sold on credit" vs "how much was collected" in this period
     final receivableResult = await db.rawQuery('''
       SELECT 
-        SUM(${DatabaseConstants.colCurrentCreditBalance}) as totalReceivable,
-        SUM(${DatabaseConstants.colTotalPaid}) as totalCollected
-      FROM ${DatabaseConstants.tableCustomers}
-      WHERE ${DatabaseConstants.colCustomerType} = 'customer' AND ${DatabaseConstants.colDeletedAt} IS NULL
-    ''');
+        SUM(CASE WHEN ct.${DatabaseConstants.colTransactionType} = 'sale' THEN ct.${DatabaseConstants.colAmount} ELSE 0 END) as totalSales,
+        SUM(CASE WHEN ct.${DatabaseConstants.colTransactionType} = 'payment' THEN ct.${DatabaseConstants.colAmount} ELSE 0 END) as totalCollected
+      FROM ${DatabaseConstants.tableCustomerTransactions} ct
+      JOIN ${DatabaseConstants.tableCustomers} c ON ct.${DatabaseConstants.colCustomerId} = c.${DatabaseConstants.colId}
+      WHERE c.${DatabaseConstants.colCustomerType} = 'customer' AND c.${DatabaseConstants.colDeletedAt} IS NULL $whereClause
+    ''', whereArgs);
 
     // Total Payable (Suppliers)
     final payableResult = await db.rawQuery('''
       SELECT 
-        SUM(${DatabaseConstants.colCurrentCreditBalance}) as totalPayable,
-        SUM(${DatabaseConstants.colTotalPaid}) as totalPaid
-      FROM ${DatabaseConstants.tableCustomers}
-      WHERE ${DatabaseConstants.colCustomerType} = 'supplier' AND ${DatabaseConstants.colDeletedAt} IS NULL
-    ''');
+        SUM(CASE WHEN ct.${DatabaseConstants.colTransactionType} = 'sale' THEN ct.${DatabaseConstants.colAmount} ELSE 0 END) as totalPayable,
+        SUM(CASE WHEN ct.${DatabaseConstants.colTransactionType} = 'payment' THEN ct.${DatabaseConstants.colAmount} ELSE 0 END) as totalPaid
+      FROM ${DatabaseConstants.tableCustomerTransactions} ct
+      JOIN ${DatabaseConstants.tableCustomers} c ON ct.${DatabaseConstants.colCustomerId} = c.${DatabaseConstants.colId}
+      WHERE c.${DatabaseConstants.colCustomerType} = 'supplier' AND c.${DatabaseConstants.colDeletedAt} IS NULL $whereClause
+    ''', whereArgs);
+
+    // For "সব" (All) or when no dates, we can also use the absolute current balances
+    if (startDate == null) {
+      final absoluteResult = await db.rawQuery('''
+        SELECT 
+          SUM(CASE WHEN ${DatabaseConstants.colCustomerType} = 'customer' THEN ${DatabaseConstants.colCurrentCreditBalance} ELSE 0 END) as totalReceivable,
+          SUM(CASE WHEN ${DatabaseConstants.colCustomerType} = 'customer' THEN ${DatabaseConstants.colTotalPaid} ELSE 0 END) as totalCollected,
+          SUM(CASE WHEN ${DatabaseConstants.colCustomerType} = 'supplier' THEN ABS(${DatabaseConstants.colCurrentCreditBalance}) ELSE 0 END) as totalPayable,
+          SUM(CASE WHEN ${DatabaseConstants.colCustomerType} = 'supplier' THEN ${DatabaseConstants.colTotalPaid} ELSE 0 END) as totalPaid
+        FROM ${DatabaseConstants.tableCustomers}
+        WHERE ${DatabaseConstants.colDeletedAt} IS NULL
+      ''');
+      return {
+        'totalReceivable': (absoluteResult.first['totalReceivable'] as num?)?.toDouble() ?? 0.0,
+        'totalCollected': (absoluteResult.first['totalCollected'] as num?)?.toDouble() ?? 0.0,
+        'totalPayable': (absoluteResult.first['totalPayable'] as num?)?.toDouble() ?? 0.0,
+        'totalPaid': (absoluteResult.first['totalPaid'] as num?)?.toDouble() ?? 0.0,
+      };
+    }
 
     return {
-      'totalReceivable': (receivableResult.first['totalReceivable'] as num?)?.toDouble() ?? 0.0,
+      'totalReceivable': (receivableResult.first['totalSales'] as num?)?.toDouble() ?? 0.0,
       'totalCollected': (receivableResult.first['totalCollected'] as num?)?.toDouble() ?? 0.0,
       'totalPayable': (payableResult.first['totalPayable'] as num?)?.toDouble() ?? 0.0,
       'totalPaid': (payableResult.first['totalPaid'] as num?)?.toDouble() ?? 0.0,
@@ -421,16 +450,16 @@ class ReportRepository {
     String whereClause = "${DatabaseConstants.colDeletedAt} IS NULL";
     List<dynamic> whereArgs = [];
 
+    if (startDate != null && endDate != null) {
+      // Return customers who had transactions in this period
+      whereClause += " AND EXISTS (SELECT 1 FROM ${DatabaseConstants.tableCustomerTransactions} ct WHERE ct.${DatabaseConstants.colCustomerId} = ${DatabaseConstants.tableCustomers}.${DatabaseConstants.colId} AND ct.${DatabaseConstants.colTransactionDate} BETWEEN ? AND ?)";
+      whereArgs.addAll([startDate.toIso8601String(), endDate.toIso8601String()]);
+    }
+
     if (searchQuery != null && searchQuery.isNotEmpty) {
       whereClause += " AND (${DatabaseConstants.colName} LIKE ? OR ${DatabaseConstants.colPhone} LIKE ? OR CAST(${DatabaseConstants.colCurrentCreditBalance} AS TEXT) LIKE ?)";
       final pattern = '%$searchQuery%';
       whereArgs.addAll([pattern, pattern, pattern]);
-    }
-
-    if (startDate != null && endDate != null) {
-      // Filter by last transaction date (updated_at)
-      whereClause += " AND ${DatabaseConstants.colUpdatedAt} BETWEEN ? AND ?";
-      whereArgs.addAll([startDate.toIso8601String(), endDate.toIso8601String()]);
     }
 
     final result = await db.query(

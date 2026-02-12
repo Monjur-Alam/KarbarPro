@@ -11,11 +11,14 @@ class ExpenseScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('দোকানের খরচ', style: TextStyle(fontWeight: FontWeight.bold)),
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('দোকানের খরচ', style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+        body: const ExpenseView(),
       ),
-      body: const ExpenseView(),
     );
   }
 }

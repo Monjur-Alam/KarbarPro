@@ -13,13 +13,16 @@ class DueLedgerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text('বাকি খাতা', style: TextStyle(fontWeight: FontWeight.bold)),
-        elevation: 0,
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade50,
+        appBar: AppBar(
+          title: const Text('বাকি খাতা', style: TextStyle(fontWeight: FontWeight.bold)),
+          elevation: 0,
+        ),
+        body: const DueLedgerView(),
       ),
-      body: const DueLedgerView(),
     );
   }
 }
@@ -42,9 +45,10 @@ class _DueLedgerViewState extends State<DueLedgerView> {
   };
   bool _isLoading = true;
   
-  // Filter States
+  // Filter & Sort States
   final TextEditingController _searchController = TextEditingController();
   String _selectedDateFilter = 'সব';
+  String _sortBy = 'name_asc'; // name_asc, name_desc, balance_asc, balance_desc, last_transaction
   DateTime? _startDate;
   DateTime? _endDate;
   Timer? _debounce;
@@ -77,6 +81,7 @@ class _DueLedgerViewState extends State<DueLedgerView> {
       _summary = summary;
       _allCustomers = customers;
       _filteredCustomers = customers;
+      _sortCustomers();
       _isLoading = false;
     });
   }
@@ -88,10 +93,30 @@ class _DueLedgerViewState extends State<DueLedgerView> {
     });
   }
 
-  void _applyDateFilter(String filter) {
+  void _applyDateFilter(String filter) async {
     final now = DateTime.now();
     DateTime? start;
     DateTime? end = now;
+
+    if (filter == 'কাস্টম তারিখ') {
+      final pickerDate = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime(2020),
+        lastDate: now,
+        initialDateRange: _startDate != null && _endDate != null 
+            ? DateTimeRange(start: _startDate!, end: _endDate!) 
+            : null,
+      );
+      if (pickerDate != null) {
+        setState(() {
+          _selectedDateFilter = 'কাস্টম (${DateFormat('dd/MM').format(pickerDate.start)} - ${DateFormat('dd/MM').format(pickerDate.end)})';
+          _startDate = pickerDate.start;
+          _endDate = pickerDate.end;
+        });
+        _loadData();
+      }
+      return;
+    }
 
     switch (filter) {
       case 'আজ':
@@ -104,8 +129,15 @@ class _DueLedgerViewState extends State<DueLedgerView> {
       case 'গত ৭ দিন':
         start = now.subtract(const Duration(days: 7));
         break;
+      case 'গত ৩০ দিন':
+        start = now.subtract(const Duration(days: 30));
+        break;
       case 'এই মাস':
         start = DateTime(now.year, now.month, 1);
+        break;
+      case 'গত মাস':
+        start = DateTime(now.year, now.month - 1, 1);
+        end = DateTime(now.year, now.month, 0, 23, 59, 59);
         break;
       case 'সব':
       default:
@@ -119,6 +151,32 @@ class _DueLedgerViewState extends State<DueLedgerView> {
       _endDate = end;
     });
     _loadData();
+  }
+
+  void _sortCustomers() {
+    setState(() {
+      switch (_sortBy) {
+        case 'name_asc':
+          _filteredCustomers.sort((a, b) => a.name.compareTo(b.name));
+          break;
+        case 'name_desc':
+          _filteredCustomers.sort((a, b) => b.name.compareTo(a.name));
+          break;
+        case 'balance_asc':
+          _filteredCustomers.sort((a, b) => a.currentCreditBalance.compareTo(b.currentCreditBalance));
+          break;
+        case 'balance_desc':
+          _filteredCustomers.sort((a, b) => b.currentCreditBalance.compareTo(a.currentCreditBalance));
+          break;
+        case 'last_transaction':
+          _filteredCustomers.sort((a, b) {
+            if (a.lastTransactionDate == null) return 1;
+            if (b.lastTransactionDate == null) return -1;
+            return b.lastTransactionDate!.compareTo(a.lastTransactionDate!);
+          });
+          break;
+      }
+    });
   }
 
   void _resetFilters() {
@@ -301,7 +359,7 @@ class _DueLedgerViewState extends State<DueLedgerView> {
             elevation: 2,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             onSelected: _applyDateFilter,
-            itemBuilder: (context) => ['সব', 'আজ', 'গতকাল', 'গত ৭ দিন', 'এই মাস'].map((filter) => 
+            itemBuilder: (context) => ['সব', 'আজ', 'গতকাল', 'গত ৭ দিন', 'গত ৩০ দিন', 'এই মাস', 'গত মাস', 'কাস্টম তারিখ'].map((filter) => 
               PopupMenuItem(value: filter, child: Text(filter, style: const TextStyle(fontSize: 14)))
             ).toList(),
             child: Container(
@@ -332,6 +390,22 @@ class _DueLedgerViewState extends State<DueLedgerView> {
         children: [
           Text('গ্রাহক তালিকা (${_toBengaliDigits(_filteredCustomers.length.toString())})', 
             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.sort, color: Colors.blueGrey, size: 20),
+            tooltip: 'সাজান',
+            onSelected: (val) {
+              setState(() => _sortBy = val);
+              _sortCustomers();
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'name_asc', child: Text('নাম (A-Z)')),
+              const PopupMenuItem(value: 'name_desc', child: Text('নাম (Z-A)')),
+              const PopupMenuItem(value: 'balance_desc', child: Text('বাকি (বেশি থেকে কম)')),
+              const PopupMenuItem(value: 'balance_asc', child: Text('বাকি (কম থেকে বেশি)')),
+              const PopupMenuItem(value: 'last_transaction', child: Text('সর্বশেষ লেনদেন')),
+            ],
+          ),
+          const Spacer(),
           TextButton.icon(
             onPressed: _generateAndSharePDF,
             icon: const Icon(Icons.picture_as_pdf, size: 18, color: Colors.teal),
