@@ -54,6 +54,11 @@ class DatabaseHelper {
       await _upgradeToVersion6(db);
       print('DB_LOG: Upgrade to Version 6 Complete.');
     }
+    if (oldVersion < 7) {
+      print('DB_LOG: Upgrading to Version 7...');
+      await _upgradeToVersion7(db);
+      print('DB_LOG: Upgrade to Version 7 Complete.');
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -93,11 +98,15 @@ class DatabaseHelper {
         ${DatabaseConstants.colCreditLimit} REAL DEFAULT 0,
         ${DatabaseConstants.colCurrentCreditBalance} REAL DEFAULT 0,
         ${DatabaseConstants.colTotalPurchases} REAL DEFAULT 0,
+        ${DatabaseConstants.colCustomerType} TEXT DEFAULT 'customer',
+        ${DatabaseConstants.colTotalCredit} REAL DEFAULT 0,
+        ${DatabaseConstants.colTotalPaid} REAL DEFAULT 0,
         ${DatabaseConstants.colIsActive} INTEGER DEFAULT 1,
         ${DatabaseConstants.colCreatedAt} TEXT,
         ${DatabaseConstants.colUpdatedAt} TEXT,
         ${DatabaseConstants.colSyncedAt} TEXT,
-        ${DatabaseConstants.colIsSynced} INTEGER DEFAULT 0
+        ${DatabaseConstants.colIsSynced} INTEGER DEFAULT 0,
+        ${DatabaseConstants.colDeletedAt} TEXT
       )
     ''');
     await db.execute('CREATE INDEX idx_customers_phone ON ${DatabaseConstants.tableCustomers} (${DatabaseConstants.colPhone})');
@@ -359,6 +368,23 @@ class DatabaseHelper {
       ADD COLUMN ${DatabaseConstants.colUpdatedAt} TEXT
     ''');
     print('DB_LOG: Version 6 Migration - updated_at added to shop_transactions.');
+  }
+
+  Future<void> _upgradeToVersion7(Database db) async {
+    // Add missing columns to customers table
+    await db.execute('ALTER TABLE ${DatabaseConstants.tableCustomers} ADD COLUMN ${DatabaseConstants.colCustomerType} TEXT DEFAULT "customer"');
+    await db.execute('ALTER TABLE ${DatabaseConstants.tableCustomers} ADD COLUMN ${DatabaseConstants.colTotalCredit} REAL DEFAULT 0');
+    await db.execute('ALTER TABLE ${DatabaseConstants.tableCustomers} ADD COLUMN ${DatabaseConstants.colTotalPaid} REAL DEFAULT 0');
+    await db.execute('ALTER TABLE ${DatabaseConstants.tableCustomers} ADD COLUMN ${DatabaseConstants.colDeletedAt} TEXT');
+    
+    // Initialize totals based on current balance
+    await db.execute('''
+      UPDATE ${DatabaseConstants.tableCustomers}
+      SET ${DatabaseConstants.colTotalCredit} = ${DatabaseConstants.colCurrentCreditBalance}
+      WHERE ${DatabaseConstants.colCurrentCreditBalance} > 0
+    ''');
+    
+    print('DB_LOG: Version 7 Migration - Customer tracking columns added.');
   }
 
   Future<void> _createKhorochCategoryTable(Database db) async {

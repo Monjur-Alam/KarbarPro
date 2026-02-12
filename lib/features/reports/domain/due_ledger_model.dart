@@ -4,15 +4,27 @@ class CustomerDue extends Equatable {
   final int id;
   final String name;
   final String? phone;
+  final String? address;
+  final String? notes;
+  final String type; // 'customer' or 'supplier'
   final double currentCreditBalance;
+  final double totalCredit;
+  final double totalPaid;
   final double totalPurchases;
+  final DateTime? lastTransactionDate;
 
   const CustomerDue({
     required this.id,
     required this.name,
     this.phone,
+    this.address,
+    this.notes,
+    required this.type,
     required this.currentCreditBalance,
+    required this.totalCredit,
+    required this.totalPaid,
     required this.totalPurchases,
+    this.lastTransactionDate,
   });
 
   factory CustomerDue.fromMap(Map<String, dynamic> map) {
@@ -20,13 +32,31 @@ class CustomerDue extends Equatable {
       id: map['id'] as int,
       name: map['name'] as String,
       phone: map['phone'] as String?,
+      address: map['address'] as String?,
+      notes: map['notes'] as String?,
+      type: map['type'] as String? ?? 'customer',
       currentCreditBalance: (map['current_credit_balance'] as num).toDouble(),
+      totalCredit: (map['total_credit'] as num?)?.toDouble() ?? 0.0,
+      totalPaid: (map['total_paid'] as num?)?.toDouble() ?? 0.0,
       totalPurchases: (map['total_purchases'] as num).toDouble(),
+      lastTransactionDate: map['updated_at'] != null ? DateTime.parse(map['updated_at'] as String) : null,
     );
   }
 
   @override
-  List<Object?> get props => [id, name, phone, currentCreditBalance, totalPurchases];
+  List<Object?> get props => [
+        id,
+        name,
+        phone,
+        address,
+        notes,
+        type,
+        currentCreditBalance,
+        totalCredit,
+        totalPaid,
+        totalPurchases,
+        lastTransactionDate
+      ];
 }
 
 class CustomerTransaction extends Equatable {

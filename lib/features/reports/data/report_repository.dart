@@ -380,6 +380,101 @@ class ReportRepository {
     return result.map((m) => CustomerDue.fromMap(m)).toList();
   }
 
+  // Get Summary for Bakir Khata (Both Receivables and Payables)
+  Future<Map<String, dynamic>> getBakirKhataSummary({DateTime? startDate, DateTime? endDate}) async {
+    final db = await _dbHelper.database;
+    
+    // Total Receivable (Customers)
+    final receivableResult = await db.rawQuery('''
+      SELECT 
+        SUM(${DatabaseConstants.colCurrentCreditBalance}) as totalReceivable,
+        SUM(${DatabaseConstants.colTotalPaid}) as totalCollected
+      FROM ${DatabaseConstants.tableCustomers}
+      WHERE ${DatabaseConstants.colCustomerType} = 'customer' AND ${DatabaseConstants.colDeletedAt} IS NULL
+    ''');
+
+    // Total Payable (Suppliers)
+    final payableResult = await db.rawQuery('''
+      SELECT 
+        SUM(${DatabaseConstants.colCurrentCreditBalance}) as totalPayable,
+        SUM(${DatabaseConstants.colTotalPaid}) as totalPaid
+      FROM ${DatabaseConstants.tableCustomers}
+      WHERE ${DatabaseConstants.colCustomerType} = 'supplier' AND ${DatabaseConstants.colDeletedAt} IS NULL
+    ''');
+
+    return {
+      'totalReceivable': (receivableResult.first['totalReceivable'] as num?)?.toDouble() ?? 0.0,
+      'totalCollected': (receivableResult.first['totalCollected'] as num?)?.toDouble() ?? 0.0,
+      'totalPayable': (payableResult.first['totalPayable'] as num?)?.toDouble() ?? 0.0,
+      'totalPaid': (payableResult.first['totalPaid'] as num?)?.toDouble() ?? 0.0,
+    };
+  }
+
+  // Get Filtered Customers/Suppliers
+  Future<List<CustomerDue>> getFilteredCustomers({
+    String? searchQuery,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final db = await _dbHelper.database;
+    
+    String whereClause = "${DatabaseConstants.colDeletedAt} IS NULL";
+    List<dynamic> whereArgs = [];
+
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      whereClause += " AND (${DatabaseConstants.colName} LIKE ? OR ${DatabaseConstants.colPhone} LIKE ? OR CAST(${DatabaseConstants.colCurrentCreditBalance} AS TEXT) LIKE ?)";
+      final pattern = '%$searchQuery%';
+      whereArgs.addAll([pattern, pattern, pattern]);
+    }
+
+    if (startDate != null && endDate != null) {
+      // Filter by last transaction date (updated_at)
+      whereClause += " AND ${DatabaseConstants.colUpdatedAt} BETWEEN ? AND ?";
+      whereArgs.addAll([startDate.toIso8601String(), endDate.toIso8601String()]);
+    }
+
+    final result = await db.query(
+      DatabaseConstants.tableCustomers,
+      where: whereClause,
+      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
+      orderBy: '${DatabaseConstants.colCurrentCreditBalance} DESC',
+    );
+
+    return result.map((m) => CustomerDue.fromMap(m)).toList();
+  }
+
+  Future<void> updateCustomer(CustomerDue customer) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      DatabaseConstants.tableCustomers,
+      {
+        DatabaseConstants.colName: customer.name,
+        DatabaseConstants.colPhone: customer.phone,
+        DatabaseConstants.colAddress: customer.address,
+        DatabaseConstants.colNotes: customer.notes,
+        DatabaseConstants.colUpdatedAt: DateTime.now().toIso8601String(),
+        DatabaseConstants.colIsSynced: 0,
+      },
+      where: '${DatabaseConstants.colId} = ?',
+      whereArgs: [customer.id],
+    );
+  }
+
+  Future<void> deleteCustomer(int customerId) async {
+    final db = await _dbHelper.database;
+    // Soft delete
+    await db.update(
+      DatabaseConstants.tableCustomers,
+      {
+        DatabaseConstants.colDeletedAt: DateTime.now().toIso8601String(),
+        DatabaseConstants.colUpdatedAt: DateTime.now().toIso8601String(),
+        DatabaseConstants.colIsSynced: 0,
+      },
+      where: '${DatabaseConstants.colId} = ?',
+      whereArgs: [customerId],
+    );
+  }
+
   Future<void> recordCustomerPayment({
     required int customerId,
     required double amount,
@@ -394,10 +489,11 @@ class ReportRepository {
       await txn.execute('''
         UPDATE ${DatabaseConstants.tableCustomers} 
         SET ${DatabaseConstants.colCurrentCreditBalance} = ${DatabaseConstants.colCurrentCreditBalance} - ?,
+            ${DatabaseConstants.colTotalPaid} = ${DatabaseConstants.colTotalPaid} + ?,
             ${DatabaseConstants.colUpdatedAt} = ?,
             ${DatabaseConstants.colIsSynced} = 0
         WHERE ${DatabaseConstants.colId} = ?
-      ''', [amount, DateTime.now().toIso8601String(), customerId]);
+      ''', [amount, amount, DateTime.now().toIso8601String(), customerId]);
 
       // Get new balance for history
       final customerResult = await txn.query(

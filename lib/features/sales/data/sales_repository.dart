@@ -65,15 +65,16 @@ class SalesRepository {
       if (sale.customerId != null) {
         final dueAmount = _calculateDueAmount(sale);
         
-        // Update Customer Balance and Total Purchases
+        // Update Customer Balance, Total Purchases, and Total Credit
         await txn.execute('''
           UPDATE ${DatabaseConstants.tableCustomers} 
           SET ${DatabaseConstants.colCurrentCreditBalance} = ${DatabaseConstants.colCurrentCreditBalance} + ?,
               ${DatabaseConstants.colTotalPurchases} = ${DatabaseConstants.colTotalPurchases} + ?,
+              ${DatabaseConstants.colTotalCredit} = ${DatabaseConstants.colTotalCredit} + ?,
               ${DatabaseConstants.colUpdatedAt} = ?,
               ${DatabaseConstants.colIsSynced} = 0
           WHERE ${DatabaseConstants.colId} = ?
-        ''', [dueAmount, sale.totalAmount, DateTime.now().toIso8601String(), sale.customerId]);
+        ''', [dueAmount, sale.totalAmount, dueAmount, DateTime.now().toIso8601String(), sale.customerId]);
 
         // If it's a partial payment, log the credit payment
         if (sale.paidAmount > 0 && dueAmount > 0) {

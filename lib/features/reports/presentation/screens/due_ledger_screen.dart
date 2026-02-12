@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
+import 'dart:async';
 import '../../data/report_repository.dart';
 import '../../domain/due_ledger_model.dart';
+import '../../services/report_generator.dart';
 import '../../../../core/database/database_helper.dart';
 
 class DueLedgerScreen extends StatelessWidget {
@@ -12,8 +14,10 @@ class DueLedgerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('বাকি খাতা', style: TextStyle(fontWeight: FontWeight.bold)),
+        elevation: 0,
       ),
       body: const DueLedgerView(),
     );
@@ -28,23 +32,103 @@ class DueLedgerView extends StatefulWidget {
 }
 
 class _DueLedgerViewState extends State<DueLedgerView> {
-  List<CustomerDue> _dueCustomers = [];
+  List<CustomerDue> _allCustomers = [];
+  List<CustomerDue> _filteredCustomers = [];
+  Map<String, dynamic> _summary = {
+    'totalReceivable': 0.0,
+    'totalCollected': 0.0,
+    'totalPayable': 0.0,
+    'totalPaid': 0.0,
+  };
   bool _isLoading = true;
+  
+  // Filter States
+  final TextEditingController _searchController = TextEditingController();
+  String _selectedDateFilter = 'সব';
+  DateTime? _startDate;
+  DateTime? _endDate;
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    _loadDueLedger();
+    _loadData();
   }
 
-  Future<void> _loadDueLedger() async {
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
     setState(() => _isLoading = true);
     final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
-    final customers = await repo.getDueCustomers();
+    
+    final summary = await repo.getBakirKhataSummary();
+    final customers = await repo.getFilteredCustomers(
+      searchQuery: _searchController.text,
+      startDate: _startDate,
+      endDate: _endDate,
+    );
+
     setState(() {
-      _dueCustomers = customers;
+      _summary = summary;
+      _allCustomers = customers;
+      _filteredCustomers = customers;
       _isLoading = false;
     });
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      _loadData();
+    });
+  }
+
+  void _applyDateFilter(String filter) {
+    final now = DateTime.now();
+    DateTime? start;
+    DateTime? end = now;
+
+    switch (filter) {
+      case 'আজ':
+        start = DateTime(now.year, now.month, now.day);
+        break;
+      case 'গতকাল':
+        start = DateTime(now.year, now.month, now.day - 1);
+        end = DateTime(now.year, now.month, now.day, 23, 59, 59).subtract(const Duration(days: 1));
+        break;
+      case 'গত ৭ দিন':
+        start = now.subtract(const Duration(days: 7));
+        break;
+      case 'এই মাস':
+        start = DateTime(now.year, now.month, 1);
+        break;
+      case 'সব':
+      default:
+        start = null;
+        end = null;
+    }
+
+    setState(() {
+      _selectedDateFilter = filter;
+      _startDate = start;
+      _endDate = end;
+    });
+    _loadData();
+  }
+
+  void _resetFilters() {
+    _searchController.clear();
+    setState(() {
+      _selectedDateFilter = 'সব';
+      _startDate = null;
+      _endDate = null;
+    });
+    _loadData();
   }
 
   String _toBengaliDigits(String input) {
@@ -58,89 +142,320 @@ class _DueLedgerViewState extends State<DueLedgerView> {
 
   @override
   Widget build(BuildContext context) {
-    double totalDue = _dueCustomers.fold(0, (sum, c) => sum + c.currentCreditBalance);
-
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return Column(
-      children: [
-        _buildTotalDueHeader(totalDue),
-        Expanded(
-          child: _dueCustomers.isEmpty
-              ? _buildEmptyState()
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _dueCustomers.length,
-                  itemBuilder: (context, index) {
-                    final customer = _dueCustomers[index];
-                    return _buildCustomerDueCard(customer);
-                  },
-                ),
-        ),
-      ],
+    return Scaffold(
+      backgroundColor: Colors.transparent, // Controlled by Screen
+      body: Column(
+        children: [
+          _buildSummaryCard(),
+          _buildFilterBar(),
+          _buildActionBar(),
+          Expanded(
+            child: _isLoading 
+              ? const Center(child: CircularProgressIndicator())
+              : _filteredCustomers.isEmpty
+                ? _buildEmptyState()
+                : _buildCustomerList(),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddCustomerDialog,
+        backgroundColor: const Color(0xFF00695C),
+        icon: const Icon(Icons.person_add_alt_1, color: Colors.white),
+        label: const Text('নতুন গ্রাহক', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
     );
   }
 
-  Widget _buildTotalDueHeader(double total) {
+  Widget _buildSummaryCard() {
+    final totalReceivable = _summary['totalReceivable'] ?? 0.0;
+    final totalCollected = _summary['totalCollected'] ?? 0.0;
+    final remainingReceivable = totalReceivable;
+
+    final totalPayable = _summary['totalPayable'] ?? 0.0;
+    final totalPaid = _summary['totalPaid'] ?? 0.0;
+    final remainingPayable = totalPayable;
+
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        border: Border(bottom: BorderSide(color: Colors.red.shade100)),
+        color: const Color(0xFF00695C),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         children: [
-          const Text('সর্বমোট পাওনা (বাকি)', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text(
-            '৳${_toBengaliDigits(total.toStringAsFixed(0))}',
-            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.red),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                // Left Side: Receivables
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('মোট পাবো (বাকি)', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      Text(
+                        '৳${_toBengaliDigits(totalReceivable.toStringAsFixed(0))}',
+                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.arrow_upward, color: Colors.orange, size: 14),
+                          const SizedBox(width: 4),
+                          Text('আদায়: ৳${_toBengaliDigits(totalCollected.toStringAsFixed(0))}', 
+                            style: const TextStyle(color: Colors.white60, fontSize: 10)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Container(height: 40, width: 1, color: Colors.white24),
+                // Right Side: Payables
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('মোট দেবো (জমা)', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        Text(
+                          '৳${_toBengaliDigits(totalPayable.toStringAsFixed(0))}',
+                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.arrow_downward, color: Colors.lightGreenAccent, size: 14),
+                            const SizedBox(width: 4),
+                            Text('দিয়েছি: ৳${_toBengaliDigits(totalPaid.toStringAsFixed(0))}', 
+                              style: const TextStyle(color: Colors.white60, fontSize: 10)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+            decoration: const BoxDecoration(
+              color: Color(0xFF004D40),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text('বাকি আছে: ৳${_toBengaliDigits(remainingReceivable.toStringAsFixed(0))}', 
+                    style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13)),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 20),
+                    child: Text('বাকি দিতে হবে: ৳${_toBengaliDigits(remainingPayable.toStringAsFixed(0))}', 
+                      style: const TextStyle(color: Colors.lightGreenAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildFilterBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
         children: [
-          Icon(Icons.check_circle_outline, size: 64, color: Colors.green.shade200),
-          const SizedBox(height: 16),
-          const Text('কারো কাছে কোনো টাকা পাওনা নেই', style: TextStyle(color: Colors.grey)),
+          Expanded(
+            child: Container(
+              height: 45,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                decoration: InputDecoration(
+                  hintText: 'গ্রাহক খুঁজুন...',
+                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                  prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                  suffixIcon: _searchController.text.isNotEmpty 
+                    ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: _resetFilters)
+                    : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          PopupMenuButton<String>(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onSelected: _applyDateFilter,
+            itemBuilder: (context) => ['সব', 'আজ', 'গতকাল', 'গত ৭ দিন', 'এই মাস'].map((filter) => 
+              PopupMenuItem(value: filter, child: Text(filter, style: const TextStyle(fontSize: 14)))
+            ).toList(),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Row(
+                children: [
+                  Text(_selectedDateFilter, style: const TextStyle(fontSize: 14, color: Colors.teal)),
+                  const Icon(Icons.arrow_drop_down, color: Colors.teal),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildCustomerDueCard(CustomerDue customer) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade100)),
-      elevation: 0,
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Colors.blue.shade50,
-          child: Text(customer.name[0], style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-        ),
-        title: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(customer.phone ?? 'ফোন নম্বর নেই', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '৳${_toBengaliDigits(customer.currentCreditBalance.toStringAsFixed(0))}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.red),
+  Widget _buildActionBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('গ্রাহক তালিকা (${_toBengaliDigits(_filteredCustomers.length.toString())})', 
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+          TextButton.icon(
+            onPressed: _generateAndSharePDF,
+            icon: const Icon(Icons.picture_as_pdf, size: 18, color: Colors.teal),
+            label: const Text('গ্রাহক PDF', style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.teal.shade50,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            const Text('বাকি', style: TextStyle(fontSize: 10, color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomerList() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: _filteredCustomers.length,
+      itemBuilder: (context, index) {
+        final customer = _filteredCustomers[index];
+        return _buildCustomerDueCard(customer);
+      },
+    );
+  }
+
+  Widget _buildCustomerDueCard(CustomerDue customer) {
+    return Dismissible(
+      key: Key('customer_${customer.id}'),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (direction) async {
+        if (customer.currentCreditBalance > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('বাকি পরিশোধ না করে গ্রাহক মুছা যাবে না'), backgroundColor: Colors.red),
+          );
+          return false;
+        }
+        return await _showDeleteConfirmation(customer);
+      },
+      onDismissed: (direction) => _deleteCustomer(customer.id),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(12)),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.delete, color: Colors.white),
+            Text('মুছুন', style: TextStyle(color: Colors.white, fontSize: 10)),
           ],
         ),
-        onTap: () => _showCustomerMenu(context, customer),
+      ),
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade100)),
+        elevation: 0,
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: Colors.blue.shade50,
+            child: Text(customer.name.isNotEmpty ? customer.name[0] : '?', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+          ),
+          title: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(customer.phone ?? 'ফোন নম্বর নেই', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+              if (customer.lastTransactionDate != null)
+                Text('শেয লেনদেন: ${DateFormat('dd MMM').format(customer.lastTransactionDate!)}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            ],
+          ),
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '৳${_toBengaliDigits(customer.currentCreditBalance.toStringAsFixed(0))}',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: customer.currentCreditBalance > 0 ? Colors.red : Colors.green),
+              ),
+              Text('মোট বাকি', style: TextStyle(fontSize: 10, color: customer.currentCreditBalance > 0 ? Colors.red : Colors.green)),
+            ],
+          ),
+          onTap: () => _showCustomerMenu(context, customer),
+        ),
+      ),
+    );
+  }
+
+  // --- Actions ---
+
+  Future<void> _generateAndSharePDF() async {
+    final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
+    
+    Map<int, List<CustomerTransaction>> histories = {};
+    for (var c in _filteredCustomers) {
+      histories[c.id] = await repo.getCustomerTransactionHistory(c.id);
+    }
+
+    await ReportGenerator.generateBakirKhataPDF(
+      shopName: 'আমার দোকান', // In real app, get from settings
+      summary: _summary,
+      customers: _filteredCustomers,
+      transactionHistories: histories,
+    );
+  }
+
+  Future<void> _deleteCustomer(int id) async {
+    final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
+    await repo.deleteCustomer(id);
+    _loadData();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('গ্রাহক মুছে ফেলা হয়েছে')));
+  }
+
+  Future<bool?> _showDeleteConfirmation(CustomerDue customer) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('⚠️ সতর্কতা'),
+        content: Text('আপনি কি এই গ্রাহককে মুছে ফেলতে চান?\n\nনাম: ${customer.name}\nবাকি: ৳${_toBengaliDigits(customer.currentCreditBalance.toStringAsFixed(0))}\n\nসকল লেনদেন ইতিহাস মুছে যাবে!'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('বাতিল')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('মুছে ফেলুন', style: TextStyle(color: Colors.red))),
+        ],
       ),
     );
   }
@@ -158,6 +473,14 @@ class _DueLedgerViewState extends State<DueLedgerView> {
           ),
           const Divider(),
           ListTile(
+            leading: const Icon(Icons.edit_outlined, color: Colors.blue),
+            title: const Text('গ্রাহক তথ্য পরিবর্তন করুন'),
+            onTap: () {
+              Navigator.pop(context);
+              _showEditCustomerDialog(customer);
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.payments_outlined, color: Colors.green),
             title: const Text('বকেয়া পরিশোধের হিসাব রাখুন'),
             subtitle: const Text('কাস্টমারের কাছ থেকে টাকা জমা নিন'),
@@ -169,7 +492,6 @@ class _DueLedgerViewState extends State<DueLedgerView> {
           ListTile(
             leading: const Icon(Icons.history, color: Colors.blue),
             title: const Text('বাকি লেনদেনের ইতিহাস'),
-            subtitle: const Text('আগের সব সেল ও পেমেন্ট রেকর্ড'),
             onTap: () {
               Navigator.pop(context);
               _showTransactionHistorySheet(context, customer);
@@ -185,6 +507,155 @@ class _DueLedgerViewState extends State<DueLedgerView> {
           ),
           const SizedBox(height: 20),
         ],
+      ),
+    );
+  }
+
+  void _showEditCustomerDialog(CustomerDue customer) {
+    final nameController = TextEditingController(text: customer.name);
+    final phoneController = TextEditingController(text: customer.phone);
+    final addressController = TextEditingController(text: customer.address);
+    final notesController = TextEditingController(text: customer.notes);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('গ্রাহক সম্পাদনা'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'নাম (আবশ্যক)')),
+              TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'ফোন নম্বর (আবশ্যক)')),
+              TextField(controller: addressController, decoration: const InputDecoration(labelText: 'ঠিকানা (ঐচ্ছিক)')),
+              TextField(controller: notesController, decoration: const InputDecoration(labelText: 'মন্তব্য (ঐচ্ছিক)')),
+              const SizedBox(height: 16),
+              Text('বর্তমান বাকি: ৳${_toBengaliDigits(customer.currentCreditBalance.toStringAsFixed(0))}', 
+                style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('বাতিল')),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.isEmpty || phoneController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('নাম এবং ফোন নম্বর প্রয়োজন')));
+                return;
+              }
+              
+              final updated = CustomerDue(
+                id: customer.id,
+                name: nameController.text,
+                phone: phoneController.text,
+                address: addressController.text,
+                notes: notesController.text,
+                type: customer.type,
+                currentCreditBalance: customer.currentCreditBalance,
+                totalCredit: customer.totalCredit,
+                totalPaid: customer.totalPaid,
+                totalPurchases: customer.totalPurchases,
+              );
+
+              final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
+              await repo.updateCustomer(updated);
+              
+              if (!mounted) return;
+              Navigator.pop(context);
+              _loadData();
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('গ্রাহক তথ্য আপডেট হয়েছে')));
+            },
+            child: const Text('সংরক্ষণ করুন'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- UI Components ---
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check_circle_outline, size: 64, color: Colors.green.shade200),
+          const SizedBox(height: 16),
+          const Text('কোনো গ্রাহক পাওয়া যায়নি', style: TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
+  void _showAddCustomerDialog() {
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+    final addressController = TextEditingController();
+    final notesController = TextEditingController();
+    String customerType = 'customer';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('নতুন গ্রাহক/সাপ্লায়ার'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: customerType,
+                  decoration: const InputDecoration(labelText: 'ধরণ'),
+                  items: const [
+                    DropdownMenuItem(value: 'customer', child: Text('গ্রাহক (আমি পাবো)')),
+                    DropdownMenuItem(value: 'supplier', child: Text('সাপ্লায়ার (আমি দিবো)')),
+                  ],
+                  onChanged: (val) => setState(() => customerType = val!),
+                ),
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'নাম (আবশ্যক)')),
+                TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'ফোন নম্বর (আবশ্যক)')),
+                TextField(controller: addressController, decoration: const InputDecoration(labelText: 'ঠিকানা (ঐচ্ছিক)')),
+                TextField(controller: notesController, decoration: const InputDecoration(labelText: 'মন্তব্য (ঐচ্ছিক)')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('বাতিল')),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.isEmpty || phoneController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('নাম এবং ফোন নম্বর প্রয়োজন')));
+                  return;
+                }
+
+                final db = context.read<DatabaseHelper>();
+                final database = await db.database;
+                
+                await database.insert('customers', {
+                  'name': nameController.text,
+                  'phone': phoneController.text,
+                  'address': addressController.text,
+                  'notes': notesController.text,
+                  'type': customerType,
+                  'current_credit_balance': 0.0,
+                  'total_credit': 0.0,
+                  'total_paid': 0.0,
+                  'total_purchases': 0.0,
+                  'is_active': 1,
+                  'created_at': DateTime.now().toIso8601String(),
+                  'updated_at': DateTime.now().toIso8601String(),
+                  'is_synced': 0,
+                });
+
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                _loadData();
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('গ্রাহক যুক্ত হয়েছে')));
+              },
+              child: const Text('সংরক্ষণ করুন'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -208,19 +679,12 @@ class _DueLedgerViewState extends State<DueLedgerView> {
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'জমা করা টাকার পরিমাণ',
-                prefixText: '৳',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'জমা করা টাকার পরিমাণ', prefixText: '৳', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: notesController,
-              decoration: const InputDecoration(
-                labelText: 'নোট (ঐচ্ছিক)',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'নোট (ঐচ্ছিক)', border: OutlineInputBorder()),
             ),
           ],
         ),
@@ -233,11 +697,7 @@ class _DueLedgerViewState extends State<DueLedgerView> {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('সঠিক পরিমাণ লিখুন')));
                 return;
               }
-              if (amount > customer.currentCreditBalance) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('জমা দেওয়ার পরিমাণ বাকির চেয়ে বেশি হতে পারবে না')));
-                return;
-              }
-
+              
               final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
               await repo.recordCustomerPayment(
                 customerId: customer.id,
@@ -247,7 +707,7 @@ class _DueLedgerViewState extends State<DueLedgerView> {
 
               if (!mounted) return;
               Navigator.pop(context);
-              _loadDueLedger();
+              _loadData();
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('টাকা জমা নেওয়া সফল হয়েছে')));
             },
             child: const Text('নিশ্চিত করুন'),
@@ -277,8 +737,7 @@ class _DueLedgerViewState extends State<DueLedgerView> {
               children: [
                 Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: Text('লেনদেনের ইতিহাস - ${customer.name}', 
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  child: Text('লেনদেনের ইতিহাস - ${customer.name}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 ),
                 const Divider(),
                 Expanded(
@@ -307,13 +766,9 @@ class _DueLedgerViewState extends State<DueLedgerView> {
                                 children: [
                                   Text(
                                     '${isSale ? "+" : "-"} ৳${_toBengaliDigits(trans.amount.toStringAsFixed(0))}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: isSale ? Colors.red : Colors.green,
-                                    ),
+                                    style: TextStyle(fontWeight: FontWeight.bold, color: isSale ? Colors.red : Colors.green),
                                   ),
-                                  Text('ব্যালেন্স: ৳${_toBengaliDigits(trans.balanceAfter.toStringAsFixed(0))}', 
-                                    style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                  Text('ব্যালেন্স: ৳${_toBengaliDigits(trans.balanceAfter.toStringAsFixed(0))}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
                                 ],
                               ),
                             );
