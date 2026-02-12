@@ -59,6 +59,11 @@ class DatabaseHelper {
       await _upgradeToVersion7(db);
       print('DB_LOG: Upgrade to Version 7 Complete.');
     }
+    if (oldVersion < 8) {
+      print('DB_LOG: Upgrading to Version 8...');
+      await _upgradeToVersion8(db);
+      print('DB_LOG: Upgrade to Version 8 Complete.');
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -106,7 +111,8 @@ class DatabaseHelper {
         ${DatabaseConstants.colUpdatedAt} TEXT,
         ${DatabaseConstants.colSyncedAt} TEXT,
         ${DatabaseConstants.colIsSynced} INTEGER DEFAULT 0,
-        ${DatabaseConstants.colDeletedAt} TEXT
+        ${DatabaseConstants.colDeletedAt} TEXT,
+        ${DatabaseConstants.colNotes} TEXT
       )
     ''');
     await db.execute('CREATE INDEX idx_customers_phone ON ${DatabaseConstants.tableCustomers} (${DatabaseConstants.colPhone})');
@@ -385,6 +391,12 @@ class DatabaseHelper {
     ''');
     
     print('DB_LOG: Version 7 Migration - Customer tracking columns added.');
+  }
+
+  Future<void> _upgradeToVersion8(Database db) async {
+    // Add missing notes column to customers table if it doesn't exist (it was missed in Version 7)
+    await db.execute('ALTER TABLE ${DatabaseConstants.tableCustomers} ADD COLUMN ${DatabaseConstants.colNotes} TEXT');
+    print('DB_LOG: Version 8 Migration - notes column added to customers.');
   }
 
   Future<void> _createKhorochCategoryTable(Database db) async {

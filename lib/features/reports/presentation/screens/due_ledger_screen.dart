@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
+import '../../../../core/constants/database_constants.dart';
 import '../../data/report_repository.dart';
 import '../../domain/due_ledger_model.dart';
 import '../../services/report_generator.dart';
@@ -705,20 +706,20 @@ class _DueLedgerViewState extends State<DueLedgerView> {
                 final db = context.read<DatabaseHelper>();
                 final database = await db.database;
                 
-                await database.insert('customers', {
-                  'name': nameController.text,
-                  'phone': phoneController.text,
-                  'address': addressController.text,
-                  'notes': notesController.text,
-                  'type': customerType,
-                  'current_credit_balance': 0.0,
-                  'total_credit': 0.0,
-                  'total_paid': 0.0,
-                  'total_purchases': 0.0,
-                  'is_active': 1,
-                  'created_at': DateTime.now().toIso8601String(),
-                  'updated_at': DateTime.now().toIso8601String(),
-                  'is_synced': 0,
+                await database.insert(DatabaseConstants.tableCustomers, {
+                  DatabaseConstants.colName: nameController.text,
+                  DatabaseConstants.colPhone: phoneController.text,
+                  DatabaseConstants.colAddress: addressController.text,
+                  DatabaseConstants.colNotes: notesController.text,
+                  DatabaseConstants.colCustomerType: customerType,
+                  DatabaseConstants.colCurrentCreditBalance: 0.0,
+                  DatabaseConstants.colTotalCredit: 0.0,
+                  DatabaseConstants.colTotalPaid: 0.0,
+                  DatabaseConstants.colTotalPurchases: 0.0,
+                  DatabaseConstants.colIsActive: 1,
+                  DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
+                  DatabaseConstants.colUpdatedAt: DateTime.now().toIso8601String(),
+                  DatabaseConstants.colIsSynced: 0,
                 });
 
                 if (!context.mounted) return;
