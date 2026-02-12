@@ -202,64 +202,43 @@ class _ExpenseViewState extends State<ExpenseView> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: Colors.blue.shade50,
+        border: Border(bottom: BorderSide(color: Colors.blue.shade100)),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Text(
-            'মূল ব্যালেন্স: ৳${_toBengaliDigits(_currentBalance.toStringAsFixed(0))}',
-            style: const TextStyle(
-              fontSize: 22, 
-              fontWeight: FontWeight.bold, 
-              color: Colors.black87
+          Expanded(
+            child: Column(
+              children: [
+                const Text('মোট যোগ', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                const SizedBox(height: 4),
+                Text(
+                  '৳${_toBengaliDigits(_totalAdded.toStringAsFixed(0))}',
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          const Divider(height: 1),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  children: [
-                    const Text('মোট যোগ', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                    const SizedBox(height: 4),
-                    Text(
-                      '৳${_toBengaliDigits(_totalAdded.toStringAsFixed(0))}',
-                      style: const TextStyle(
-                        fontSize: 18, 
-                        fontWeight: FontWeight.bold, 
-                        color: Colors.green
-                      ),
-                    ),
-                  ],
+          Container(width: 1, height: 30, color: Colors.grey.shade200),
+          Expanded(
+            child: Column(
+              children: [
+                const Text('মোট খরচ', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                const SizedBox(height: 4),
+                Text(
+                  '৳${_toBengaliDigits(_totalExpense.toStringAsFixed(0))}',
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red
+                  ),
                 ),
-              ),
-              Container(width: 1, height: 30, color: Colors.grey.shade200),
-              Expanded(
-                child: Column(
-                  children: [
-                    const Text('মোট খরচ', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                    const SizedBox(height: 4),
-                    Text(
-                      '৳${_toBengaliDigits(_totalExpense.toStringAsFixed(0))}',
-                      style: const TextStyle(
-                        fontSize: 18, 
-                        fontWeight: FontWeight.bold, 
-                        color: Colors.red
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -486,89 +465,105 @@ class _ExpenseViewState extends State<ExpenseView> {
 
   Widget _buildTransactionCard(ShopTransaction trans) {
     final isIncome = trans.transactionType == 'income';
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12), 
-        side: BorderSide(color: Colors.grey.shade100)
-      ),
-      elevation: 0,
-      child: ListTile(
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: isIncome ? Colors.green.shade50 : Colors.red.shade50,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Icon(
-            isIncome ? Icons.add : Icons.remove,
-            color: isIncome ? Colors.green : Colors.red, 
-            size: 24
-          ),
+    return Dismissible(
+      key: Key('trans_${trans.id}'),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (direction) async {
+        return await _showDeleteConfirmation(context, trans);
+      },
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(12),
         ),
-        title: Text(
-          trans.category ?? (isIncome ? 'টাকা যোগ' : 'খরচ'), 
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (trans.description != null && trans.description!.isNotEmpty) 
-              Text(
-                trans.description!, 
-                style: const TextStyle(fontSize: 12),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            Text(
-              _toBengaliDigits(DateFormat('dd MMM, yyyy').format(trans.transactionDate)),
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-            ),
+            Icon(Icons.delete, color: Colors.white),
+            Text('মুছে ফেলুন', style: TextStyle(color: Colors.white, fontSize: 10)),
           ],
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
+      ),
+      child: GestureDetector(
+        onTap: () => _showEditTransactionDialog(context, trans),
+        child: Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12), 
+            side: BorderSide(color: Colors.grey.shade100)
+          ),
+          elevation: 0,
+          child: ListTile(
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isIncome ? Colors.green.shade50 : Colors.red.shade50,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(
+                isIncome ? Icons.add : Icons.remove,
+                color: isIncome ? Colors.green : Colors.red, 
+                size: 24
+              ),
+            ),
+            title: Text(
+              trans.category ?? (isIncome ? 'টাকা যোগ' : 'খরচ'), 
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (trans.description != null && trans.description!.isNotEmpty) 
+                  Text(
+                    trans.description!, 
+                    style: const TextStyle(fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                Text(
+                  _toBengaliDigits(DateFormat('dd MMM, yyyy').format(trans.transactionDate)),
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   '${isIncome ? "+" : "-"} ৳${_toBengaliDigits(trans.amount.toStringAsFixed(0))}',
                   style: TextStyle(
-                    fontWeight: FontWeight.bold, 
-                    fontSize: 16, 
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                     color: isIncome ? Colors.green : Colors.red
                   ),
                 ),
-                // Text(
-                //   'ব্যালেন্স: ৳${_toBengaliDigits(trans.balanceAfter.toStringAsFixed(0))}',
-                //   style: const TextStyle(fontSize: 10, color: Colors.grey)
-                // ),
-              ],
-            ),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 20),
-              onSelected: (value) {
-                if (value == 'edit') {
-                  _showEditTransactionDialog(context, trans);
-                } else if (value == 'delete') {
-                  _showDeleteConfirmation(context, trans);
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'edit', 
-                  child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('সম্পাদনা')])
-                ),
-                const PopupMenuItem(
-                  value: 'delete', 
-                  child: Row(children: [Icon(Icons.delete, size: 18, color: Colors.red), SizedBox(width: 8), Text('মুছে ফেলুন', style: TextStyle(color: Colors.red))])
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, size: 20),
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _showEditTransactionDialog(context, trans);
+                    } else if (value == 'delete') {
+                      _showDeleteConfirmation(context, trans);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit', 
+                      child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('সম্পাদনা')])
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete', 
+                      child: Row(children: [Icon(Icons.delete, size: 18, color: Colors.red), SizedBox(width: 8), Text('মুছে ফেলুন', style: TextStyle(color: Colors.red))])
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -698,8 +693,10 @@ class _ExpenseViewState extends State<ExpenseView> {
 
                 if (!context.mounted) return;
                 Navigator.pop(context);
-                _loadData();
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('লেনদেন আপডেট করা হয়েছে')));
+                _loadData(isBackground: true);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('লেনদেন আপডেট করা হয়েছে')),
+                );
               },
               style: ElevatedButton.styleFrom(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -712,15 +709,64 @@ class _ExpenseViewState extends State<ExpenseView> {
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, ShopTransaction trans) {
-    showDialog(
+  Future<bool?> _showDeleteConfirmation(BuildContext context, ShopTransaction trans) async {
+    return await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('মুছে ফেলতে চান?'),
-        content: const Text('এই লেনদেনটি মুছে ফেললে মেইন ব্যালেন্স পুনরায় গণনা করা হবে। আপনি কি নিশ্চিত?'),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('নিশ্চিত করুন'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('আপনি কি এই লেনদেনটি মুছে ফেলতে চান?'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('পরিমাণ:', style: TextStyle(color: Colors.grey)),
+                      Text(
+                        '৳${_toBengaliDigits(trans.amount.toStringAsFixed(0))}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('খাত:', style: TextStyle(color: Colors.grey)),
+                      Text(
+                        trans.category ?? '',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('বাতিল')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false), 
+            child: const Text('বাতিল')
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -732,9 +778,11 @@ class _ExpenseViewState extends State<ExpenseView> {
               await repo.deleteShopTransaction(trans.id!);
 
               if (!context.mounted) return;
-              Navigator.pop(context);
-              _loadData();
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('লেনদেন মুছে ফেলা হয়েছে')));
+              Navigator.pop(context, true);
+              _loadData(isBackground: true);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('লেনদেন মুছে ফেলা হয়েছে')),
+              );
             },
             child: const Text('মুছে ফেলুন'),
           ),

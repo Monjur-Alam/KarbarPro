@@ -137,6 +137,7 @@ class SalesRepository {
           DatabaseConstants.colTransactionDate: sale.saleDate.toIso8601String(),
           DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
           DatabaseConstants.colTransactionSource: 'product_sale',
+          DatabaseConstants.colIsManual: 0,
           DatabaseConstants.colIsSynced: 0,
         });
       }

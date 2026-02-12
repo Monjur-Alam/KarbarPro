@@ -222,6 +222,7 @@ class ReportRepository {
     String? description,
     DateTime? date,
     String source = 'manual_khoroch',
+    bool isManual = true,
   }) async {
     final db = await _dbHelper.database;
     final transactionDate = date ?? DateTime.now();
@@ -253,6 +254,7 @@ class ReportRepository {
         DatabaseConstants.colTransactionDate: transactionDate.toIso8601String(),
         DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
         DatabaseConstants.colTransactionSource: source,
+        DatabaseConstants.colIsManual: isManual ? 1 : 0,
         DatabaseConstants.colIsSynced: 0,
       });
     });
@@ -290,9 +292,8 @@ class ReportRepository {
   }) async {
     final db = await _dbHelper.database;
     
-    // Isolation: Strictly manual khoroch entries, with fallback category exclusion for safety
-    String whereClause = "(${DatabaseConstants.colTransactionSource} = 'manual_khoroch' OR ${DatabaseConstants.colTransactionSource} IS NULL) "
-        "AND ${DatabaseConstants.colCategory} NOT IN ('বিক্রয় থেকে আয়', 'বকেয়া সংগ্রহ', 'Shop Sale', 'Sale', 'Collection', 'হালখাতা', 'বকেয়া পরিশোধ', 'পণ্য বিক্রয়')";
+    // Isolation: Strictly manual khoroch entries using the new flag and excluding soft-deleted items
+    String whereClause = "${DatabaseConstants.colIsManual} = 1 AND ${DatabaseConstants.colDeletedAt} IS NULL";
     List<dynamic> whereArgs = [];
     
     if (startDate != null && endDate != null) {
@@ -329,9 +330,8 @@ class ReportRepository {
   }) async {
     final db = await _dbHelper.database;
     
-    // Isolation: Strictly manual khoroch entries, with fallback category exclusion for safety
-    String whereClause = "(${DatabaseConstants.colTransactionSource} = 'manual_khoroch' OR ${DatabaseConstants.colTransactionSource} IS NULL) "
-        "AND ${DatabaseConstants.colCategory} NOT IN ('বিক্রয় থেকে আয়', 'বকেয়া সংগ্রহ', 'Shop Sale', 'Sale', 'Collection', 'হালখাতা', 'বকেয়া পরিশোধ', 'পণ্য বিক্রয়')";
+    // Isolation: Strictly manual khoroch entries using the new flag and excluding soft-deleted items
+    String whereClause = "${DatabaseConstants.colIsManual} = 1 AND ${DatabaseConstants.colDeletedAt} IS NULL";
     List<dynamic> whereArgs = [];
     
     if (startDate != null && endDate != null) {
@@ -435,6 +435,7 @@ class ReportRepository {
         description: 'Customer Payment (ID: $customerId)', 
         date: paymentDate,
         source: 'credit_payment',
+        isManual: false,
       );
     });
   }
@@ -459,6 +460,7 @@ class ReportRepository {
     String? description,
     DateTime? date,
     String source = 'manual_khoroch',
+    bool isManual = true,
   }) async {
     final transactionDate = date ?? DateTime.now();
     
@@ -487,6 +489,7 @@ class ReportRepository {
       DatabaseConstants.colTransactionDate: transactionDate.toIso8601String(),
       DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
       DatabaseConstants.colTransactionSource: source,
+      DatabaseConstants.colIsManual: isManual ? 1 : 0,
       DatabaseConstants.colIsSynced: 0,
     });
   }
@@ -574,24 +577,29 @@ class ReportRepository {
         balanceBeforeThis = (prevBalanceResult.first[DatabaseConstants.colBalanceAfter] as num).toDouble();
       }
 
-      // Delete the transaction
-      await txn.delete(
+      // Soft Delete: Set the deleted_at timestamp
+      await txn.update(
         DatabaseConstants.tableShopTransactions,
+        {
+          DatabaseConstants.colDeletedAt: DateTime.now().toIso8601String(),
+          DatabaseConstants.colUpdatedAt: DateTime.now().toIso8601String(),
+          DatabaseConstants.colIsSynced: 0,
+        },
         where: '${DatabaseConstants.colId} = ?',
         whereArgs: [transactionId],
       );
 
-      // Recalculate all subsequent transactions
+      // Recalculate all subsequent balances starting from the balance before the deleted one
       await _recalculateSubsequentBalances(txn, transactionId, balanceBeforeThis);
     });
   }
 
   // Helper to recalculate balances for all transactions after a given ID
   Future<void> _recalculateSubsequentBalances(Transaction txn, int afterId, double startingBalance) async {
-    // Get all transactions after the edited/deleted one
+    // Get all non-deleted transactions after the edited/deleted one
     final subsequentTrans = await txn.query(
       DatabaseConstants.tableShopTransactions,
-      where: '${DatabaseConstants.colId} > ?',
+      where: '${DatabaseConstants.colId} > ? AND ${DatabaseConstants.colDeletedAt} IS NULL',
       whereArgs: [afterId],
       orderBy: '${DatabaseConstants.colId} ASC',
     );

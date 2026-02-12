@@ -41,6 +41,9 @@ class DatabaseHelper {
     if (oldVersion < 4) {
       await _upgradeToVersion4(db);
     }
+    if (oldVersion < 5) {
+      await _upgradeToVersion5(db);
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -274,6 +277,8 @@ class DatabaseHelper {
         ${DatabaseConstants.colSyncedAt} TEXT,
         ${DatabaseConstants.colTransactionSource} TEXT DEFAULT 'manual_khoroch',
         ${DatabaseConstants.colCategoryId} INTEGER,
+        ${DatabaseConstants.colIsManual} INTEGER DEFAULT 1,
+        ${DatabaseConstants.colDeletedAt} TEXT,
         ${DatabaseConstants.colIsSynced} INTEGER DEFAULT 0
       )
     ''');
@@ -311,6 +316,27 @@ class DatabaseHelper {
     await db.execute('''
       ALTER TABLE ${DatabaseConstants.tableShopTransactions}
       ADD COLUMN ${DatabaseConstants.colCategoryId} INTEGER
+    ''');
+  }
+
+  Future<void> _upgradeToVersion5(Database db) async {
+    // Add is_manual column
+    await db.execute('''
+      ALTER TABLE ${DatabaseConstants.tableShopTransactions}
+      ADD COLUMN ${DatabaseConstants.colIsManual} INTEGER DEFAULT 0
+    ''');
+
+    // Add deleted_at column
+    await db.execute('''
+      ALTER TABLE ${DatabaseConstants.tableShopTransactions}
+      ADD COLUMN ${DatabaseConstants.colDeletedAt} TEXT
+    ''');
+
+    // Initialize is_manual: 1 for manual_khoroch, 0 for others
+    await db.execute('''
+      UPDATE ${DatabaseConstants.tableShopTransactions}
+      SET ${DatabaseConstants.colIsManual} = 1
+      WHERE ${DatabaseConstants.colTransactionSource} = 'manual_khoroch'
     ''');
   }
 
