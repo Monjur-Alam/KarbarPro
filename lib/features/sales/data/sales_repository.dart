@@ -281,10 +281,13 @@ class SalesRepository {
     final result = await db.rawQuery('''
       SELECT 
         s.*,
-        c.${DatabaseConstants.colName} as customer_name
+        c.${DatabaseConstants.colName} as customer_name,
+        GROUP_CONCAT(i.${DatabaseConstants.colProductName}, ', ') as product_names
       FROM ${DatabaseConstants.tableSales} s
       LEFT JOIN ${DatabaseConstants.tableCustomers} c ON s.${DatabaseConstants.colCustomerId} = c.${DatabaseConstants.colId}
+      LEFT JOIN ${DatabaseConstants.tableSaleItems} i ON s.${DatabaseConstants.colId} = i.${DatabaseConstants.colSaleId}
       ${whereString != null ? 'WHERE $whereString' : ''}
+      GROUP BY s.${DatabaseConstants.colId}
       ORDER BY $orderBy
     ''', whereArgs);
 
@@ -301,7 +304,8 @@ class SalesRepository {
       createdAt: DateTime.parse(row[DatabaseConstants.colCreatedAt] as String),
       updatedAt: DateTime.parse(row[DatabaseConstants.colUpdatedAt] as String),
       notes: row[DatabaseConstants.colNotes] as String?,
-      items: [], // Items are fetched on detail view typically
+      productNames: row['product_names'] as String?,
+      items: [], 
     )).toList();
   }
 

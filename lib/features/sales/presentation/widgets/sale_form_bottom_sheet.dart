@@ -6,8 +6,8 @@ import '../../../customers/presentation/bloc/customer_bloc.dart';
 import '../../../inventory/domain/product.dart';
 import '../../../inventory/presentation/bloc/inventory_bloc.dart';
 import '../bloc/sales_bloc.dart';
-import '../../../../core/constants/database_constants.dart';
 import '../../../../core/database/database_helper.dart';
+import '../../../../core/constants/database_constants.dart';
 
 class SaleFormBottomSheet extends StatefulWidget {
   const SaleFormBottomSheet({super.key});
@@ -20,10 +20,18 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
   final TextEditingController _quantityController = TextEditingController(text: '1');
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _discountController = TextEditingController(text: '0');
-  final TextEditingController _paidAmountController = TextEditingController();
+  final TextEditingController _paidAmountController = TextEditingController(text: '0');
   final TextEditingController _notesController = TextEditingController();
   
   Product? _selectedProduct;
+  bool _isPartialPayment = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Clear cart when opening for a new sale
+    context.read<SalesBloc>().add(ClearCart());
+  }
 
   @override
   void dispose() {
@@ -53,30 +61,49 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     });
   }
 
+  void _addItemToCart() {
+    if (_selectedProduct == null) return;
+    
+    final qty = int.tryParse(_quantityController.text) ?? 0;
+    if (qty <= 0) return;
+
+    final price = double.tryParse(_priceController.text) ?? _selectedProduct!.sellingPrice;
+    
+    // Create a temporary product with the modified price if needed
+    final productToAdd = _selectedProduct!.copyWith(sellingPrice: price);
+    
+    context.read<SalesBloc>().add(AddToCart(productToAdd, quantity: qty));
+    
+    HapticFeedback.lightImpact();
+    setState(() {
+      _selectedProduct = null;
+      _quantityController.text = '1';
+      _priceController.clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<SalesBloc, SalesState>(
       listener: (context, state) {
         if (state is SalesSuccess) {
           Navigator.pop(context); // Close on success
+        } else if (state is SalesError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message), backgroundColor: Colors.red),
+          );
         }
       },
       builder: (context, state) {
         if (state is! SalesDataLoaded) return const Center(child: CircularProgressIndicator());
 
-        double total = 0;
-        if (_selectedProduct != null) {
-          double qty = double.tryParse(_quantityController.text) ?? 0;
-          double price = double.tryParse(_priceController.text) ?? 0;
-          total = qty * price;
-        }
-
+        double subTotal = state.totalAmount;
         double discount = double.tryParse(_discountController.text) ?? 0;
-        double finalTotal = total - discount;
+        double finalTotal = subTotal - discount;
         if (finalTotal < 0) finalTotal = 0;
 
         return DraggableScrollableSheet(
-          initialChildSize: 0.85,
+          initialChildSize: 0.9,
           minChildSize: 0.6,
           maxChildSize: 0.95,
           expand: false,
@@ -85,7 +112,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
               ),
               child: ListView(
                 controller: scrollController,
@@ -96,16 +123,16 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('পণ্য বিক্রয় করুন', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      const Text('নতুন বিক্রয় (ইনভয়েস)', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                       IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                     ],
                   ),
                   const Divider(),
                   const SizedBox(height: 16),
                   
-                  // Product Selection
-                  _buildSectionTitle('পণ্য নির্বাচন করুন *'),
-                  const SizedBox(height: 8),
+                  // Product Selection Section
+                  _buildSectionHeader('📦 পণ্য নির্বাচন করুন', Colors.blue),
+                  const SizedBox(height: 12),
                   _buildProductSelector(),
                   
                   if (_selectedProduct != null) ...[
@@ -114,62 +141,83 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
                       children: [
                         Expanded(child: _buildTextField(_quantityController, 'পরিমাণ *', suffix: _selectedProduct!.unit, isNumber: true, onChanged: (_) => setState(() {}))),
                         const SizedBox(width: 16),
-                        Expanded(child: _buildTextField(_priceController, 'মূল্য (প্রতি একক) *', prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}))),
+                        Expanded(child: _buildTextField(_priceController, 'মূল্য (একক) *', prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}))),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('মোট মূল্য', style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text('৳${_toBengaliDigits(total.toStringAsFixed(0))}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue)),
-                        ],
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _addItemToCart,
+                        icon: const Icon(Icons.add_shopping_cart, size: 18),
+                        label: const Text('কার্টে যোগ করুন'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
                       ),
                     ),
                   ],
 
-                  const SizedBox(height: 16),
-                  _buildSectionTitle('পেমেন্ট ধরন *'),
-                  const SizedBox(height: 8),
-                  _buildPaymentTypeToggle(state),
-
-                  if (state.paymentType == PaymentType.credit) ...[
-                    const SizedBox(height: 16),
-                    _buildSectionTitle('গ্রাহক নির্বাচন করুন *'),
+                  // Cart Summary Section
+                  if (state.cart.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    _buildSectionHeader('🛒 কার্ট তালিকা (${_toBengaliDigits(state.cart.length.toString())}টি)', Colors.purple),
                     const SizedBox(height: 8),
+                    _buildCartList(state),
+                  ],
+
+                  // Payment Section
+                  const SizedBox(height: 24),
+                  _buildSectionHeader('💳 পেমেন্ট তথ্য', Colors.green),
+                  const SizedBox(height: 12),
+                  _buildPaymentTypeToggle(state),
+                  
+                  const SizedBox(height: 16),
+                  if (state.paymentType == PaymentType.credit) ...[
                     _buildCustomerSelector(state.selectedCustomer),
+                    const SizedBox(height: 16),
+                    _buildPartialPaymentSection(finalTotal),
+                  ] else ...[
+                    _buildTextField(_discountController, 'ডিসকাউন্ট (টাকা)', prefix: '৳', isNumber: true, onChanged: (_) => setState(() {})),
                   ],
 
                   const SizedBox(height: 16),
-                  _buildTextField(_notesController, 'বিবরণ/মন্তব্য (ঐচ্ছিক)', maxLines: 2),
+                  _buildTextField(_notesController, '💬 অতিরিক্ত নোট (ঐচ্ছিক)', maxLines: 2),
                   
                   const SizedBox(height: 32),
+                  _buildCheckoutSummary(state, finalTotal),
+                  
+                  const SizedBox(height: 24),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                          child: const Text('বাতিল করুন'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('বাতিল'),
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         flex: 2,
                         child: ElevatedButton(
-                          onPressed: _validateAndSubmit(state, finalTotal),
+                          onPressed: state.isSubmitting || state.cart.isEmpty ? null : () => _handleCheckout(state, finalTotal),
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             backgroundColor: Colors.green.shade700,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 2,
                           ),
                           child: state.isSubmitting 
                             ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : Text('বিক্রয় সম্পন্ন করুন (৳${_toBengaliDigits(finalTotal.toStringAsFixed(0))})'),
+                            : const Text('বিক্রয় সম্পন্ন করুন', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],
@@ -184,22 +232,163 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blueGrey));
+  Widget _buildSectionHeader(String title, Color color) {
+    return Row(
+      children: [
+        Container(width: 4, height: 16, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(width: 8),
+        Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800)),
+      ],
+    );
+  }
+
+  Widget _buildCartList(SalesDataLoaded state) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: state.cart.length,
+        separatorBuilder: (context, index) => const Divider(height: 1, indent: 16, endIndent: 16),
+        itemBuilder: (context, index) {
+          final item = state.cart[index];
+          return ListTile(
+            contentPadding: const EdgeInsets.only(left: 16, right: 8, top: 4, bottom: 4),
+            title: Text(item.product.name, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+            subtitle: Text(
+              '${_toBengaliDigits(item.quantity.toString())} ${item.product.unit} × ৳${_toBengaliDigits(item.product.sellingPrice.toStringAsFixed(0))}',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '৳${_toBengaliDigits(item.subTotal.toStringAsFixed(0))}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blueGrey),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 20),
+                  onPressed: () {
+                    context.read<SalesBloc>().add(RemoveFromCart(item.product.id!));
+                    HapticFeedback.lightImpact();
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPartialPaymentSection(double finalTotal) {
+    return Column(
+      children: [
+        CheckboxListTile(
+          value: _isPartialPayment,
+          onChanged: (v) => setState(() {
+            _isPartialPayment = v ?? false;
+            if (!_isPartialPayment) _paidAmountController.text = '0';
+          }),
+          title: const Text('নগদ আদায় হয়েছে?', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          dense: true,
+        ),
+        if (_isPartialPayment)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: Row(
+              children: [
+                Expanded(child: _buildTextField(_paidAmountController, 'আদায়ের পরিমাণ', prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}))),
+                const SizedBox(width: 16),
+                Expanded(child: _buildTextField(_discountController, 'ডিসকাউন্ট', prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}))),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCheckoutSummary(SalesDataLoaded state, double finalTotal) {
+    double paid = double.tryParse(_paidAmountController.text) ?? 0;
+    if (state.paymentType == PaymentType.cash) paid = finalTotal;
+    
+    double due = finalTotal - paid;
+    if (due < 0) due = 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey.shade900,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        children: [
+          _buildSummaryRow('উপ-মোট:', '৳${_toBengaliDigits(state.totalAmount.toStringAsFixed(0))}', Colors.white70),
+          _buildSummaryRow('ডিসকাউন্ট:', '- ৳${_toBengaliDigits((double.tryParse(_discountController.text) ?? 0).toStringAsFixed(0))}', Colors.red.shade300),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider(color: Colors.white24)),
+          _buildSummaryRow('সর্বমোট দেয়:', '৳${_toBengaliDigits(finalTotal.toStringAsFixed(0))}', Colors.white, isBold: true, fontSize: 20),
+          if (state.paymentType == PaymentType.credit) ...[
+             const SizedBox(height: 8),
+             _buildSummaryRow('আদায়কৃত:', '৳${_toBengaliDigits(paid.toStringAsFixed(0))}', Colors.green.shade300),
+             _buildSummaryRow('বাকি থাকবে:', '৳${_toBengaliDigits(due.toStringAsFixed(0))}', Colors.orange.shade300),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value, Color color, {bool isBold = false, double fontSize = 14}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: color, fontSize: fontSize, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+          Text(value, style: TextStyle(color: color, fontSize: fontSize, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+        ],
+      ),
+    );
+  }
+
+  void _handleCheckout(SalesDataLoaded state, double finalTotal) {
+    if (state.paymentType == PaymentType.credit && state.selectedCustomer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('গ্রাহক নির্বাচন করুন!'), backgroundColor: Colors.orange));
+      return;
+    }
+
+    double paid = double.tryParse(_paidAmountController.text) ?? 0;
+    if (state.paymentType == PaymentType.cash) paid = finalTotal;
+    
+    context.read<SalesBloc>().add(CheckoutSale(
+      discount: double.tryParse(_discountController.text) ?? 0,
+      paidAmount: paid,
+      notes: _notesController.text,
+    ));
   }
 
   Widget _buildTextField(TextEditingController controller, String label, {String? prefix, String? suffix, bool isNumber = false, int maxLines = 1, Function(String)? onChanged}) {
     return TextField(
       controller: controller,
-      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
       maxLines: maxLines,
       onChanged: onChanged,
+      style: const TextStyle(fontSize: 15),
       decoration: InputDecoration(
         labelText: label,
         prefixText: prefix,
         suffixText: suffix,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        isDense: true,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.blue, width: 2)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }
@@ -221,12 +410,16 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
           ),
           child: Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50.withOpacity(0.3),
+              border: Border.all(color: _selectedProduct != null ? Colors.blue : Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Row(
               children: [
-                Icon(Icons.shopping_bag_outlined, color: Colors.grey.shade600),
+                Icon(Icons.shopping_bag_outlined, color: _selectedProduct != null ? Colors.blue : Colors.grey.shade600),
                 const SizedBox(width: 12),
-                Expanded(child: Text(_selectedProduct?.name ?? 'পণ্য নির্বাচন করুন...', style: TextStyle(color: _selectedProduct != null ? Colors.black : Colors.grey.shade600))),
+                Expanded(child: Text(_selectedProduct?.name ?? 'পণ্য নির্বাচন করুন...', style: TextStyle(color: _selectedProduct != null ? Colors.blue.shade900 : Colors.grey.shade600, fontWeight: _selectedProduct != null ? FontWeight.bold : FontWeight.normal))),
                 const Icon(Icons.arrow_drop_down, color: Colors.grey),
               ],
             ),
@@ -249,7 +442,13 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
   Widget _buildToggleItem(String label, PaymentType type, bool isSelected, Color color) {
     return Expanded(
       child: InkWell(
-        onTap: () => context.read<SalesBloc>().add(TogglePaymentType(type)),
+        onTap: () {
+           context.read<SalesBloc>().add(TogglePaymentType(type));
+           if (type == PaymentType.cash) {
+             setState(() => _isPartialPayment = false);
+             _paidAmountController.text = '0';
+           }
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
@@ -283,12 +482,16 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
                 ),
                 child: Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400), borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50.withOpacity(0.3),
+                    border: Border.all(color: selectedCustomer != null ? Colors.orange : Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: Row(
                     children: [
-                      Icon(Icons.person_outline, color: Colors.grey.shade600),
+                      Icon(Icons.person_outline, color: selectedCustomer != null ? Colors.orange : Colors.grey.shade600),
                       const SizedBox(width: 12),
-                      Expanded(child: Text(selectedCustomer?.name ?? 'গ্রাহক নির্বাচন করুন...', style: TextStyle(color: selectedCustomer != null ? Colors.black : Colors.grey.shade600))),
+                      Expanded(child: Text(selectedCustomer?.name ?? 'গ্রাহক নির্বাচন করুন...', style: TextStyle(color: selectedCustomer != null ? Colors.orange.shade900 : Colors.grey.shade600, fontWeight: selectedCustomer != null ? FontWeight.bold : FontWeight.normal))),
                       const Icon(Icons.arrow_drop_down, color: Colors.grey),
                     ],
                   ),
@@ -307,57 +510,46 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     );
   }
 
-  VoidCallback? _validateAndSubmit(SalesDataLoaded state, double finalTotal) {
-    if (_selectedProduct == null) return null;
-    double qty = double.tryParse(_quantityController.text) ?? 0;
-    if (qty <= 0 || qty > _selectedProduct!.currentStock) return null;
-    if (state.paymentType == PaymentType.credit && state.selectedCustomer == null) return null;
-    
-    return () {
-       context.read<SalesBloc>().add(ClearCart()); // Ensure cart is clean for single sale from sheet
-       context.read<SalesBloc>().add(AddToCart(_selectedProduct!.copyWith(sellingPrice: double.tryParse(_priceController.text) ?? _selectedProduct!.sellingPrice), quantity: qty.toInt()));
-       context.read<SalesBloc>().add(CheckoutSale(
-         discount: double.tryParse(_discountController.text) ?? 0,
-         paidAmount: state.paymentType == PaymentType.cash ? finalTotal : 0,
-         notes: _notesController.text,
-       ));
-    };
-  }
-
   void _showSearchablePicker<T>({required String title, required List<T> items, required String Function(T) itemLabel, String Function(T)? itemSublabel, required Function(T) onSelected, required String hintText}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: Colors.transparent,
       builder: (context) {
         String query = '';
         return StatefulBuilder(
           builder: (context, setPickerState) {
             final filtered = items.where((item) => itemLabel(item).toLowerCase().contains(query.toLowerCase())).toList();
             return Container(
-              height: MediaQuery.of(context).size.height * 0.7,
-              padding: const EdgeInsets.all(20),
+              height: MediaQuery.of(context).size.height * 0.75,
+              padding: const EdgeInsets.only(top: 12, left: 20, right: 20, bottom: 20),
+              decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
               child: Column(
                 children: [
+                  Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(height: 16),
                   Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   TextField(
                     onChanged: (v) => setPickerState(() => query = v),
-                    decoration: InputDecoration(hintText: hintText, prefixIcon: const Icon(Icons.search), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                    decoration: InputDecoration(hintText: hintText, prefixIcon: const Icon(Icons.search), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)), contentPadding: EdgeInsets.zero),
                   ),
                   const SizedBox(height: 16),
                   Expanded(
-                    child: ListView.builder(
-                      itemCount: filtered.length,
-                      itemBuilder: (context, index) => ListTile(
-                        title: Text(itemLabel(filtered[index])),
-                        subtitle: itemSublabel != null ? Text(itemSublabel(filtered[index])) : null,
-                        onTap: () {
-                          onSelected(filtered[index]);
-                          Navigator.pop(context);
-                        },
-                      ),
-                    ),
+                    child: filtered.isEmpty 
+                      ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.search_off, size: 48, color: Colors.grey.shade300), const SizedBox(height: 16), const Text('কোনো তথ্য পাওয়া যায়নি', style: TextStyle(color: Colors.grey))]))
+                      : ListView.builder(
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) => ListTile(
+                            title: Text(itemLabel(filtered[index]), style: const TextStyle(fontWeight: FontWeight.w500)),
+                            subtitle: itemSublabel != null ? Text(itemSublabel(filtered[index])) : null,
+                            trailing: const Icon(Icons.chevron_right, size: 18),
+                            onTap: () {
+                              onSelected(filtered[index]);
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ),
                   ),
                 ],
               ),
@@ -375,12 +567,14 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         title: const Text('নতুন গ্রাহক যোগ করুন'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameController, decoration: const InputDecoration(labelText: 'নাম *')),
-            TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'ফোন নম্বর *')),
+            TextField(controller: nameController, decoration: const InputDecoration(labelText: 'নাম *', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'ফোন নম্বর *', border: OutlineInputBorder())),
           ],
         ),
         actions: [

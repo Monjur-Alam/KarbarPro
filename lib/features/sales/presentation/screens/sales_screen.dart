@@ -3,10 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:amar_dokan/features/sales/presentation/bloc/sales_bloc.dart';
-import 'package:amar_dokan/features/customers/presentation/bloc/customer_bloc.dart';
-import 'package:amar_dokan/features/customers/domain/customer.dart';
 import 'package:amar_dokan/features/inventory/presentation/bloc/inventory_bloc.dart';
-import 'package:amar_dokan/features/inventory/domain/product.dart';
 import 'package:amar_dokan/features/sales/domain/sale.dart';
 import 'package:amar_dokan/core/services/invoice_service.dart';
 import 'package:amar_dokan/features/reports/presentation/bloc/report_bloc.dart';
@@ -14,8 +11,6 @@ import 'package:amar_dokan/features/reports/services/report_generator.dart';
 import 'package:amar_dokan/features/dashboard/presentation/bloc/home_bloc.dart';
 import 'package:amar_dokan/core/services/connectivity_service.dart';
 import '../widgets/sale_form_bottom_sheet.dart';
-import '../../../../core/database/database_helper.dart';
-import '../../../../core/constants/database_constants.dart';
 
 class SalesScreen extends StatelessWidget {
   const SalesScreen({super.key});
@@ -84,25 +79,6 @@ class _SalesViewState extends State<SalesView> {
       },
       builder: (context, state) {
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('বিক্রয় তথ্য ও ইতিহাস', style: TextStyle(fontWeight: FontWeight.bold)),
-            actions: [
-              if (state is SalesDataLoaded)
-                IconButton(
-                  icon: const Icon(Icons.picture_as_pdf_outlined),
-                  onPressed: () {
-                     String shopName = 'আমার দোকান';
-                     // In real app, get from settings
-
-                     ReportGenerator.generateSalesPDF(
-                       shopName: shopName,
-                       sales: state.salesHistory,
-                       summary: state.statistics['thisMonth'] ?? {'total': 0.0, 'cash': 0.0, 'credit': 0.0},
-                     );
-                  },
-                ),
-            ],
-          ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _showSaleFormBottomSheet(context),
             icon: const Icon(Icons.add),
@@ -285,6 +261,15 @@ class _SalesViewState extends State<SalesView> {
           _buildFilterButton(Icons.calendar_today, () => _showDateRangePicker(context, state)),
           const SizedBox(width: 8),
           _buildFilterButton(Icons.sort, () => _showSortOptions(context, state)),
+          const SizedBox(width: 8),
+          _buildFilterButton(Icons.picture_as_pdf_outlined, () {
+             String shopName = 'আমার দোকান';
+             ReportGenerator.generateSalesPDF(
+               shopName: shopName,
+               sales: state.salesHistory,
+               summary: state.statistics['thisMonth'] ?? {'total': 0.0, 'cash': 0.0, 'credit': 0.0},
+             );
+          }),
         ],
       ),
     );
@@ -322,73 +307,122 @@ class _SalesViewState extends State<SalesView> {
       itemCount: sales.length,
       itemBuilder: (context, index) {
         final sale = sales[index];
+        final isCash = sale.paymentMethod == 'cash';
+        
         return Card(
           elevation: 0,
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12), 
+            side: BorderSide(color: Colors.grey.shade200)
+          ),
           child: InkWell(
             onTap: () {
-               // Show details
+               // Show details? For now just keep existing behavior
             },
             borderRadius: BorderRadius.circular(12),
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: sale.paymentMethod == 'cash' ? Colors.green.shade50 : Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      sale.paymentMethod == 'cash' ? Icons.payments : Icons.history_toggle_off,
-                      color: sale.paymentMethod == 'cash' ? Colors.green : Colors.red,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          sale.customerName ?? 'সাধারণ গ্রাহক',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: isCash ? Colors.green.shade50 : Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
+                        child: Icon(
+                          isCash ? Icons.payments_outlined : Icons.account_balance_wallet_outlined,
+                          color: isCash ? Colors.green : Colors.orange,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'আইডি: ${_toBengaliDigits(sale.invoiceId)}',
-                              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                              sale.productNames ?? 'অজানা পণ্য',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(width: 8),
-                            const Text('•', style: TextStyle(color: Colors.grey)),
-                            const SizedBox(width: 8),
-                            Text(
-                              DateFormat('dd MMM, hh:mm a').format(sale.saleDate),
-                              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                            ),
+                            if (!isCash && sale.customerName != null) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.person_outline, size: 14, color: Colors.orange.shade700),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    sale.customerName!,
+                                    style: TextStyle(color: Colors.orange.shade800, fontSize: 13, fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '৳${_toBengaliDigits(NumberFormat('#,##,###').format(sale.totalAmount))}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                       ),
-                      Text(
-                        sale.paymentMethod == 'cash' ? 'নগদ' : 'বাকি',
-                        style: TextStyle(
-                          color: sale.paymentMethod == 'cash' ? Colors.green : Colors.red,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '৳${_toBengaliDigits(NumberFormat('#,##,###').format(sale.totalAmount))}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isCash ? Colors.green.shade100 : Colors.orange.shade100,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              isCash ? 'নগদ' : 'বাকি',
+                              style: TextStyle(
+                                color: isCash ? Colors.green.shade800 : Colors.orange.shade800,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10),
+                    child: Divider(height: 1, thickness: 0.5),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.receipt_long_outlined, size: 14, color: Colors.grey.shade600),
+                          const SizedBox(width: 4),
+                          Text(
+                            '#${_toBengaliDigits(sale.invoiceId.split('-').last)}',
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Icon(Icons.access_time, size: 14, color: Colors.grey.shade600),
+                          const SizedBox(width: 4),
+                          Text(
+                            DateFormat('dd MMM, hh:mm a').format(sale.saleDate),
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                          ),
+                        ],
                       ),
                     ],
                   ),

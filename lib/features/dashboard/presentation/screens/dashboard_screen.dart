@@ -9,7 +9,7 @@ import 'package:amar_dokan/features/sales/presentation/screens/sales_screen.dart
 import 'package:amar_dokan/features/reports/presentation/screens/sales_report_screen.dart';
 import 'package:amar_dokan/features/reports/presentation/screens/expense_screen.dart';
 
-import '../../../auth/presentation/screens/profile_screen.dart';
+
 import '../../../reports/presentation/screens/due_ledger_screen.dart';
 import '../../../../core/widgets/navigation_drawer.dart';
 
@@ -364,7 +364,7 @@ class DashboardHome extends StatelessWidget {
               color: Colors.orange,
               onTap: () {
                 final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
-                dashboardState?.setState(() => dashboardState._selectedIndex = 4);
+                dashboardState?.setIndex(4);
               },
             ),
             _buildReportCard(
@@ -374,7 +374,7 @@ class DashboardHome extends StatelessWidget {
               color: Colors.green,
               onTap: () {
                 final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
-                dashboardState?.setState(() => dashboardState._selectedIndex = 3);
+                dashboardState?.setIndex(3);
               },
             ),
             _buildReportCard(
@@ -384,7 +384,7 @@ class DashboardHome extends StatelessWidget {
               color: Colors.red,
               onTap: () {
                 final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
-                dashboardState?.setState(() => dashboardState._selectedIndex = 2);
+                dashboardState?.setIndex(2);
               },
             ),
           ],

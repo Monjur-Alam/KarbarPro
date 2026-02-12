@@ -38,6 +38,7 @@ class Sale extends Equatable {
   final String paymentMethod;
   final DateTime saleDate;
   final List<SaleItem> items;
+  final String? productNames; // Concatenated names for list view
   final String? notes;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -53,6 +54,7 @@ class Sale extends Equatable {
     this.paymentMethod = 'cash',
     required this.saleDate,
     required this.items,
+    this.productNames,
     this.notes,
     required this.createdAt,
     required this.updatedAt,
@@ -77,6 +79,7 @@ class Sale extends Equatable {
         paymentMethod,
         saleDate,
         items,
+        productNames,
         notes,
         createdAt,
         updatedAt,
