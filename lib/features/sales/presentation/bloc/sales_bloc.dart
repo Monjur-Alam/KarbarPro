@@ -87,6 +87,30 @@ class SearchProducts extends SalesEvent {
   List<Object?> get props => [query];
 }
 
+class ChangeSalesTab extends SalesEvent {
+  final String tab; // 'all', 'cash', 'credit'
+  const ChangeSalesTab(this.tab);
+  @override
+  List<Object?> get props => [tab];
+}
+
+class UpdateSalesFilters extends SalesEvent {
+  final String? searchQuery;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final String? sortBy;
+
+  const UpdateSalesFilters({
+    this.searchQuery,
+    this.startDate,
+    this.endDate,
+    this.sortBy,
+  });
+
+  @override
+  List<Object?> get props => [searchQuery, startDate, endDate, sortBy];
+}
+
 // States
 class CartItem extends Equatable {
   final Product product;
@@ -129,6 +153,15 @@ class SalesDataLoaded extends SalesState {
   final List<Product> searchResults;
   final bool isSearching;
 
+  // New Fields for Redesign
+  final List<Sale> salesHistory;
+  final Map<String, dynamic> statistics;
+  final String activeTab;
+  final String? searchQuery;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final String sortBy;
+
   const SalesDataLoaded({
     required this.cart,
     required this.mode,
@@ -139,6 +172,13 @@ class SalesDataLoaded extends SalesState {
     this.isSubmitting = false,
     this.searchResults = const [],
     this.isSearching = false,
+    this.salesHistory = const [],
+    this.statistics = const {},
+    this.activeTab = 'all',
+    this.searchQuery,
+    this.startDate,
+    this.endDate,
+    this.sortBy = 'date_desc',
   });
 
   SalesDataLoaded copyWith({
@@ -152,6 +192,16 @@ class SalesDataLoaded extends SalesState {
     bool? isSubmitting,
     List<Product>? searchResults,
     bool? isSearching,
+    List<Sale>? salesHistory,
+    Map<String, dynamic>? statistics,
+    String? activeTab,
+    String? searchQuery,
+    bool clearSearch = false,
+    DateTime? startDate,
+    bool clearStartDate = false,
+    DateTime? endDate,
+    bool clearEndDate = false,
+    String? sortBy,
   }) {
     return SalesDataLoaded(
       cart: cart ?? this.cart,
@@ -163,6 +213,13 @@ class SalesDataLoaded extends SalesState {
       isSubmitting: isSubmitting ?? this.isSubmitting,
       searchResults: searchResults ?? this.searchResults,
       isSearching: isSearching ?? this.isSearching,
+      salesHistory: salesHistory ?? this.salesHistory,
+      statistics: statistics ?? this.statistics,
+      activeTab: activeTab ?? this.activeTab,
+      searchQuery: clearSearch ? null : (searchQuery ?? this.searchQuery),
+      startDate: clearStartDate ? null : (startDate ?? this.startDate),
+      endDate: clearEndDate ? null : (endDate ?? this.endDate),
+      sortBy: sortBy ?? this.sortBy,
     );
   }
 
@@ -205,20 +262,79 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     on<CheckoutSale>(_onCheckoutSale);
     on<ClearCart>(_onClearCart);
     on<SearchProducts>(_onSearchProducts);
+    on<ChangeSalesTab>(_onChangeSalesTab);
+    on<UpdateSalesFilters>(_onUpdateSalesFilters);
   }
 
   Future<void> _onLoadSalesInitialData(LoadSalesInitialData event, Emitter<SalesState> emit) async {
+    emit(SalesLoading());
     try {
-      final todayTotal = await _repository.getTodayTotalSales();
+      final stats = await _repository.getSalesStatistics();
+      final sales = await _repository.getFilteredSales();
+      
       emit(SalesDataLoaded(
         cart: const [],
         mode: SalesMode.single,
         paymentType: PaymentType.cash,
-        todayTotalSales: todayTotal,
+        todayTotalSales: stats['today']['total'],
         totalAmount: 0.0,
+        statistics: stats,
+        salesHistory: sales,
+        activeTab: 'all',
       ));
     } catch (e) {
       emit(SalesError('ডাটা লোড করতে সমস্যা হয়েছে: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onChangeSalesTab(ChangeSalesTab event, Emitter<SalesState> emit) async {
+    if (state is SalesDataLoaded) {
+      final s = state as SalesDataLoaded;
+      emit(s.copyWith(activeTab: event.tab));
+      
+      try {
+        final sales = await _repository.getFilteredSales(
+          paymentType: event.tab == 'all' ? null : event.tab,
+          searchQuery: s.searchQuery,
+          startDate: s.startDate,
+          endDate: s.endDate,
+          sortBy: s.sortBy,
+        );
+        emit((state as SalesDataLoaded).copyWith(salesHistory: sales));
+      } catch (e) {
+        // Log error
+      }
+    }
+  }
+
+  Future<void> _onUpdateSalesFilters(UpdateSalesFilters event, Emitter<SalesState> emit) async {
+    if (state is SalesDataLoaded) {
+      final s = state as SalesDataLoaded;
+      
+      final newSearchQuery = event.searchQuery ?? s.searchQuery;
+      final newStartDate = event.startDate ?? s.startDate;
+      final newEndDate = event.endDate ?? s.endDate;
+      final newSortBy = event.sortBy ?? s.sortBy;
+
+      emit(s.copyWith(
+        searchQuery: newSearchQuery,
+        startDate: newStartDate,
+        endDate: newEndDate,
+        sortBy: newSortBy,
+      ));
+
+      try {
+        final sales = await _repository.getFilteredSales(
+          paymentType: s.activeTab == 'all' ? null : s.activeTab,
+          searchQuery: newSearchQuery,
+          startDate: newStartDate,
+          endDate: newEndDate,
+          sortBy: newSortBy,
+        );
+        emit((state as SalesDataLoaded).copyWith(salesHistory: sales));
+      } catch (e) {
+        // Log error
+      }
     }
   }
 
@@ -366,7 +482,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
 
         await _repository.createSale(sale);
         
-        final newTodayTotal = await _repository.getTodayTotalSales();
+        // await _repository.getTodayTotalSales(); // Redundant and non-existent
         
         // Trigger sync
         _syncService.performSync();
@@ -374,12 +490,23 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
         // Return the full sale object for the success dialog
         emit(SalesSuccess(sale));
         
+        final newStats = await _repository.getSalesStatistics();
+        final newSales = await _repository.getFilteredSales(
+           paymentType: s.activeTab == 'all' ? null : s.activeTab,
+           searchQuery: s.searchQuery,
+           startDate: s.startDate,
+           endDate: s.endDate,
+           sortBy: s.sortBy,
+        );
+
         // Reset state after success
         emit(s.copyWith(
           cart: [], 
           totalAmount: 0.0, 
           isSubmitting: false, 
-          todayTotalSales: newTodayTotal,
+          todayTotalSales: newStats['today']['total'],
+          statistics: newStats,
+          salesHistory: newSales,
           clearCustomer: true,
         ));
       } catch (e) {

@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
 import '../domain/due_ledger_model.dart';
+import '../../sales/domain/sale.dart';
 
 class ReportGenerator {
   static Future<void> generateBakirKhataPDF({
@@ -38,6 +39,101 @@ class ReportGenerator {
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
       name: 'Bakir_Khata_Report_${DateFormat('dd_MMM_yyyy').format(DateTime.now())}.pdf',
+    );
+  }
+
+  static Future<void> generateSalesPDF({
+    required String shopName,
+    required List<Sale> sales,
+    required Map<String, dynamic> summary,
+  }) async {
+    final pdf = pw.Document();
+    
+    // Load Bangla Font
+    final fontData = await rootBundle.load("assets/fonts/HindSiliguri-Regular.ttf");
+    final banglaFont = pw.Font.ttf(fontData);
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        theme: pw.ThemeData.withFont(base: banglaFont),
+        footer: (context) => _buildFooter(context),
+        build: (context) => [
+          _buildSalesHeader(shopName, banglaFont),
+          pw.SizedBox(height: 20),
+          _buildSalesSummarySection(summary, banglaFont),
+          pw.SizedBox(height: 20),
+          _buildSalesTable(sales, banglaFont),
+        ],
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'Sales_Report_${DateFormat('dd_MMM_yyyy').format(DateTime.now())}.pdf',
+    );
+  }
+
+  static pw.Widget _buildSalesHeader(String shopName, pw.Font font) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      children: [
+        pw.Text(shopName, style: pw.TextStyle(font: font, fontSize: 24, fontWeight: pw.FontWeight.bold)),
+        pw.Text('বিক্রয় বিবরণী রিপোর্ট', style: pw.TextStyle(font: font, fontSize: 18)),
+        pw.Text('তারিখ: ${DateFormat('dd MMMM yyyy').format(DateTime.now())}', style: pw.TextStyle(font: font, fontSize: 12)),
+        pw.Divider(thickness: 1),
+      ],
+    );
+  }
+
+  static pw.Widget _buildSalesSummarySection(Map<String, dynamic> summary, pw.Font font) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(10),
+      decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey300)),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+        children: [
+          pw.Column(
+            children: [
+              pw.Text('মোট বিক্রি', style: pw.TextStyle(font: font, fontSize: 10)),
+              pw.Text('৳${(summary['total'] ?? 0.0).toStringAsFixed(0)}', style: pw.TextStyle(font: font, fontWeight: pw.FontWeight.bold)),
+            ],
+          ),
+          pw.Column(
+            children: [
+              pw.Text('নগদ আদায়', style: pw.TextStyle(font: font, fontSize: 10)),
+              pw.Text('৳${(summary['cash'] ?? 0.0).toStringAsFixed(0)}', style: pw.TextStyle(font: font, fontWeight: pw.FontWeight.bold, color: PdfColors.green)),
+            ],
+          ),
+          pw.Column(
+            children: [
+              pw.Text('বাকি বিক্রি', style: pw.TextStyle(font: font, fontSize: 10)),
+              pw.Text('৳${(summary['credit'] ?? 0.0).toStringAsFixed(0)}', style: pw.TextStyle(font: font, fontWeight: pw.FontWeight.bold, color: PdfColors.red)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildSalesTable(List<Sale> sales, pw.Font font) {
+    final headers = ['তারিখ', 'ইনভয়েস', 'গ্রাহক', 'ধরণ', 'পরিমাণ'];
+
+    return pw.TableHelper.fromTextArray(
+      headers: headers,
+      data: sales.map((sale) => [
+        DateFormat('dd/MM/yy').format(sale.saleDate),
+        sale.invoiceId,
+        sale.customerName ?? 'সাধারণ',
+        sale.paymentMethod == 'cash' ? 'নগদ' : 'বাকি',
+        '৳${sale.totalAmount.toStringAsFixed(0)}',
+      ]).toList(),
+      headerStyle: pw.TextStyle(font: font, fontWeight: pw.FontWeight.bold),
+      cellStyle: pw.TextStyle(font: font, fontSize: 10),
+      headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
+      cellAlignment: pw.Alignment.centerLeft,
+      cellAlignments: {4: pw.Alignment.centerRight},
     );
   }
 

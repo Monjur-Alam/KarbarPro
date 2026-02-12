@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import '../../../core/constants/database_constants.dart';
 import '../../../core/database/database_helper.dart';
 import '../domain/sale.dart';
@@ -161,15 +162,147 @@ class SalesRepository {
     return 'partial';
   }
 
-  Future<double> getTodayTotalSales() async {
+  Future<Map<String, dynamic>> getSalesStatistics() async {
     final db = await _dbHelper.database;
-    final today = DateTime.now().toIso8601String().split('T')[0];
-    final result = await db.rawQuery('''
-      SELECT SUM(${DatabaseConstants.colTotalAmount}) as total 
-      FROM ${DatabaseConstants.tableSales} 
+    final now = DateTime.now();
+    final today = DateFormat('yyyy-MM-dd').format(now);
+    final startOfMonth = DateFormat('yyyy-MM-01').format(now);
+
+    // 1. Today's Statistics
+    final todayResult = await db.rawQuery('''
+      SELECT 
+        SUM(${DatabaseConstants.colTotalAmount}) as total,
+        SUM(CASE WHEN ${DatabaseConstants.colPaymentType} = 'cash' THEN ${DatabaseConstants.colTotalAmount} ELSE 0 END) as cash,
+        SUM(CASE WHEN ${DatabaseConstants.colPaymentType} = 'credit' THEN ${DatabaseConstants.colTotalAmount} ELSE 0 END) as credit
+      FROM ${DatabaseConstants.tableSales}
       WHERE date(${DatabaseConstants.colSaleDate}) = date(?)
     ''', [today]);
-    return (result.first['total'] as num?)?.toDouble() ?? 0.0;
+
+    // 2. All-time Statistics
+    final allTimeResult = await db.rawQuery('''
+      SELECT 
+        SUM(${DatabaseConstants.colTotalAmount}) as total,
+        SUM(CASE WHEN ${DatabaseConstants.colPaymentType} = 'cash' THEN ${DatabaseConstants.colTotalAmount} ELSE 0 END) as cash,
+        SUM(CASE WHEN ${DatabaseConstants.colPaymentType} = 'credit' THEN ${DatabaseConstants.colTotalAmount} ELSE 0 END) as credit
+      FROM ${DatabaseConstants.tableSales}
+    ''');
+
+    // 3. This Month Statistics
+    final monthResult = await db.rawQuery('''
+      SELECT 
+        SUM(${DatabaseConstants.colTotalAmount}) as total,
+        SUM(CASE WHEN ${DatabaseConstants.colPaymentType} = 'cash' THEN ${DatabaseConstants.colTotalAmount} ELSE 0 END) as cash,
+        SUM(CASE WHEN ${DatabaseConstants.colPaymentType} = 'credit' THEN ${DatabaseConstants.colTotalAmount} ELSE 0 END) as credit,
+        COUNT(*) as count
+      FROM ${DatabaseConstants.tableSales}
+      WHERE date(${DatabaseConstants.colSaleDate}) >= date(?)
+    ''', [startOfMonth]);
+
+    final currentDay = now.day;
+    final monthTotal = (monthResult.first['total'] as num?)?.toDouble() ?? 0.0;
+    final avgDailyTotal = currentDay > 0 ? monthTotal / currentDay : 0.0;
+    final totalCount = (monthResult.first['count'] as num?)?.toInt() ?? 0;
+
+    return {
+      'today': {
+        'total': (todayResult.first['total'] as num?)?.toDouble() ?? 0.0,
+        'cash': (todayResult.first['cash'] as num?)?.toDouble() ?? 0.0,
+        'credit': (todayResult.first['credit'] as num?)?.toDouble() ?? 0.0,
+      },
+      'allTime': {
+        'total': (allTimeResult.first['total'] as num?)?.toDouble() ?? 0.0,
+        'cash': (allTimeResult.first['cash'] as num?)?.toDouble() ?? 0.0,
+        'credit': (allTimeResult.first['credit'] as num?)?.toDouble() ?? 0.0,
+      },
+      'thisMonth': {
+        'total': monthTotal,
+        'cash': (monthResult.first['cash'] as num?)?.toDouble() ?? 0.0,
+        'credit': (monthResult.first['credit'] as num?)?.toDouble() ?? 0.0,
+      },
+      'avgDaily': {
+        'amount': avgDailyTotal,
+        'count': totalCount,
+      }
+    };
+  }
+
+  Future<List<Sale>> getFilteredSales({
+    String? paymentType,
+    String? searchQuery,
+    DateTime? startDate,
+    DateTime? endDate,
+    String sortBy = 'date_desc',
+  }) async {
+    final db = await _dbHelper.database;
+    
+    List<String> whereClauses = [];
+    List<dynamic> whereArgs = [];
+
+    if (paymentType != null && paymentType != 'all') {
+      whereClauses.add('${DatabaseConstants.colPaymentType} = ?');
+      whereArgs.add(paymentType);
+    }
+
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      // Joining with customers for customer name search if needed
+      // But we can also search in de-normalized fields if they existed.
+      // Sales table has invoice number. We might need to join for product names if not stored.
+      // Let's assume we want to search invoice numbers and potentially product names via items if we join.
+      // For simplicity, let's search invoice number first.
+      whereClauses.add('${DatabaseConstants.colInvoiceNumber} LIKE ?');
+      whereArgs.add('%$searchQuery%');
+    }
+
+    if (startDate != null) {
+      whereClauses.add('date(${DatabaseConstants.colSaleDate}) >= date(?)');
+      whereArgs.add(startDate.toIso8601String().split('T')[0]);
+    }
+
+    if (endDate != null) {
+      whereClauses.add('date(${DatabaseConstants.colSaleDate}) <= date(?)');
+      whereArgs.add(endDate.toIso8601String().split('T')[0]);
+    }
+
+    String orderBy = '${DatabaseConstants.colSaleDate} DESC';
+    switch (sortBy) {
+      case 'date_asc':
+        orderBy = '${DatabaseConstants.colSaleDate} ASC';
+        break;
+      case 'amount_desc':
+        orderBy = '${DatabaseConstants.colTotalAmount} DESC';
+        break;
+      case 'amount_asc':
+        orderBy = '${DatabaseConstants.colTotalAmount} ASC';
+        break;
+    }
+
+    final whereString = whereClauses.isEmpty ? null : whereClauses.join(' AND ');
+
+    final result = await db.rawQuery('''
+      SELECT 
+        s.*,
+        c.${DatabaseConstants.colName} as customer_name
+      FROM ${DatabaseConstants.tableSales} s
+      LEFT JOIN ${DatabaseConstants.tableCustomers} c ON s.${DatabaseConstants.colCustomerId} = c.${DatabaseConstants.colId}
+      ${whereString != null ? 'WHERE $whereString' : ''}
+      ORDER BY $orderBy
+    ''', whereArgs);
+
+    return result.map((row) => Sale(
+      id: row[DatabaseConstants.colId] as int,
+      invoiceId: row[DatabaseConstants.colInvoiceNumber] as String,
+      customerId: row[DatabaseConstants.colCustomerId] as int?,
+      customerName: row['customer_name'] as String?,
+      totalAmount: (row[DatabaseConstants.colTotalAmount] as num).toDouble(),
+      discount: (row[DatabaseConstants.colDiscount] as num).toDouble(),
+      paidAmount: (row[DatabaseConstants.colPaidAmount] as num).toDouble(),
+      paymentMethod: row[DatabaseConstants.colPaymentType] as String,
+      saleDate: DateTime.parse(row[DatabaseConstants.colSaleDate] as String),
+      createdAt: DateTime.parse(row[DatabaseConstants.colCreatedAt] as String),
+      updatedAt: DateTime.parse(row[DatabaseConstants.colUpdatedAt] as String),
+      notes: row[DatabaseConstants.colNotes] as String?,
+      items: [], // Items are fetched on detail view typically
+    )).toList();
   }
 
   Future<List<Sale>> getSales() async {
