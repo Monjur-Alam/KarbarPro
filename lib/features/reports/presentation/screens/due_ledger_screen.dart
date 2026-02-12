@@ -22,7 +22,10 @@ class DueLedgerScreen extends StatelessWidget {
           title: const Text('বাকি খাতা', style: TextStyle(fontWeight: FontWeight.bold)),
           elevation: 0,
         ),
-        body: const DueLedgerView(),
+        body: const DefaultTabController(
+          length: 2,
+          child: DueLedgerView(),
+        ),
       ),
     );
   }
@@ -35,9 +38,13 @@ class DueLedgerView extends StatefulWidget {
   State<DueLedgerView> createState() => _DueLedgerViewState();
 }
 
-class _DueLedgerViewState extends State<DueLedgerView> {
+class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   List<CustomerDue> _allCustomers = [];
-  List<CustomerDue> _filteredCustomers = [];
+  List<CustomerDue> _filteredCustomers = []; // For current tab
+  
+  List<CustomerDue> _customersList = [];
+  List<CustomerDue> _suppliersList = [];
   Map<String, dynamic> _summary = {
     'totalReceivable': 0.0,
     'totalCollected': 0.0,
@@ -57,11 +64,18 @@ class _DueLedgerViewState extends State<DueLedgerView> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        _applyTabFilter();
+      }
+    });
     _loadData();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.dispose();
     _debounce?.cancel();
     super.dispose();
@@ -81,9 +95,21 @@ class _DueLedgerViewState extends State<DueLedgerView> {
     setState(() {
       _summary = summary;
       _allCustomers = customers;
-      _filteredCustomers = customers;
-      _sortCustomers();
+      _customersList = customers.where((c) => c.type == 'customer').toList();
+      _suppliersList = customers.where((c) => c.type == 'supplier').toList();
+      _applyTabFilter();
       _isLoading = false;
+    });
+  }
+
+  void _applyTabFilter() {
+    setState(() {
+      if (_tabController.index == 0) {
+        _filteredCustomers = List.from(_customersList);
+      } else {
+        _filteredCustomers = List.from(_suppliersList);
+      }
+      _sortCustomers();
     });
   }
 
@@ -202,26 +228,124 @@ class _DueLedgerViewState extends State<DueLedgerView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent, // Controlled by Screen
-      body: Column(
-        children: [
-          _buildSummaryCard(),
-          _buildFilterBar(),
-          _buildActionBar(),
-          Expanded(
-            child: _isLoading 
-              ? const Center(child: CircularProgressIndicator())
-              : _filteredCustomers.isEmpty
-                ? _buildEmptyState()
-                : _buildCustomerList(),
+      backgroundColor: Colors.transparent,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(50),
+        child: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          bottom: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'গ্রাহক (পাবো)'),
+              Tab(text: 'সরবরাহকারী (দিবো)'),
+            ],
+            labelColor: Colors.teal.shade800,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: Colors.teal.shade800,
+            indicatorWeight: 3,
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold),
           ),
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildTabView(isCustomer: true),
+          _buildTabView(isCustomer: false),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddCustomerDialog,
+        onPressed: () => _showAddCustomerDialog(isSupplier: _tabController.index == 1),
         backgroundColor: const Color(0xFF00695C),
         icon: const Icon(Icons.person_add_alt_1, color: Colors.white),
-        label: const Text('নতুন গ্রাহক', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: Text(_tabController.index == 0 ? 'নতুন গ্রাহক' : 'নতুন সরবরাহকারী', 
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  Widget _buildTabView({required bool isCustomer}) {
+    final list = isCustomer ? _customersList : _suppliersList;
+    // Apply search filter locally for the tab
+    final search = _searchController.text.toLowerCase();
+    final filteredList = list.where((c) => 
+      c.name.toLowerCase().contains(search) || 
+      (c.phone != null && c.phone!.contains(search))
+    ).toList();
+
+    return Column(
+      children: [
+        _buildTabSummaryCard(isCustomer: isCustomer),
+        _buildFilterBar(),
+        _buildActionBar(isCustomer: isCustomer, count: filteredList.length),
+        Expanded(
+          child: _isLoading 
+            ? const Center(child: CircularProgressIndicator())
+            : filteredList.isEmpty
+              ? _buildEmptyState()
+              : _buildCustomerList(filteredList),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabSummaryCard({required bool isCustomer}) {
+    final total = isCustomer ? (_summary['totalReceivable'] ?? 0.0) : (_summary['totalPayable'] ?? 0.0);
+    final paid = isCustomer ? (_summary['totalCollected'] ?? 0.0) : (_summary['totalPaid'] ?? 0.0);
+    final remaining = total - paid;
+    
+    final accentColor = isCustomer ? Colors.orange : Colors.blue.shade300;
+    final labelTotal = isCustomer ? 'মোট পাবো' : 'মোট দিতে হবে';
+    final labelPaid = isCustomer ? 'আদায় হয়েছে' : 'দিয়েছি';
+    final labelRemaining = isCustomer ? 'বাকি আছে' : 'বাকি দিতে হবে';
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF37474F), // Darker grey-blue for clean look
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(labelTotal, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                  const SizedBox(height: 4),
+                  Text('৳${_toBengaliDigits(total.toStringAsFixed(0))}', 
+                    style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(labelPaid, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                  const SizedBox(height: 4),
+                  Text('৳${_toBengaliDigits(paid.toStringAsFixed(0))}', 
+                    style: TextStyle(color: Colors.green.shade300, fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(color: Colors.white24, height: 1),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(labelRemaining, style: TextStyle(color: accentColor, fontWeight: FontWeight.bold, fontSize: 15)),
+              Text('৳${_toBengaliDigits(remaining.toStringAsFixed(0))}', 
+                style: TextStyle(color: accentColor, fontWeight: FontWeight.bold, fontSize: 18)),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -383,13 +507,14 @@ class _DueLedgerViewState extends State<DueLedgerView> {
     );
   }
 
-  Widget _buildActionBar() {
+  Widget _buildActionBar({required bool isCustomer, required int count}) {
+    final label = isCustomer ? 'গ্রাহক' : 'সরবরাহকারী';
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text('গ্রাহক তালিকা (${_toBengaliDigits(_filteredCustomers.length.toString())})', 
+          Text('$label তালিকা (${_toBengaliDigits(count.toString())})', 
             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
           PopupMenuButton<String>(
             icon: const Icon(Icons.sort, color: Colors.blueGrey, size: 20),
@@ -408,9 +533,9 @@ class _DueLedgerViewState extends State<DueLedgerView> {
           ),
           const Spacer(),
           TextButton.icon(
-            onPressed: _generateAndSharePDF,
+            onPressed: () => _generateAndSharePDF(isCustomer: isCustomer),
             icon: const Icon(Icons.picture_as_pdf, size: 18, color: Colors.teal),
-            label: const Text('গ্রাহক PDF', style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
+            label: Text('$label PDF', style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
             style: TextButton.styleFrom(
               backgroundColor: Colors.teal.shade50,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -422,12 +547,12 @@ class _DueLedgerViewState extends State<DueLedgerView> {
     );
   }
 
-  Widget _buildCustomerList() {
+  Widget _buildCustomerList(List<CustomerDue> customers) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: _filteredCustomers.length,
+      itemCount: customers.length,
       itemBuilder: (context, index) {
-        final customer = _filteredCustomers[index];
+        final customer = customers[index];
         return _buildCustomerDueCard(customer);
       },
     );
@@ -483,10 +608,11 @@ class _DueLedgerViewState extends State<DueLedgerView> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '৳${_toBengaliDigits(customer.currentCreditBalance.toStringAsFixed(0))}',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: customer.currentCreditBalance > 0 ? Colors.red : Colors.green),
+                '৳${_toBengaliDigits(customer.currentCreditBalance.abs().toStringAsFixed(0))}',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: customer.type == 'customer' ? Colors.red : Colors.green),
               ),
-              Text('মোট বাকি', style: TextStyle(fontSize: 10, color: customer.currentCreditBalance > 0 ? Colors.red : Colors.green)),
+              Text(customer.type == 'customer' ? 'মোট বাকি' : 'বাকি দিতে হবে', 
+                style: TextStyle(fontSize: 10, color: customer.type == 'customer' ? Colors.red : Colors.green)),
             ],
           ),
           onTap: () => _showCustomerMenu(context, customer),
@@ -497,7 +623,7 @@ class _DueLedgerViewState extends State<DueLedgerView> {
 
   // --- Actions ---
 
-  Future<void> _generateAndSharePDF() async {
+  Future<void> _generateAndSharePDF({bool isCustomer = true}) async {
     final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
     
     Map<int, List<CustomerTransaction>> histories = {};
@@ -662,18 +788,18 @@ class _DueLedgerViewState extends State<DueLedgerView> {
     );
   }
 
-  void _showAddCustomerDialog() {
+  void _showAddCustomerDialog({bool isSupplier = false}) {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
     final addressController = TextEditingController();
     final notesController = TextEditingController();
-    String customerType = 'customer';
+    String customerType = isSupplier ? 'supplier' : 'customer';
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: const Text('নতুন গ্রাহক/সাপ্লায়ার'),
+          title: Text(isSupplier ? 'নতুন সরবরাহকারী' : 'নতুন গ্রাহক'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,

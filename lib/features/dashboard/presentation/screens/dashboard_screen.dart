@@ -11,6 +11,7 @@ import 'package:amar_dokan/features/reports/presentation/screens/expense_screen.
 
 import '../../../auth/presentation/screens/profile_screen.dart';
 import '../../../reports/presentation/screens/due_ledger_screen.dart';
+import '../../../../core/widgets/navigation_drawer.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -52,31 +53,27 @@ class DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final List<Widget> screens = [
       const DashboardHome(),
-      const InventoryView(),
+      const SalesView(),
       const DueLedgerView(),
+      const InventoryView(),
       const ExpenseView(),
-      const ProfileScreen(),
     ];
 
     final List<String> titles = [
       'আমার দোকান',
-      'পণ্যের তালিকা',
+      'পণ্য বিক্রয়',
       'বাকি খাতা',
-      'খরচপাতি',
-      'প্রোফাইল',
+      'পণ্যের তালিকা',
+      'দোকানের খরচ',
     ];
     return Scaffold(
-      appBar: _buildAppBar(titles[_selectedIndex]),
+      appBar: _buildAppBar(titles[_selectedIndex], context),
+      endDrawer: const AppDrawer(),
       body: IndexedStack(
         index: _selectedIndex,
         children: screens,
       ),
       bottomNavigationBar: _buildBottomNav(),
-      floatingActionButton: _selectedIndex == 0 ? FloatingActionButton(
-        onPressed: () => _showSaleBottomSheet(context),
-        backgroundColor: Colors.teal,
-        child: const Icon(Icons.add_shopping_cart),
-      ) : null,
     );
   }
 
@@ -104,7 +101,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-  PreferredSizeWidget _buildAppBar(String title) {
+  PreferredSizeWidget _buildAppBar(String title, BuildContext context) {
     return AppBar(
       title: Text(
         title,
@@ -123,6 +120,12 @@ class DashboardScreenState extends State<DashboardScreen> {
         IconButton(
           icon: const Icon(Icons.notifications_none),
           onPressed: () {},
+        ),
+        Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openEndDrawer(),
+          ),
         ),
       ],
     );
@@ -186,9 +189,9 @@ class DashboardScreenState extends State<DashboardScreen> {
           label: 'হোম'
         ),
         NavigationDestination(
-          icon: Icon(Icons.inventory_2_outlined), 
-          selectedIcon: Icon(Icons.inventory_2),
-          label: 'তালিকা'
+          icon: Icon(Icons.shopping_cart_outlined), 
+          selectedIcon: Icon(Icons.shopping_cart),
+          label: 'বিক্রয়'
         ),
         NavigationDestination(
           icon: Icon(Icons.menu_book_outlined), 
@@ -196,14 +199,14 @@ class DashboardScreenState extends State<DashboardScreen> {
           label: 'বাকি খাতা'
         ),
         NavigationDestination(
+          icon: Icon(Icons.inventory_2_outlined), 
+          selectedIcon: Icon(Icons.inventory_2),
+          label: 'তালিকা'
+        ),
+        NavigationDestination(
           icon: Icon(Icons.account_balance_wallet_outlined), 
           selectedIcon: Icon(Icons.account_balance_wallet),
           label: 'খরচ'
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline), 
-          selectedIcon: Icon(Icons.person),
-          label: 'প্রোফাইল'
         ),
       ],
     );
@@ -250,6 +253,8 @@ class DashboardHome extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                    _buildSummaryCard(state),
+                   const SizedBox(height: 16),
+                   _buildBakirKhataSummaryCard(context, state),
                    const SizedBox(height: 24),
                    _buildReportOptions(context),
                    const SizedBox(height: 24),
@@ -359,7 +364,7 @@ class DashboardHome extends StatelessWidget {
               color: Colors.orange,
               onTap: () {
                 final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
-                dashboardState?.setState(() => dashboardState._selectedIndex = 3);
+                dashboardState?.setState(() => dashboardState._selectedIndex = 4);
               },
             ),
             _buildReportCard(
@@ -369,7 +374,7 @@ class DashboardHome extends StatelessWidget {
               color: Colors.green,
               onTap: () {
                 final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
-                dashboardState?.setState(() => dashboardState._selectedIndex = 1);
+                dashboardState?.setState(() => dashboardState._selectedIndex = 3);
               },
             ),
             _buildReportCard(
@@ -419,6 +424,95 @@ class DashboardHome extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBakirKhataSummaryCard(BuildContext context, HomeLoaded state) {
+    return InkWell(
+      onTap: () {
+        final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
+        dashboardState?.setState(() => dashboardState._selectedIndex = 2);
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.grey.shade200),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                   const Text('বাকির খাতা সারসংক্ষেপ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                   TextButton.icon(
+                     onPressed: () {
+                        final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
+                        dashboardState?.setState(() => dashboardState._selectedIndex = 2);
+                     },
+                     icon: const Icon(Icons.visibility, size: 16, color: Colors.blue),
+                     label: const Text('বিস্তারিত', style: TextStyle(color: Colors.blue, fontSize: 13)),
+                     style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
+                   ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  // আমি পাবো (Receivables)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('আমি পাবো', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 14)),
+                        const SizedBox(height: 8),
+                        _buildBakirMiniRow('মোট বাকি:', '৳${_formatCurrency(state.summary.totalReceivable)}'),
+                        _buildBakirMiniRow('আদায়:', '৳${_formatCurrency(state.summary.totalCollected)}'),
+                        const Divider(height: 16),
+                        _buildBakirMiniRow('বাকি আছে:', '৳${_formatCurrency(state.summary.totalReceivable - state.summary.totalCollected)}', 
+                          valueStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                      ],
+                    ),
+                  ),
+                  Container(height: 80, width: 1, color: Colors.grey.shade200, margin: const EdgeInsets.symmetric(horizontal: 16)),
+                  // আমি দিবো (Payables)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('আমি দিবো', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 14)),
+                        const SizedBox(height: 8),
+                        _buildBakirMiniRow('মোট বাকি:', '৳${_formatCurrency(state.summary.totalPayable)}'),
+                        _buildBakirMiniRow('দিয়েছি:', '৳${_formatCurrency(state.summary.totalPaid)}'),
+                        const Divider(height: 16),
+                        _buildBakirMiniRow('বাকি দিতে হবে:', '৳${_formatCurrency(state.summary.totalPayable - state.summary.totalPaid)}', 
+                          valueStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBakirMiniRow(String label, String value, {TextStyle? valueStyle}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          Text(value, style: valueStyle ?? const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+        ],
       ),
     );
   }

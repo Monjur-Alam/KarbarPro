@@ -9,6 +9,10 @@ class DashboardSummary {
   final List<Map<String, dynamic>> recentSales;
   final List<Map<String, dynamic>> lowStockProducts;
   final double mainBalance;
+  final double totalReceivable;
+  final double totalCollected;
+  final double totalPayable;
+  final double totalPaid;
 
   DashboardSummary({
     required this.totalSalesToday,
@@ -17,6 +21,10 @@ class DashboardSummary {
     required this.recentSales,
     required this.lowStockProducts,
     required this.mainBalance,
+    required this.totalReceivable,
+    required this.totalCollected,
+    required this.totalPayable,
+    required this.totalPaid,
   });
 }
 
@@ -64,6 +72,25 @@ class DashboardRepository {
         ? (balanceResult.first[DatabaseConstants.colBalanceAfter] as num).toDouble() 
         : 0.0;
 
+    // 5. Bakir Khata Summary
+    // Total Receivable (Customers)
+    final receivableResult = await db.rawQuery('''
+      SELECT 
+        SUM(${DatabaseConstants.colCurrentCreditBalance}) as totalReceivable,
+        SUM(${DatabaseConstants.colTotalPaid}) as totalCollected
+      FROM ${DatabaseConstants.tableCustomers}
+      WHERE ${DatabaseConstants.colCustomerType} = 'customer' AND ${DatabaseConstants.colDeletedAt} IS NULL
+    ''');
+
+    // Total Payable (Suppliers)
+    final payableResult = await db.rawQuery('''
+      SELECT 
+        SUM(ABS(${DatabaseConstants.colCurrentCreditBalance})) as totalPayable,
+        SUM(${DatabaseConstants.colTotalPaid}) as totalPaid
+      FROM ${DatabaseConstants.tableCustomers}
+      WHERE ${DatabaseConstants.colCustomerType} = 'supplier' AND ${DatabaseConstants.colDeletedAt} IS NULL
+    ''');
+
     return DashboardSummary(
       totalSalesToday: totalSalesToday,
       totalAmountToday: totalAmountToday,
@@ -71,6 +98,10 @@ class DashboardRepository {
       recentSales: recentSales,
       lowStockProducts: lowStockResult,
       mainBalance: mainBalance,
+      totalReceivable: (receivableResult.first['totalReceivable'] as num?)?.toDouble() ?? 0.0,
+      totalCollected: (receivableResult.first['totalCollected'] as num?)?.toDouble() ?? 0.0,
+      totalPayable: (payableResult.first['totalPayable'] as num?)?.toDouble() ?? 0.0,
+      totalPaid: (payableResult.first['totalPaid'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }
