@@ -99,16 +99,22 @@ class UpdateSalesFilters extends SalesEvent {
   final DateTime? startDate;
   final DateTime? endDate;
   final String? sortBy;
+  final String? selectedDateFilterLabel;
+  final bool clearStartDate;
+  final bool clearEndDate;
 
   const UpdateSalesFilters({
     this.searchQuery,
     this.startDate,
     this.endDate,
     this.sortBy,
+    this.selectedDateFilterLabel,
+    this.clearStartDate = false,
+    this.clearEndDate = false,
   });
 
   @override
-  List<Object?> get props => [searchQuery, startDate, endDate, sortBy];
+  List<Object?> get props => [searchQuery, startDate, endDate, sortBy, selectedDateFilterLabel, clearStartDate, clearEndDate];
 }
 
 // States
@@ -161,6 +167,7 @@ class SalesDataLoaded extends SalesState {
   final DateTime? startDate;
   final DateTime? endDate;
   final String sortBy;
+  final String selectedDateFilterLabel;
 
   const SalesDataLoaded({
     required this.cart,
@@ -179,6 +186,7 @@ class SalesDataLoaded extends SalesState {
     this.startDate,
     this.endDate,
     this.sortBy = 'date_desc',
+    this.selectedDateFilterLabel = 'সব',
   });
 
   SalesDataLoaded copyWith({
@@ -202,6 +210,7 @@ class SalesDataLoaded extends SalesState {
     DateTime? endDate,
     bool clearEndDate = false,
     String? sortBy,
+    String? selectedDateFilterLabel,
   }) {
     return SalesDataLoaded(
       cart: cart ?? this.cart,
@@ -220,6 +229,7 @@ class SalesDataLoaded extends SalesState {
       startDate: clearStartDate ? null : (startDate ?? this.startDate),
       endDate: clearEndDate ? null : (endDate ?? this.endDate),
       sortBy: sortBy ?? this.sortBy,
+      selectedDateFilterLabel: selectedDateFilterLabel ?? this.selectedDateFilterLabel,
     );
   }
 
@@ -281,6 +291,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
         statistics: stats,
         salesHistory: sales,
         activeTab: 'all',
+        selectedDateFilterLabel: 'সব',
       ));
     } catch (e) {
       emit(SalesError('ডাটা লোড করতে সমস্যা হয়েছে: ${e.toString()}'));
@@ -300,15 +311,19 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
       final s = state as SalesDataLoaded;
       
       final newSearchQuery = event.searchQuery ?? s.searchQuery;
-      final newStartDate = event.startDate ?? s.startDate;
-      final newEndDate = event.endDate ?? s.endDate;
+      final newStartDate = event.clearStartDate ? null : (event.startDate ?? s.startDate);
+      final newEndDate = event.clearEndDate ? null : (event.endDate ?? s.endDate);
       final newSortBy = event.sortBy ?? s.sortBy;
+      final newLabel = event.selectedDateFilterLabel ?? s.selectedDateFilterLabel;
 
       emit(s.copyWith(
         searchQuery: newSearchQuery,
         startDate: newStartDate,
+        clearStartDate: event.clearStartDate,
         endDate: newEndDate,
+        clearEndDate: event.clearEndDate,
         sortBy: newSortBy,
+        selectedDateFilterLabel: newLabel,
       ));
 
       try {
@@ -319,7 +334,16 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
           endDate: newEndDate,
           sortBy: newSortBy,
         );
-        emit((state as SalesDataLoaded).copyWith(salesHistory: sales));
+        
+        final stats = await _repository.getFilteredSalesStatistics(
+          startDate: newStartDate,
+          endDate: newEndDate,
+        );
+
+        emit((state as SalesDataLoaded).copyWith(
+          salesHistory: sales,
+          statistics: {'today': stats, ...s.statistics}, // Wrap in 'today' for compatibility or refactor UI
+        ));
       } catch (e) {
         // Log error
       }

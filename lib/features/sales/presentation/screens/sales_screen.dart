@@ -117,9 +117,9 @@ class _SalesViewState extends State<SalesView> {
         child: Column(
           children: [
             _buildConnectivityBanner(),
+            _buildFilterBar(state), // Search & Filters at the top
             _buildBalanceCard(state),
             _buildHistoryTabs(state),
-            _buildFilterBar(state),
             Expanded(
               child: TabBarView(
                 children: [
@@ -164,23 +164,41 @@ class _SalesViewState extends State<SalesView> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('আজকের মোট বিক্রি', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                  SizedBox(height: 4),
+                  Text(state.selectedDateFilterLabel == 'সব' ? 'আজকের মোট বিক্রি' : '${state.selectedDateFilterLabel} মোট বিক্রি', 
+                    style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                  const SizedBox(height: 4),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.trending_up, color: Colors.white, size: 14),
-                    const SizedBox(width: 4),
-                    Text('${_toBengaliDigits('12')}%', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                  ],
-                ),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () {
+                       String shopName = 'আমার দোকান';
+                       ReportGenerator.generateSalesPDF(
+                         shopName: shopName,
+                         sales: state.salesHistory,
+                         summary: state.statistics['today'] ?? {'total': 0.0, 'cash': 0.0, 'credit': 0.0},
+                       );
+                    },
+                    icon: const Icon(Icons.picture_as_pdf_outlined, color: Colors.white, size: 24),
+                    tooltip: 'PDF এক্সপোর্ট',
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.trending_up, color: Colors.white, size: 14),
+                        const SizedBox(width: 4),
+                        Text('${_toBengaliDigits('12')}%', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -248,28 +266,42 @@ class _SalesViewState extends State<SalesView> {
               onChanged: (v) => context.read<SalesBloc>().add(UpdateSalesFilters(searchQuery: v)),
               decoration: InputDecoration(
                 hintText: 'ইনভয়েস বা গ্রাহক খুঁজুন...',
-                prefixIcon: const Icon(Icons.search, size: 20),
+                prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.blue)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                fillColor: Colors.white,
+                filled: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.blue)),
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          _buildFilterButton(Icons.calendar_today, () => _showDateRangePicker(context, state)),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
+          PopupMenuButton<String>(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onSelected: (val) => _applyDateFilter(val, state),
+            itemBuilder: (context) => ['সব', 'আজ', 'গতকাল', 'গত ৭ দিন', 'গত ৩০ দিন', 'এই মাস', 'গত মাস', 'কাস্টম তারিখ'].map((filter) => 
+              PopupMenuItem(value: filter, child: Text(filter, style: const TextStyle(fontSize: 14)))
+            ).toList(),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Row(
+                children: [
+                  Text(state.selectedDateFilterLabel, style: const TextStyle(fontSize: 14, color: Colors.blue)),
+                  const Icon(Icons.arrow_drop_down, color: Colors.blue),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
           _buildFilterButton(Icons.sort, () => _showSortOptions(context, state)),
-          const SizedBox(width: 8),
-          _buildFilterButton(Icons.picture_as_pdf_outlined, () {
-             String shopName = 'আমার দোকান';
-             ReportGenerator.generateSalesPDF(
-               shopName: shopName,
-               sales: state.salesHistory,
-               summary: state.statistics['thisMonth'] ?? {'total': 0.0, 'cash': 0.0, 'credit': 0.0},
-             );
-          }),
         ],
       ),
     );
@@ -438,6 +470,52 @@ class _SalesViewState extends State<SalesView> {
     );
   }
 
+  void _applyDateFilter(String filter, SalesDataLoaded state) async {
+    final now = DateTime.now();
+    DateTime? start;
+    DateTime? end = now;
+
+    if (filter == 'কাস্টম তারিখ') {
+      _showDateRangePicker(context, state);
+      return;
+    }
+
+    switch (filter) {
+      case 'আজ':
+        start = DateTime(now.year, now.month, now.day);
+        break;
+      case 'গতকাল':
+        start = DateTime(now.year, now.month, now.day - 1);
+        end = DateTime(now.year, now.month, now.day, 23, 59, 59).subtract(const Duration(days: 1));
+        break;
+      case 'গত ৭ দিন':
+        start = now.subtract(const Duration(days: 7));
+        break;
+      case 'গত ৩০ দিন':
+        start = now.subtract(const Duration(days: 30));
+        break;
+      case 'এই মাস':
+        start = DateTime(now.year, now.month, 1);
+        break;
+      case 'গত মাস':
+        start = DateTime(now.year, now.month - 1, 1);
+        end = DateTime(now.year, now.month, 0, 23, 59, 59);
+        break;
+      case 'সব':
+      default:
+        start = null;
+        end = null;
+    }
+
+    context.read<SalesBloc>().add(UpdateSalesFilters(
+      startDate: start,
+      endDate: end,
+      selectedDateFilterLabel: filter,
+      clearStartDate: start == null,
+      clearEndDate: end == null,
+    ));
+  }
+
   void _showDateRangePicker(BuildContext context, SalesDataLoaded state) async {
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
@@ -445,11 +523,15 @@ class _SalesViewState extends State<SalesView> {
           ? DateTimeRange(start: state.startDate!, end: state.endDate!) 
           : null,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
+      lastDate: DateTime.now(),
     );
     if (picked != null) {
       if (!context.mounted) return;
-      context.read<SalesBloc>().add(UpdateSalesFilters(startDate: picked.start, endDate: picked.end));
+      context.read<SalesBloc>().add(UpdateSalesFilters(
+        startDate: picked.start,
+        endDate: picked.end,
+        selectedDateFilterLabel: 'কাস্টম',
+      ));
     }
   }
 
@@ -460,11 +542,14 @@ class _SalesViewState extends State<SalesView> {
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Padding(padding: EdgeInsets.all(16), child: Text('সাজানোর অপশন', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-          _buildSortItem(context, 'সবচেয়ে নতুন', 'date_desc', state.sortBy == 'date_desc'),
-          _buildSortItem(context, 'সবচেয়ে পুরাতন', 'date_asc', state.sortBy == 'date_asc'),
-          _buildSortItem(context, 'বেশি টাকা', 'amount_desc', state.sortBy == 'amount_desc'),
-          _buildSortItem(context, 'কম টাকা', 'amount_asc', state.sortBy == 'amount_asc'),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Text('সাজান (Sort By)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+          _buildSortItem(context, 'সর্বশেষ থেকে পুরাতন', 'date_desc', state.sortBy == 'date_desc'),
+          _buildSortItem(context, 'পুরাতন থেকে সর্বশেষ', 'date_asc', state.sortBy == 'date_asc'),
+          _buildSortItem(context, 'টাকার অঙ্ক (বেশি থেকে কম)', 'amount_desc', state.sortBy == 'amount_desc'),
+          _buildSortItem(context, 'টাকার অঙ্ক (কম থেকে বেশি)', 'amount_asc', state.sortBy == 'amount_asc'),
           const SizedBox(height: 20),
         ],
       ),
@@ -473,7 +558,7 @@ class _SalesViewState extends State<SalesView> {
 
   Widget _buildSortItem(BuildContext context, String title, String value, bool isSelected) {
     return ListTile(
-      title: Text(title),
+      title: Text(title, style: TextStyle(color: isSelected ? Colors.blue : Colors.black87, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
       trailing: isSelected ? const Icon(Icons.check, color: Colors.blue) : null,
       onTap: () {
         context.read<SalesBloc>().add(UpdateSalesFilters(sortBy: value));

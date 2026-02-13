@@ -266,13 +266,10 @@ class SalesRepository {
     }
 
     if (searchQuery != null && searchQuery.isNotEmpty) {
-      // Joining with customers for customer name search if needed
-      // But we can also search in de-normalized fields if they existed.
-      // Sales table has invoice number. We might need to join for product names if not stored.
-      // Let's assume we want to search invoice numbers and potentially product names via items if we join.
-      // For simplicity, let's search invoice number first.
-      whereClauses.add('${DatabaseConstants.colInvoiceNumber} LIKE ?');
-      whereArgs.add('%$searchQuery%');
+      // Improved search: Match invoice number OR customer name
+      whereClauses.add('(${DatabaseConstants.colInvoiceNumber} LIKE ? OR c.${DatabaseConstants.colName} LIKE ?)');
+      final searchPattern = '%$searchQuery%';
+      whereArgs.addAll([searchPattern, searchPattern]);
     }
 
     if (startDate != null) {
@@ -334,6 +331,52 @@ class SalesRepository {
         items: [], 
       );
     }).toList();
+  }
+
+  /// Get filtered statistics for a specific date range
+  Future<Map<String, dynamic>> getFilteredSalesStatistics({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final db = await _dbHelper.database;
+    
+    List<String> whereClauses = [];
+    List<dynamic> whereArgs = [];
+
+    if (startDate != null) {
+      whereClauses.add('date(${DatabaseConstants.colSaleDate}) >= date(?)');
+      whereArgs.add(startDate.toIso8601String().split('T')[0]);
+    }
+
+    if (endDate != null) {
+      whereClauses.add('date(${DatabaseConstants.colSaleDate}) <= date(?)');
+      whereArgs.add(endDate.toIso8601String().split('T')[0]);
+    }
+
+    final whereString = whereClauses.isEmpty ? '' : 'WHERE ${whereClauses.join(' AND ')}';
+
+    // Aggregation helper for robust payment type matching
+    String _sumCase(String type, String column) {
+      return "SUM(CASE WHEN LOWER(TRIM(${DatabaseConstants.colPaymentType})) IN ('$type', '${type == 'cash' ? 'নগদ' : 'বাকি'}', '${type == 'cash' ? 'nagod' : 'baki'}') THEN $column ELSE 0 END)";
+    }
+
+    final result = await db.rawQuery('''
+      SELECT 
+        SUM(${DatabaseConstants.colTotalAmount}) as total,
+        ${_sumCase('cash', DatabaseConstants.colTotalAmount)} as cash,
+        ${_sumCase('credit', DatabaseConstants.colTotalAmount)} as credit,
+        COUNT(*) as count
+      FROM ${DatabaseConstants.tableSales}
+      $whereString
+    ''', whereArgs);
+
+    final row = result.first;
+    return {
+      'total': (row['total'] as num?)?.toDouble() ?? 0.0,
+      'cash': (row['cash'] as num?)?.toDouble() ?? 0.0,
+      'credit': (row['credit'] as num?)?.toDouble() ?? 0.0,
+      'count': (row['count'] as int?) ?? 0,
+    };
   }
 
   Future<List<Sale>> getSales() async {
