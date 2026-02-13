@@ -64,6 +64,21 @@ class DatabaseHelper {
       await _upgradeToVersion8(db);
       print('DB_LOG: Upgrade to Version 8 Complete.');
     }
+    if (oldVersion < 9) {
+      print('DB_LOG: Upgrading to Version 9...');
+      await _upgradeToVersion9(db);
+      print('DB_LOG: Upgrade to Version 9 Complete.');
+    }
+    if (oldVersion < 10) {
+      print('DB_LOG: Upgrading to Version 10...');
+      await _upgradeToVersion10(db);
+      print('DB_LOG: Upgrade to Version 10 Complete.');
+    }
+    if (oldVersion < 11) {
+      print('DB_LOG: Upgrading to Version 11...');
+      await _upgradeToVersion11(db);
+      print('DB_LOG: Upgrade to Version 11 Complete.');
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -205,30 +220,7 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_credit_payments_cust ON ${DatabaseConstants.tableCreditPayments} (${DatabaseConstants.colCustomerId})');
     await db.execute('CREATE INDEX idx_credit_payments_date ON ${DatabaseConstants.tableCreditPayments} (${DatabaseConstants.colPaymentDate})');
 
-    // 7. Activities Table
-    await db.execute('''
-      CREATE TABLE ${DatabaseConstants.tableActivities} (
-        ${DatabaseConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
-        ${DatabaseConstants.colVisitId} TEXT,
-        ${DatabaseConstants.colCustomerId} INTEGER,
-        ${DatabaseConstants.colActivityType} TEXT,
-        ${DatabaseConstants.colOutcome} TEXT,
-        ${DatabaseConstants.colOutcomeNotes} TEXT,
-        ${DatabaseConstants.colFollowUpRequired} INTEGER DEFAULT 0,
-        ${DatabaseConstants.colFollowUpDate} TEXT,
-        ${DatabaseConstants.colFollowUpNotes} TEXT,
-        ${DatabaseConstants.colActivityDate} TEXT NOT NULL,
-        ${DatabaseConstants.colCreatedAt} TEXT,
-        ${DatabaseConstants.colUpdatedAt} TEXT,
-        ${DatabaseConstants.colSyncedAt} TEXT,
-        ${DatabaseConstants.colIsSynced} INTEGER DEFAULT 0,
-        FOREIGN KEY (${DatabaseConstants.colCustomerId}) REFERENCES ${DatabaseConstants.tableCustomers} (${DatabaseConstants.colId}) ON DELETE CASCADE
-      )
-    ''');
-    await db.execute('CREATE INDEX idx_activities_cust ON ${DatabaseConstants.tableActivities} (${DatabaseConstants.colCustomerId})');
-    await db.execute('CREATE INDEX idx_activities_date ON ${DatabaseConstants.tableActivities} (${DatabaseConstants.colActivityDate})');
-
-    // 8. Sync Log Table
+    // 7. Sync Log Table
     await db.execute('''
       CREATE TABLE ${DatabaseConstants.tableSyncLog} (
         ${DatabaseConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -274,6 +266,7 @@ class DatabaseHelper {
       CREATE TABLE ${DatabaseConstants.tableCustomerTransactions} (
         ${DatabaseConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
         ${DatabaseConstants.colCustomerId} INTEGER NOT NULL,
+        ${DatabaseConstants.colSaleId} INTEGER,
         ${DatabaseConstants.colTransactionType} TEXT NOT NULL,
         ${DatabaseConstants.colAmount} REAL NOT NULL,
         ${DatabaseConstants.colBalanceAfter} REAL NOT NULL,
@@ -281,8 +274,10 @@ class DatabaseHelper {
         ${DatabaseConstants.colTransactionDate} TEXT NOT NULL,
         ${DatabaseConstants.colCreatedAt} TEXT,
         ${DatabaseConstants.colSyncedAt} TEXT,
+        ${DatabaseConstants.colTransactionSource} TEXT DEFAULT 'product_sale',
         ${DatabaseConstants.colIsSynced} INTEGER DEFAULT 0,
-        FOREIGN KEY (${DatabaseConstants.colCustomerId}) REFERENCES ${DatabaseConstants.tableCustomers} (${DatabaseConstants.colId}) ON DELETE CASCADE
+        FOREIGN KEY (${DatabaseConstants.colCustomerId}) REFERENCES ${DatabaseConstants.tableCustomers} (${DatabaseConstants.colId}) ON DELETE CASCADE,
+        FOREIGN KEY (${DatabaseConstants.colSaleId}) REFERENCES ${DatabaseConstants.tableSales} (${DatabaseConstants.colId}) ON DELETE SET NULL
       )
     ''');
     await db.execute('CREATE INDEX idx_customer_trans_cust ON ${DatabaseConstants.tableCustomerTransactions} (${DatabaseConstants.colCustomerId})');
@@ -397,6 +392,59 @@ class DatabaseHelper {
     // Add missing notes column to customers table if it doesn't exist (it was missed in Version 7)
     await db.execute('ALTER TABLE ${DatabaseConstants.tableCustomers} ADD COLUMN ${DatabaseConstants.colNotes} TEXT');
     print('DB_LOG: Version 8 Migration - notes column added to customers.');
+  }
+
+  Future<void> _upgradeToVersion9(Database db) async {
+    print('DB_LOG: Version 9 Migration - Normalizing sales payment types...');
+    // Standardize 'cash'
+    await db.rawUpdate('''
+      UPDATE ${DatabaseConstants.tableSales} 
+      SET ${DatabaseConstants.colPaymentType} = 'cash' 
+      WHERE LOWER(TRIM(${DatabaseConstants.colPaymentType})) IN ('cash', 'নগদ', 'nagod')
+    ''');
+    
+    // Standardize 'credit'
+    await db.rawUpdate('''
+      UPDATE ${DatabaseConstants.tableSales} 
+      SET ${DatabaseConstants.colPaymentType} = 'credit' 
+      WHERE LOWER(TRIM(${DatabaseConstants.colPaymentType})) IN ('credit', 'বাকি', 'baki')
+    ''');
+    
+    print('DB_LOG: Version 9 Migration - Normalization complete.');
+  }
+
+  Future<void> _upgradeToVersion10(Database db) async {
+    print('DB_LOG: Version 10 Migration - Robust normalization of sales payment types...');
+    // Standardize 'cash' variants
+    await db.rawUpdate("UPDATE ${DatabaseConstants.tableSales} SET ${DatabaseConstants.colPaymentType} = 'cash' WHERE ${DatabaseConstants.colPaymentType} IN ('নগদ', 'nagod', 'CASH', 'Cash')");
+    
+    // Standardize 'credit' variants
+    await db.rawUpdate("UPDATE ${DatabaseConstants.tableSales} SET ${DatabaseConstants.colPaymentType} = 'credit' WHERE ${DatabaseConstants.colPaymentType} IN ('বাকি', 'baki', 'CREDIT', 'Credit')");
+    
+    print('DB_LOG: Version 10 Migration - Normalization complete.');
+  }
+
+  Future<void> _upgradeToVersion11(Database db) async {
+    print('DB_LOG: Version 11 Migration - Drop Activities and Enhance Customer Transactions...');
+    
+    // 1. Drop Activities Table
+    await db.execute('DROP TABLE IF EXISTS activities');
+    
+    // 2. Enhance Customer Transactions Table
+    // Add transaction_source
+    try {
+      await db.execute('ALTER TABLE ${DatabaseConstants.tableCustomerTransactions} ADD COLUMN ${DatabaseConstants.colTransactionSource} TEXT DEFAULT "product_sale"');
+    } catch (e) { print('DB_LOG: Column source might already exist in customer_transactions: $e'); }
+    
+    // Add sale_id
+    try {
+      await db.execute('ALTER TABLE ${DatabaseConstants.tableCustomerTransactions} ADD COLUMN ${DatabaseConstants.colSaleId} INTEGER REFERENCES ${DatabaseConstants.tableSales} (${DatabaseConstants.colId}) ON DELETE SET NULL');
+    } catch (e) { print('DB_LOG: Column sale_id might already exist in customer_transactions: $e'); }
+
+    // Normalize existing data to have 'product_sale' source
+    await db.rawUpdate("UPDATE ${DatabaseConstants.tableCustomerTransactions} SET ${DatabaseConstants.colTransactionSource} = 'product_sale' WHERE ${DatabaseConstants.colTransactionSource} IS NULL");
+    
+    print('DB_LOG: Version 11 Migration - Complete.');
   }
 
   Future<void> _createKhorochCategoryTable(Database db) async {

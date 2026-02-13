@@ -291,19 +291,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     if (state is SalesDataLoaded) {
       final s = state as SalesDataLoaded;
       emit(s.copyWith(activeTab: event.tab));
-      
-      try {
-        final sales = await _repository.getFilteredSales(
-          paymentType: event.tab == 'all' ? null : event.tab,
-          searchQuery: s.searchQuery,
-          startDate: s.startDate,
-          endDate: s.endDate,
-          sortBy: s.sortBy,
-        );
-        emit((state as SalesDataLoaded).copyWith(salesHistory: sales));
-      } catch (e) {
-        // Log error
-      }
+      // Removed re-fetch on tab change to support smooth local filtering and swiping
     }
   }
 

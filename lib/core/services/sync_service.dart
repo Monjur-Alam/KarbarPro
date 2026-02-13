@@ -89,7 +89,6 @@ class SyncService {
       DatabaseConstants.tableSales,
       DatabaseConstants.tableExpenses,
       DatabaseConstants.tableCreditPayments,
-      DatabaseConstants.tableActivities,
     ];
 
     int totalSynced = 0;

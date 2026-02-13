@@ -13,13 +13,17 @@ class SalesRepository {
     final db = await _dbHelper.database;
     
     await db.transaction((txn) async {
+      // Standardize payment type for consistent filtering
+      final paymentType = sale.paymentMethod.toLowerCase().trim();
+      final standardizedType = (paymentType == 'cash' || paymentType == 'নগদ') ? 'cash' : 'credit';
+
       // 1. Insert Sale record
       final saleId = await txn.insert(
         DatabaseConstants.tableSales,
         {
-          DatabaseConstants.colInvoiceNumber: sale.invoiceId,
+          DatabaseConstants.colInvoiceNumber: sale.invoiceId.trim(),
           DatabaseConstants.colCustomerId: sale.customerId,
-          DatabaseConstants.colPaymentType: sale.paymentMethod,
+          DatabaseConstants.colPaymentType: standardizedType,
           DatabaseConstants.colSubtotal: sale.totalAmount + sale.discount,
           DatabaseConstants.colDiscount: sale.discount,
           DatabaseConstants.colTotalAmount: sale.totalAmount,
@@ -98,53 +102,59 @@ class SalesRepository {
           where: '${DatabaseConstants.colId} = ?',
           whereArgs: [sale.customerId],
         );
-        final currentBalance = (customerResult.first[DatabaseConstants.colCurrentCreditBalance] as num).toDouble();
+        final currentBalanceAfter = (customerResult.first[DatabaseConstants.colCurrentCreditBalance] as num).toDouble();
 
-        String productDetails = sale.items.map((i) => '${i.productName} (${i.quantity})').join(', ');
-        
-        await txn.insert(DatabaseConstants.tableCustomerTransactions, {
-          DatabaseConstants.colCustomerId: sale.customerId,
-          DatabaseConstants.colTransactionType: 'sale',
-          DatabaseConstants.colAmount: dueAmount, // Amount added to debt
-          DatabaseConstants.colBalanceAfter: currentBalance,
-          DatabaseConstants.colDescription: 'Invoice: ${sale.invoiceId}\nProducts: $productDetails',
-          DatabaseConstants.colTransactionDate: sale.saleDate.toIso8601String(),
-          DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
-          DatabaseConstants.colIsSynced: 0,
-        });
-      }
-
-      // 4. Add cash payment to Shop Main Balance
+      String productDetails = sale.items.map((i) => '${i.productName} (${i.quantity})').join(', ');
+      
       if (sale.paidAmount > 0) {
-        // Get current shop balance
-        final balanceResult = await txn.rawQuery('''
-          SELECT ${DatabaseConstants.colBalanceAfter} 
-          FROM ${DatabaseConstants.tableShopTransactions} 
-          ORDER BY ${DatabaseConstants.colId} DESC LIMIT 1
-        ''');
-        
-        double currentBalance = 0;
-        if (balanceResult.isNotEmpty) {
-          currentBalance = (balanceResult.first[DatabaseConstants.colBalanceAfter] as num).toDouble();
-        }
+         // Case with partial payment: record full sale then the payment for better transparency
+         final balanceAfterSale = currentBalanceAfter + sale.paidAmount;
+         
+         // 1. Full Sale Transaction
+         await txn.insert(DatabaseConstants.tableCustomerTransactions, {
+           DatabaseConstants.colCustomerId: sale.customerId,
+           DatabaseConstants.colSaleId: saleId,
+           DatabaseConstants.colTransactionType: 'credit_sale',
+           DatabaseConstants.colAmount: sale.totalAmount, 
+           DatabaseConstants.colBalanceAfter: balanceAfterSale,
+           DatabaseConstants.colDescription: 'Invoice: ${sale.invoiceId}\nProducts: $productDetails',
+           DatabaseConstants.colTransactionDate: sale.saleDate.toIso8601String(),
+           DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
+           DatabaseConstants.colTransactionSource: 'product_sale',
+           DatabaseConstants.colIsSynced: 0,
+         });
 
-        double newBalance = currentBalance + sale.paidAmount;
-
-        await txn.insert(DatabaseConstants.tableShopTransactions, {
-          DatabaseConstants.colTransactionType: 'income',
-          DatabaseConstants.colAmount: sale.paidAmount,
-          DatabaseConstants.colBalanceAfter: newBalance,
-          DatabaseConstants.colCategory: 'বিক্রয় থেকে আয়',
-          DatabaseConstants.colDescription: 'Invoice: ${sale.invoiceId}',
-          DatabaseConstants.colTransactionDate: sale.saleDate.toIso8601String(),
-          DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
-          DatabaseConstants.colTransactionSource: 'product_sale',
-          DatabaseConstants.colIsManual: 0,
-          DatabaseConstants.colIsSynced: 0,
-        });
+         // 2. Partial Payment Transaction
+         await txn.insert(DatabaseConstants.tableCustomerTransactions, {
+           DatabaseConstants.colCustomerId: sale.customerId,
+           DatabaseConstants.colSaleId: saleId,
+           DatabaseConstants.colTransactionType: 'payment_received',
+           DatabaseConstants.colAmount: sale.paidAmount, 
+           DatabaseConstants.colBalanceAfter: currentBalanceAfter,
+           DatabaseConstants.colDescription: 'নগদ আদায় (Invoice: ${sale.invoiceId})',
+           DatabaseConstants.colTransactionDate: sale.saleDate.toIso8601String(),
+           DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
+           DatabaseConstants.colTransactionSource: 'product_sale',
+           DatabaseConstants.colIsSynced: 0,
+         });
+      } else {
+         // Standard full credit sale
+         await txn.insert(DatabaseConstants.tableCustomerTransactions, {
+           DatabaseConstants.colCustomerId: sale.customerId,
+           DatabaseConstants.colSaleId: saleId,
+           DatabaseConstants.colTransactionType: 'credit_sale',
+           DatabaseConstants.colAmount: sale.totalAmount, 
+           DatabaseConstants.colBalanceAfter: currentBalanceAfter,
+           DatabaseConstants.colDescription: 'Invoice: ${sale.invoiceId}\nProducts: $productDetails',
+           DatabaseConstants.colTransactionDate: sale.saleDate.toIso8601String(),
+           DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
+           DatabaseConstants.colTransactionSource: 'product_sale',
+           DatabaseConstants.colIsSynced: 0,
+         });
       }
-    });
-  }
+    }
+  });
+}
 
   double _calculateTotalProfit(Sale sale) {
     return sale.items.fold(0.0, (sum, item) => sum + item.profit);
@@ -168,12 +178,17 @@ class SalesRepository {
     final today = DateFormat('yyyy-MM-dd').format(now);
     final startOfMonth = DateFormat('yyyy-MM-01').format(now);
 
+    // Aggregation helper for robust payment type matching
+    String _sumCase(String type, String column) {
+      return "SUM(CASE WHEN LOWER(TRIM(${DatabaseConstants.colPaymentType})) IN ('$type', '${type == 'cash' ? 'নগদ' : 'বাকি'}', '${type == 'cash' ? 'nagod' : 'baki'}') THEN $column ELSE 0 END)";
+    }
+
     // 1. Today's Statistics
     final todayResult = await db.rawQuery('''
       SELECT 
         SUM(${DatabaseConstants.colTotalAmount}) as total,
-        SUM(CASE WHEN ${DatabaseConstants.colPaymentType} = 'cash' THEN ${DatabaseConstants.colTotalAmount} ELSE 0 END) as cash,
-        SUM(CASE WHEN ${DatabaseConstants.colPaymentType} = 'credit' THEN ${DatabaseConstants.colTotalAmount} ELSE 0 END) as credit
+        ${_sumCase('cash', DatabaseConstants.colTotalAmount)} as cash,
+        ${_sumCase('credit', DatabaseConstants.colTotalAmount)} as credit
       FROM ${DatabaseConstants.tableSales}
       WHERE date(${DatabaseConstants.colSaleDate}) = date(?)
     ''', [today]);
@@ -182,8 +197,8 @@ class SalesRepository {
     final allTimeResult = await db.rawQuery('''
       SELECT 
         SUM(${DatabaseConstants.colTotalAmount}) as total,
-        SUM(CASE WHEN ${DatabaseConstants.colPaymentType} = 'cash' THEN ${DatabaseConstants.colTotalAmount} ELSE 0 END) as cash,
-        SUM(CASE WHEN ${DatabaseConstants.colPaymentType} = 'credit' THEN ${DatabaseConstants.colTotalAmount} ELSE 0 END) as credit
+        ${_sumCase('cash', DatabaseConstants.colTotalAmount)} as cash,
+        ${_sumCase('credit', DatabaseConstants.colTotalAmount)} as credit
       FROM ${DatabaseConstants.tableSales}
     ''');
 
@@ -191,8 +206,8 @@ class SalesRepository {
     final monthResult = await db.rawQuery('''
       SELECT 
         SUM(${DatabaseConstants.colTotalAmount}) as total,
-        SUM(CASE WHEN ${DatabaseConstants.colPaymentType} = 'cash' THEN ${DatabaseConstants.colTotalAmount} ELSE 0 END) as cash,
-        SUM(CASE WHEN ${DatabaseConstants.colPaymentType} = 'credit' THEN ${DatabaseConstants.colTotalAmount} ELSE 0 END) as credit,
+        ${_sumCase('cash', DatabaseConstants.colTotalAmount)} as cash,
+        ${_sumCase('credit', DatabaseConstants.colTotalAmount)} as credit,
         COUNT(*) as count
       FROM ${DatabaseConstants.tableSales}
       WHERE date(${DatabaseConstants.colSaleDate}) >= date(?)
@@ -239,8 +254,15 @@ class SalesRepository {
     List<dynamic> whereArgs = [];
 
     if (paymentType != null && paymentType != 'all') {
-      whereClauses.add('${DatabaseConstants.colPaymentType} = ?');
-      whereArgs.add(paymentType);
+      // Robust filtering: handle 'নগদ', 'বাকি' and case variations
+      final type = paymentType.toLowerCase().trim();
+      if (type == 'cash' || type == 'নগদ') {
+        whereClauses.add('LOWER(${DatabaseConstants.colPaymentType}) IN (?, ?)');
+        whereArgs.addAll(['cash', 'নগদ']);
+      } else if (type == 'credit' || type == 'বাকি') {
+        whereClauses.add('LOWER(${DatabaseConstants.colPaymentType}) IN (?, ?)');
+        whereArgs.addAll(['credit', 'বাকি']);
+      }
     }
 
     if (searchQuery != null && searchQuery.isNotEmpty) {
@@ -291,22 +313,27 @@ class SalesRepository {
       ORDER BY $orderBy
     ''', whereArgs);
 
-    return result.map((row) => Sale(
-      id: row[DatabaseConstants.colId] as int,
-      invoiceId: row[DatabaseConstants.colInvoiceNumber] as String,
-      customerId: row[DatabaseConstants.colCustomerId] as int?,
-      customerName: row['customer_name'] as String?,
-      totalAmount: (row[DatabaseConstants.colTotalAmount] as num).toDouble(),
-      discount: (row[DatabaseConstants.colDiscount] as num).toDouble(),
-      paidAmount: (row[DatabaseConstants.colPaidAmount] as num).toDouble(),
-      paymentMethod: row[DatabaseConstants.colPaymentType] as String,
-      saleDate: DateTime.parse(row[DatabaseConstants.colSaleDate] as String),
-      createdAt: DateTime.parse(row[DatabaseConstants.colCreatedAt] as String),
-      updatedAt: DateTime.parse(row[DatabaseConstants.colUpdatedAt] as String),
-      notes: row[DatabaseConstants.colNotes] as String?,
-      productNames: row['product_names'] as String?,
-      items: [], 
-    )).toList();
+    return result.map((row) {
+      final dbType = (row[DatabaseConstants.colPaymentType] as String? ?? 'cash').toLowerCase().trim();
+      final standardizedType = (dbType == 'cash' || dbType == 'নগদ' || dbType == 'nagod') ? 'cash' : 'credit';
+
+      return Sale(
+        id: row[DatabaseConstants.colId] as int,
+        invoiceId: row[DatabaseConstants.colInvoiceNumber] as String,
+        customerId: row[DatabaseConstants.colCustomerId] as int?,
+        customerName: row['customer_name'] as String?,
+        totalAmount: (row[DatabaseConstants.colTotalAmount] as num).toDouble(),
+        discount: (row[DatabaseConstants.colDiscount] as num).toDouble(),
+        paidAmount: (row[DatabaseConstants.colPaidAmount] as num).toDouble(),
+        paymentMethod: standardizedType,
+        saleDate: DateTime.parse(row[DatabaseConstants.colSaleDate] as String),
+        createdAt: DateTime.parse(row[DatabaseConstants.colCreatedAt] as String),
+        updatedAt: DateTime.parse(row[DatabaseConstants.colUpdatedAt] as String),
+        notes: row[DatabaseConstants.colNotes] as String?,
+        productNames: row['product_names'] as String?,
+        items: [], 
+      );
+    }).toList();
   }
 
   Future<List<Sale>> getSales() async {
@@ -318,6 +345,9 @@ class SalesRepository {
     );
 
     return List.generate(maps.length, (i) {
+      final dbType = (maps[i][DatabaseConstants.colPaymentType] as String? ?? 'cash').toLowerCase().trim();
+      final standardizedType = (dbType == 'cash' || dbType == 'নগদ' || dbType == 'nagod') ? 'cash' : 'credit';
+
       return Sale(
         id: maps[i][DatabaseConstants.colId],
         invoiceId: maps[i][DatabaseConstants.colInvoiceNumber],
@@ -325,7 +355,7 @@ class SalesRepository {
         totalAmount: (maps[i][DatabaseConstants.colTotalAmount] as num).toDouble(),
         discount: (maps[i][DatabaseConstants.colDiscount] as num).toDouble(),
         paidAmount: (maps[i][DatabaseConstants.colPaidAmount] as num).toDouble(),
-        paymentMethod: maps[i][DatabaseConstants.colPaymentType],
+        paymentMethod: standardizedType,
         saleDate: DateTime.parse(maps[i][DatabaseConstants.colSaleDate]),
         createdAt: DateTime.parse(maps[i][DatabaseConstants.colCreatedAt]),
         updatedAt: DateTime.parse(maps[i][DatabaseConstants.colUpdatedAt]),
@@ -366,6 +396,9 @@ class SalesRepository {
       subTotal: (m[DatabaseConstants.colTotalPrice] as num).toDouble(),
     )).toList();
 
+    final dbType = (row[DatabaseConstants.colPaymentType] as String? ?? 'cash').toLowerCase().trim();
+    final standardizedType = (dbType == 'cash' || dbType == 'নগদ' || dbType == 'nagod') ? 'cash' : 'credit';
+
     return Sale(
       id: row[DatabaseConstants.colId] as int,
       invoiceId: row[DatabaseConstants.colInvoiceNumber] as String,
@@ -374,7 +407,7 @@ class SalesRepository {
       totalAmount: (row[DatabaseConstants.colTotalAmount] as num).toDouble(),
       discount: (row[DatabaseConstants.colDiscount] as num).toDouble(),
       paidAmount: (row[DatabaseConstants.colPaidAmount] as num).toDouble(),
-      paymentMethod: row[DatabaseConstants.colPaymentType] as String,
+      paymentMethod: standardizedType,
       saleDate: DateTime.parse(row[DatabaseConstants.colSaleDate] as String),
       items: items,
       notes: row[DatabaseConstants.colNotes] as String?,

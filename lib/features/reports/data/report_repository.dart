@@ -121,16 +121,19 @@ class ReportRepository {
 
     final result = await db.rawQuery('''
       SELECT 
-        ${DatabaseConstants.colPaymentType} as type,
+        CASE 
+          WHEN LOWER(TRIM(${DatabaseConstants.colPaymentType})) IN ('cash', 'নগদ', 'nagod') THEN 'cash'
+          ELSE 'credit'
+        END as normalized_type,
         COUNT(*) as count,
         SUM(${DatabaseConstants.colTotalAmount}) as revenue
       FROM ${DatabaseConstants.tableSales}
       WHERE ${DatabaseConstants.colSaleDate} BETWEEN ? AND ?
-      GROUP BY type
+      GROUP BY normalized_type
     ''', [startDate, endDate]);
 
     return result.map((row) => PaymentTypeSummary(
-      paymentType: row['type'] as String,
+      paymentType: row['normalized_type'] as String,
       count: row['count'] as int,
       revenue: (row['revenue'] as num).toDouble(),
     )).toList();
@@ -145,8 +148,14 @@ class ReportRepository {
     List<dynamic> params = [startDate, endDate];
 
     if (paymentType != null && paymentType != 'all') {
-      whereClause += ' AND s.${DatabaseConstants.colPaymentType} = ?';
-      params.add(paymentType);
+      final type = paymentType.toLowerCase().trim();
+      if (type == 'cash' || type == 'নগদ') {
+        whereClause += ' AND LOWER(TRIM(s.${DatabaseConstants.colPaymentType})) IN (?, ?, ?)';
+        params.addAll(['cash', 'নগদ', 'nagod']);
+      } else if (type == 'credit' || type == 'বাকি') {
+        whereClause += ' AND LOWER(TRIM(s.${DatabaseConstants.colPaymentType})) IN (?, ?, ?)';
+        params.addAll(['credit', 'বাকি', 'baki']);
+      }
     }
 
     final result = await db.rawQuery('''
@@ -167,6 +176,9 @@ class ReportRepository {
   }
 
   Sale _mapRowToSale(Map<String, dynamic> row) {
+    final dbType = (row[DatabaseConstants.colPaymentType] as String? ?? 'cash').toLowerCase().trim();
+    final standardizedType = (dbType == 'cash' || dbType == 'নগদ' || dbType == 'nagod') ? 'cash' : 'credit';
+
     return Sale(
       id: row[DatabaseConstants.colId] as int,
       invoiceId: row[DatabaseConstants.colInvoiceNumber] as String,
@@ -175,7 +187,7 @@ class ReportRepository {
       totalAmount: (row[DatabaseConstants.colTotalAmount] as num).toDouble(),
       discount: (row[DatabaseConstants.colDiscount] as num).toDouble(),
       paidAmount: (row[DatabaseConstants.colPaidAmount] as num).toDouble(),
-      paymentMethod: row[DatabaseConstants.colPaymentType] as String,
+      paymentMethod: standardizedType,
       saleDate: DateTime.parse(row[DatabaseConstants.colSaleDate] as String),
       items: [], // Items are lazy loaded or fetched separately if needed for report detail
       createdAt: DateTime.parse(row[DatabaseConstants.colCreatedAt] as String),
@@ -292,8 +304,8 @@ class ReportRepository {
   }) async {
     final db = await _dbHelper.database;
     
-    // Isolation: Strictly manual khoroch entries using the new flag and excluding soft-deleted items
-    String whereClause = "${DatabaseConstants.colIsManual} = 1 AND ${DatabaseConstants.colDeletedAt} IS NULL";
+    // Isolation: Strictly manual khoroch entries using flag, source, and excluding soft-deleted items
+    String whereClause = "${DatabaseConstants.colIsManual} = 1 AND ${DatabaseConstants.colTransactionSource} = 'manual_khoroch' AND ${DatabaseConstants.colDeletedAt} IS NULL";
     List<dynamic> whereArgs = [];
     
     if (startDate != null && endDate != null) {
@@ -312,14 +324,12 @@ class ReportRepository {
       whereArgs.addAll([searchPattern, searchPattern, searchPattern]);
     }
     
-    // print('DB_LOG: getManualKhorochTransactions - Query: $whereClauseArgs');
     final result = await db.query(
       DatabaseConstants.tableShopTransactions,
       where: whereClause,
       whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
       orderBy: '${DatabaseConstants.colTransactionDate} DESC',
     );
-    print('DB_LOG: getManualKhorochTransactions - Result Count: ${result.length}');
     
     return result.map((m) => ShopTransaction.fromMap(m)).toList();
   }
@@ -332,8 +342,8 @@ class ReportRepository {
   }) async {
     final db = await _dbHelper.database;
     
-    // Isolation: Strictly manual khoroch entries using the new flag and excluding soft-deleted items
-    String whereClause = "${DatabaseConstants.colIsManual} = 1 AND ${DatabaseConstants.colDeletedAt} IS NULL";
+    // Isolation: Strictly manual khoroch entries using flag, source, and excluding soft-deleted items
+    String whereClause = "${DatabaseConstants.colIsManual} = 1 AND ${DatabaseConstants.colTransactionSource} = 'manual_khoroch' AND ${DatabaseConstants.colDeletedAt} IS NULL";
     List<dynamic> whereArgs = [];
     
     if (startDate != null && endDate != null) {
@@ -346,7 +356,6 @@ class ReportRepository {
       whereArgs.add(categoryId);
     }
     
-    // print('DB_LOG: getManualKhorochSummary - Query: $whereClauseArgs');
     final result = await db.rawQuery('''
       SELECT 
         SUM(CASE WHEN ${DatabaseConstants.colTransactionType} = 'income' THEN ${DatabaseConstants.colAmount} ELSE 0 END) as totalIncome,
@@ -395,21 +404,27 @@ class ReportRepository {
     // We calculate "how much was sold on credit" vs "how much was collected" in this period
     final receivableResult = await db.rawQuery('''
       SELECT 
-        SUM(CASE WHEN ct.${DatabaseConstants.colTransactionType} = 'sale' THEN ct.${DatabaseConstants.colAmount} ELSE 0 END) as totalSales,
-        SUM(CASE WHEN ct.${DatabaseConstants.colTransactionType} = 'payment' THEN ct.${DatabaseConstants.colAmount} ELSE 0 END) as totalCollected
+        SUM(CASE WHEN ct.${DatabaseConstants.colTransactionType} IN ('sale', 'credit_sale') THEN ct.${DatabaseConstants.colAmount} ELSE 0 END) as totalSales,
+        SUM(CASE WHEN ct.${DatabaseConstants.colTransactionType} IN ('payment', 'payment_received') THEN ct.${DatabaseConstants.colAmount} ELSE 0 END) as totalCollected
       FROM ${DatabaseConstants.tableCustomerTransactions} ct
       JOIN ${DatabaseConstants.tableCustomers} c ON ct.${DatabaseConstants.colCustomerId} = c.${DatabaseConstants.colId}
-      WHERE c.${DatabaseConstants.colCustomerType} = 'customer' AND c.${DatabaseConstants.colDeletedAt} IS NULL $whereClause
+      WHERE c.${DatabaseConstants.colCustomerType} = 'customer' 
+      AND c.${DatabaseConstants.colDeletedAt} IS NULL 
+      AND ct.${DatabaseConstants.colTransactionSource} = 'product_sale'
+      $whereClause
     ''', whereArgs);
 
     // Total Payable (Suppliers)
     final payableResult = await db.rawQuery('''
       SELECT 
-        SUM(CASE WHEN ct.${DatabaseConstants.colTransactionType} = 'sale' THEN ct.${DatabaseConstants.colAmount} ELSE 0 END) as totalPayable,
-        SUM(CASE WHEN ct.${DatabaseConstants.colTransactionType} = 'payment' THEN ct.${DatabaseConstants.colAmount} ELSE 0 END) as totalPaid
+        SUM(CASE WHEN ct.${DatabaseConstants.colTransactionType} IN ('sale', 'credit_sale') THEN ct.${DatabaseConstants.colAmount} ELSE 0 END) as totalPayable,
+        SUM(CASE WHEN ct.${DatabaseConstants.colTransactionType} IN ('payment', 'payment_received') THEN ct.${DatabaseConstants.colAmount} ELSE 0 END) as totalPaid
       FROM ${DatabaseConstants.tableCustomerTransactions} ct
       JOIN ${DatabaseConstants.tableCustomers} c ON ct.${DatabaseConstants.colCustomerId} = c.${DatabaseConstants.colId}
-      WHERE c.${DatabaseConstants.colCustomerType} = 'supplier' AND c.${DatabaseConstants.colDeletedAt} IS NULL $whereClause
+      WHERE c.${DatabaseConstants.colCustomerType} = 'supplier' 
+      AND c.${DatabaseConstants.colDeletedAt} IS NULL 
+      AND ct.${DatabaseConstants.colTransactionSource} = 'product_sale'
+      $whereClause
     ''', whereArgs);
 
     // For "সব" (All) or when no dates, we can also use the absolute current balances
@@ -547,12 +562,13 @@ class ReportRepository {
       // 3. Log in customer_transactions (Ledger History)
       await txn.insert(DatabaseConstants.tableCustomerTransactions, {
         DatabaseConstants.colCustomerId: customerId,
-        DatabaseConstants.colTransactionType: 'payment',
+        DatabaseConstants.colTransactionType: 'payment_received',
         DatabaseConstants.colAmount: amount,
         DatabaseConstants.colBalanceAfter: newBalance,
         DatabaseConstants.colDescription: notes ?? 'হালখাতা/বকেয়া পরিশোধ',
         DatabaseConstants.colTransactionDate: paymentDate.toIso8601String(),
         DatabaseConstants.colCreatedAt: DateTime.now().toIso8601String(),
+        DatabaseConstants.colTransactionSource: 'product_sale',
         DatabaseConstants.colIsSynced: 0,
       });
       

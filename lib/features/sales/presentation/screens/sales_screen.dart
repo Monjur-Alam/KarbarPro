@@ -287,7 +287,10 @@ class _SalesViewState extends State<SalesView> {
   }
 
   Widget _buildHistoryList(SalesDataLoaded state, String type) {
-    final sales = state.salesHistory;
+    // Local filtering based on tab type
+    final sales = type == 'all' 
+        ? state.salesHistory 
+        : state.salesHistory.where((s) => s.paymentMethod == type).toList();
     
     if (sales.isEmpty) {
       return Center(
