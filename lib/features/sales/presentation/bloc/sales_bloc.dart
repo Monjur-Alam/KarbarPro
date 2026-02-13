@@ -328,7 +328,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
 
       try {
         final sales = await _repository.getFilteredSales(
-          paymentType: s.activeTab == 'all' ? null : s.activeTab,
+          paymentType: null, // Fetch ALL to support UI-side local filtering by tab
           searchQuery: newSearchQuery,
           startDate: newStartDate,
           endDate: newEndDate,

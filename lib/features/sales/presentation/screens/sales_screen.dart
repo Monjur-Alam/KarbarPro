@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -35,8 +36,11 @@ class _SalesViewState extends State<SalesView> {
     context.read<SalesBloc>().add(LoadSalesInitialData());
   }
 
+  Timer? _debounce;
+
   @override
   void dispose() {
+    _debounce?.cancel();
     super.dispose();
   }
 
@@ -117,9 +121,9 @@ class _SalesViewState extends State<SalesView> {
         child: Column(
           children: [
             _buildConnectivityBanner(),
-            _buildFilterBar(state), // Search & Filters at the top
-            _buildBalanceCard(state),
-            _buildHistoryTabs(state),
+            _buildHistoryTabs(state), // Tabs at the top
+            _buildBalanceCard(state), // Then Balance Card
+            _buildFilterBar(state), // Then Search & Filters
             Expanded(
               child: TabBarView(
                 children: [
@@ -237,22 +241,22 @@ class _SalesViewState extends State<SalesView> {
   }
 
   Widget _buildHistoryTabs(SalesDataLoaded state) {
-    return TabBar(
-      onTap: (index) {
-        String tab = 'all';
-        if (index == 1) tab = 'cash';
-        if (index == 2) tab = 'credit';
-        context.read<SalesBloc>().add(ChangeSalesTab(tab));
-      },
-      tabs: const [
-        Tab(text: 'সব'),
-        Tab(text: 'নগদ'),
-        Tab(text: 'বাকি'),
-      ],
-      labelColor: Colors.blue,
-      unselectedLabelColor: Colors.grey,
-      indicatorColor: Colors.blue,
-      indicatorWeight: 3,
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.only(top: 4),
+      child: TabBar(
+        tabs: const [
+          Tab(text: 'সব'),
+          Tab(text: 'নগদ'),
+          Tab(text: 'বাকি'),
+        ],
+        labelColor: Colors.blue.shade800,
+        unselectedLabelColor: Colors.grey,
+        indicatorColor: Colors.blue.shade800,
+        indicatorWeight: 3,
+        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 16),
+      ),
     );
   }
 
@@ -263,7 +267,12 @@ class _SalesViewState extends State<SalesView> {
         children: [
           Expanded(
             child: TextField(
-              onChanged: (v) => context.read<SalesBloc>().add(UpdateSalesFilters(searchQuery: v)),
+              onChanged: (v) {
+                if (_debounce?.isActive ?? false) _debounce?.cancel();
+                _debounce = Timer(const Duration(milliseconds: 500), () {
+                  context.read<SalesBloc>().add(UpdateSalesFilters(searchQuery: v));
+                });
+              },
               decoration: InputDecoration(
                 hintText: 'ইনভয়েস বা গ্রাহক খুঁজুন...',
                 prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
