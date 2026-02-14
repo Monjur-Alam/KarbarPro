@@ -54,7 +54,7 @@ class ReportRepository {
     }
 
     return SummaryStats(
-      salesCount: row['count'] as int,
+      salesCount: (row['count'] as num?)?.toInt() ?? 0,
       totalRevenue: (row['revenue'] as num?)?.toDouble() ?? 0.0,
       totalProfit: (row['profit'] as num?)?.toDouble() ?? 0.0,
       averageSale: (row['average'] as num?)?.toDouble() ?? 0.0,
@@ -83,9 +83,9 @@ class ReportRepository {
     ''', [startDate, endDate]);
 
     return result.map((row) => ProductReportItem(
-      productId: row['id'] as int,
+      productId: (row['id'] as num).toInt(),
       productName: row['name'] as String,
-      quantitySold: row['qty'] as int,
+      quantitySold: (row['qty'] as num).toInt(),
       totalRevenue: (row['revenue'] as num).toDouble(),
       totalProfit: (row['profit'] as num).toDouble(),
     )).toList();
@@ -134,7 +134,7 @@ class ReportRepository {
 
     return result.map((row) => PaymentTypeSummary(
       paymentType: row['normalized_type'] as String,
-      count: row['count'] as int,
+      count: (row['count'] as num).toInt(),
       revenue: (row['revenue'] as num).toDouble(),
     )).toList();
   }
@@ -374,7 +374,7 @@ class ReportRepository {
     return {
       'totalIncome': (row['totalIncome'] as num?)?.toDouble() ?? 0.0,
       'totalExpense': (row['totalExpense'] as num?)?.toDouble() ?? 0.0,
-      'transactionCount': (row['transactionCount'] as int?) ?? 0,
+      'transactionCount': (row['transactionCount'] as num?)?.toInt() ?? 0,
     };
   }
 

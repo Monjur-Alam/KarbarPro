@@ -84,6 +84,7 @@ class _SalesViewState extends State<SalesView> {
       builder: (context, state) {
         return Scaffold(
           floatingActionButton: FloatingActionButton.extended(
+            heroTag: 'sales_fab',
             onPressed: () => _showSaleFormBottomSheet(context),
             icon: const Icon(Icons.add),
             label: const Text('নতুন বিক্রয়'),

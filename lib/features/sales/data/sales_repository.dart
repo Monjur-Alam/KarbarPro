@@ -257,41 +257,41 @@ class SalesRepository {
       // Robust filtering: handle 'নগদ', 'বাকি' and case variations
       final type = paymentType.toLowerCase().trim();
       if (type == 'cash' || type == 'নগদ') {
-        whereClauses.add('LOWER(${DatabaseConstants.colPaymentType}) IN (?, ?)');
+        whereClauses.add('LOWER(s.${DatabaseConstants.colPaymentType}) IN (?, ?)');
         whereArgs.addAll(['cash', 'নগদ']);
       } else if (type == 'credit' || type == 'বাকি') {
-        whereClauses.add('LOWER(${DatabaseConstants.colPaymentType}) IN (?, ?)');
+        whereClauses.add('LOWER(s.${DatabaseConstants.colPaymentType}) IN (?, ?)');
         whereArgs.addAll(['credit', 'বাকি']);
       }
     }
 
     if (searchQuery != null && searchQuery.isNotEmpty) {
       // Improved search: Match invoice number OR customer name
-      whereClauses.add('(${DatabaseConstants.colInvoiceNumber} LIKE ? OR c.${DatabaseConstants.colName} LIKE ?)');
+      whereClauses.add('(s.${DatabaseConstants.colInvoiceNumber} LIKE ? OR c.${DatabaseConstants.colName} LIKE ?)');
       final searchPattern = '%$searchQuery%';
       whereArgs.addAll([searchPattern, searchPattern]);
     }
 
     if (startDate != null) {
-      whereClauses.add('date(${DatabaseConstants.colSaleDate}) >= date(?)');
+      whereClauses.add('date(s.${DatabaseConstants.colSaleDate}) >= date(?)');
       whereArgs.add(startDate.toIso8601String().split('T')[0]);
     }
 
     if (endDate != null) {
-      whereClauses.add('date(${DatabaseConstants.colSaleDate}) <= date(?)');
+      whereClauses.add('date(s.${DatabaseConstants.colSaleDate}) <= date(?)');
       whereArgs.add(endDate.toIso8601String().split('T')[0]);
     }
 
-    String orderBy = '${DatabaseConstants.colSaleDate} DESC';
+    String orderBy = 's.${DatabaseConstants.colSaleDate} DESC';
     switch (sortBy) {
       case 'date_asc':
-        orderBy = '${DatabaseConstants.colSaleDate} ASC';
+        orderBy = 's.${DatabaseConstants.colSaleDate} ASC';
         break;
       case 'amount_desc':
-        orderBy = '${DatabaseConstants.colTotalAmount} DESC';
+        orderBy = 's.${DatabaseConstants.colTotalAmount} DESC';
         break;
       case 'amount_asc':
-        orderBy = '${DatabaseConstants.colTotalAmount} ASC';
+        orderBy = 's.${DatabaseConstants.colTotalAmount} ASC';
         break;
     }
 

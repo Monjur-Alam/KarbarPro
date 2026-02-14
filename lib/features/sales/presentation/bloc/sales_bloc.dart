@@ -345,7 +345,8 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
           statistics: {'today': stats, ...s.statistics}, // Wrap in 'today' for compatibility or refactor UI
         ));
       } catch (e) {
-        // Log error
+        print('Sales Filter Error: $e'); // Debugging
+        emit(SalesError('ফিল্টার করতে সমস্যা হয়েছে: $e')); 
       }
     }
   }
