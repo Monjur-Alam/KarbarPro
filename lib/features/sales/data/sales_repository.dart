@@ -266,10 +266,28 @@ class SalesRepository {
     }
 
     if (searchQuery != null && searchQuery.isNotEmpty) {
-      // Improved search: Match invoice number OR customer name
-      whereClauses.add('(s.${DatabaseConstants.colInvoiceNumber} LIKE ? OR c.${DatabaseConstants.colName} LIKE ?)');
+      // Improved search: Match invoice, customer, amount, date, or product name
+      whereClauses.add('''
+        (
+          s.${DatabaseConstants.colInvoiceNumber} LIKE ? OR 
+          c.${DatabaseConstants.colName} LIKE ? OR
+          CAST(s.${DatabaseConstants.colTotalAmount} AS TEXT) LIKE ? OR
+          s.${DatabaseConstants.colSaleDate} LIKE ? OR
+          EXISTS (
+            SELECT 1 FROM ${DatabaseConstants.tableSaleItems} si 
+            WHERE si.${DatabaseConstants.colSaleId} = s.${DatabaseConstants.colId} 
+            AND si.${DatabaseConstants.colProductName} LIKE ?
+          )
+        )
+      ''');
       final searchPattern = '%$searchQuery%';
-      whereArgs.addAll([searchPattern, searchPattern]);
+      whereArgs.addAll([
+        searchPattern, 
+        searchPattern, 
+        searchPattern, 
+        searchPattern, 
+        searchPattern
+      ]);
     }
 
     if (startDate != null) {

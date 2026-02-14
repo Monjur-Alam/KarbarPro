@@ -23,6 +23,8 @@ import 'features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'features/reports/data/report_repository.dart';
 import 'features/reports/presentation/bloc/report_bloc.dart';
 
+final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -148,6 +150,7 @@ class MyApp extends StatelessWidget {
           ],
           locale: const Locale('bn', 'BD'), // Default to Bengali
           home: const AppView(),
+          navigatorObservers: [routeObserver],
         ),
       ),
     );

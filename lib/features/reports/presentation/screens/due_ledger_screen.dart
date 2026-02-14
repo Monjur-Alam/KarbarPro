@@ -8,6 +8,7 @@ import '../../data/report_repository.dart';
 import '../../domain/due_ledger_model.dart';
 import '../../services/report_generator.dart';
 import '../../../../core/database/database_helper.dart';
+import '../../../../main.dart';
 
 class DueLedgerScreen extends StatelessWidget {
   const DueLedgerScreen({super.key});
@@ -38,7 +39,7 @@ class DueLedgerView extends StatefulWidget {
   State<DueLedgerView> createState() => _DueLedgerViewState();
 }
 
-class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProviderStateMixin {
+class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProviderStateMixin, RouteAware {
   late TabController _tabController;
   List<CustomerDue> _allCustomers = [];
   List<CustomerDue> _filteredCustomers = []; // For current tab
@@ -74,11 +75,27 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      routeObserver.subscribe(this, route as ModalRoute<void>);
+    }
+  }
+
+  @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     _tabController.dispose();
     _searchController.dispose();
     _debounce?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // Refresh data when returning to this screen
+    _loadData();
   }
 
   Future<void> _loadData() async {

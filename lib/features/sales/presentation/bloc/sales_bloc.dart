@@ -234,7 +234,26 @@ class SalesDataLoaded extends SalesState {
   }
 
   @override
-  List<Object?> get props => [cart, mode, paymentType, selectedCustomer, todayTotalSales, totalAmount, isSubmitting, searchResults, isSearching];
+  List<Object?> get props => [
+    cart, 
+    mode, 
+    paymentType, 
+    selectedCustomer, 
+    todayTotalSales, 
+    totalAmount, 
+    isSubmitting, 
+    searchResults, 
+    isSearching,
+    // New fields
+    salesHistory,
+    statistics,
+    activeTab,
+    searchQuery,
+    startDate,
+    endDate,
+    sortBy,
+    selectedDateFilterLabel,
+  ];
 }
 
 class SalesSuccess extends SalesState {
@@ -315,6 +334,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
       final newEndDate = event.clearEndDate ? null : (event.endDate ?? s.endDate);
       final newSortBy = event.sortBy ?? s.sortBy;
       final newLabel = event.selectedDateFilterLabel ?? s.selectedDateFilterLabel;
+
 
       emit(s.copyWith(
         searchQuery: newSearchQuery,
