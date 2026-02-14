@@ -77,30 +77,6 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  void _showSaleBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.85,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          child: const SalesView(),
-        ),
-      ),
-    ).then((_) {
-      // Refresh dashboard after returning from sale sheet
-      if (mounted) {
-        context.read<HomeBloc>().add(RefreshDashboard());
-      }
-    });
-  }
-
   PreferredSizeWidget _buildAppBar(String title, BuildContext context) {
     return AppBar(
       title: Text(

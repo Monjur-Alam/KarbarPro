@@ -273,12 +273,10 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
           _buildTabView(isCustomer: false),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddCustomerDialog(isSupplier: _tabController.index == 1),
         backgroundColor: const Color(0xFF00695C),
-        icon: const Icon(Icons.person_add_alt_1, color: Colors.white),
-        label: Text(_tabController.index == 0 ? 'নতুন গ্রাহক' : 'নতুন সরবরাহকারী', 
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        child: Icon(Icons.person_add_outlined, color: Colors.white),
       ),
     );
   }
