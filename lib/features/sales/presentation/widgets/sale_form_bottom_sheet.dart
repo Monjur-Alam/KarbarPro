@@ -139,7 +139,35 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        Expanded(child: _buildTextField(_quantityController, 'পরিমাণ *', suffix: _selectedProduct!.unit, isNumber: true, onChanged: (_) => setState(() {}))),
+                        Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              _buildQtyBtn(Icons.remove, () {
+                                int current = int.tryParse(_quantityController.text) ?? 1;
+                                if (current > 1) {
+                                  setState(() => _quantityController.text = (current - 1).toString());
+                                }
+                              }),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _buildTextField(
+                                  _quantityController, 
+                                  'পরিমাণ *', 
+                                  suffix: _selectedProduct!.unit, 
+                                  isNumber: true, 
+                                  textAlign: TextAlign.center, 
+                                  onChanged: (_) => setState(() {})
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildQtyBtn(Icons.add, () {
+                                int current = int.tryParse(_quantityController.text) ?? 0;
+                                setState(() => _quantityController.text = (current + 1).toString());
+                              }),
+                            ],
+                          ),
+                        ),
                         const SizedBox(width: 16),
                         Expanded(child: _buildTextField(_priceController, 'মূল্য (একক) *', prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}))),
                       ],
@@ -357,6 +385,23 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     );
   }
 
+  Widget _buildQtyBtn(IconData icon, VoidCallback onTap) {
+    return Container(
+      width: 36, 
+      height: 36,
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.shade100),
+      ),
+      child: IconButton(
+        icon: Icon(icon, size: 18, color: Colors.blue.shade800),
+        padding: EdgeInsets.zero,
+        onPressed: onTap,
+      ),
+    );
+  }
+
   void _handleCheckout(SalesDataLoaded state, double finalTotal) {
     if (state.paymentType == PaymentType.credit && state.selectedCustomer == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('গ্রাহক নির্বাচন করুন!'), backgroundColor: Colors.orange));
@@ -373,11 +418,12 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     ));
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, {String? prefix, String? suffix, bool isNumber = false, int maxLines = 1, Function(String)? onChanged}) {
+  Widget _buildTextField(TextEditingController controller, String label, {String? prefix, String? suffix, bool isNumber = false, int maxLines = 1, TextAlign textAlign = TextAlign.start, Function(String)? onChanged}) {
     return TextField(
       controller: controller,
       keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
       maxLines: maxLines,
+      textAlign: textAlign,
       onChanged: onChanged,
       style: const TextStyle(fontSize: 15),
       decoration: InputDecoration(
@@ -466,7 +512,9 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     return BlocBuilder<CustomerBloc, CustomerState>(
       builder: (context, state) {
         List<Customer> customers = [];
-        if (state is CustomerLoaded) customers = state.customers;
+        if (state is CustomerLoaded) {
+          customers = state.customers.where((c) => c.type == 'customer').toList();
+        }
 
         return Row(
           children: [

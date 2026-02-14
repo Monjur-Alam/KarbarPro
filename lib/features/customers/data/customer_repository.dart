@@ -44,6 +44,7 @@ class CustomerRepository {
       currentCreditBalance: (m[DatabaseConstants.colCurrentCreditBalance] as num).toDouble(),
       totalPurchases: (m[DatabaseConstants.colTotalPurchases] as num).toDouble(),
       isActive: m[DatabaseConstants.colIsActive] == 1,
+      type: m[DatabaseConstants.colCustomerType] ?? 'customer',
       createdAt: DateTime.tryParse(m[DatabaseConstants.colCreatedAt] ?? ''),
       updatedAt: DateTime.tryParse(m[DatabaseConstants.colUpdatedAt] ?? ''),
     )).toList();

@@ -9,6 +9,7 @@ class Customer extends Equatable {
   final double currentCreditBalance;
   final double totalPurchases;
   final bool isActive;
+  final String type; // 'customer' or 'supplier'
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -21,6 +22,7 @@ class Customer extends Equatable {
     this.currentCreditBalance = 0.0,
     this.totalPurchases = 0.0,
     this.isActive = true,
+    this.type = 'customer',
     this.createdAt,
     this.updatedAt,
   });
@@ -34,6 +36,7 @@ class Customer extends Equatable {
     double? currentCreditBalance,
     double? totalPurchases,
     bool? isActive,
+    String? type,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -46,11 +49,12 @@ class Customer extends Equatable {
       currentCreditBalance: currentCreditBalance ?? this.currentCreditBalance,
       totalPurchases: totalPurchases ?? this.totalPurchases,
       isActive: isActive ?? this.isActive,
+      type: type ?? this.type,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
   @override
-  List<Object?> get props => [id, name, phone, email, address, currentCreditBalance, totalPurchases, isActive, createdAt, updatedAt];
+  List<Object?> get props => [id, name, phone, email, address, currentCreditBalance, totalPurchases, isActive, type, createdAt, updatedAt];
 }
