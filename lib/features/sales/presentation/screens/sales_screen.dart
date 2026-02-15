@@ -123,8 +123,8 @@ class _SalesViewState extends State<SalesView> {
           children: [
             _buildConnectivityBanner(),
             _buildHistoryTabs(state), // Tabs at the top
-            _buildBalanceCard(state), // Then Balance Card
             _buildFilterBar(state), // Then Search & Filters
+            _buildBalanceCard(state), // Then Balance Card
             Expanded(
               child: TabBarView(
                 children: [
