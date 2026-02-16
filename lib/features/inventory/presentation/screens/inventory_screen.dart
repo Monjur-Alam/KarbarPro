@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/inventory_bloc.dart';
 import '../../domain/product.dart';
+import 'manage_category_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -108,78 +109,143 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildFilterChips(BuildContext context, InventoryLoaded state) {
-    return Container(
+    // Map internal values to Bengali display names
+    final stockFilterDisplay = {
+      null: 'সমস্ত স্টক',
+      'in_stock': 'স্টক আছে',
+      'low': 'কম স্টক',
+      'out': 'স্টক শেষ',
+    };
+
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Colors.white,
       child: Row(
         children: [
-          _buildFilterDropdown(
-            context,
-            label: 'শ্রেণী',
-            value: state.category ?? 'All',
-            items: state.allCategories.isEmpty ? ['All'] : state.allCategories,
-            onChanged: (value) {
-              context.read<InventoryBloc>().add(LoadProducts(
-                searchQuery: state.searchQuery,
-                category: value == 'All' ? null : value,
-                stockFilter: state.stockFilter,
-                sortBy: state.sortBy,
-              ));
-            },
+          // Category Filter
+          Expanded(
+            child: PopupMenuButton<String>(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              onSelected: (value) {
+                if (value == '__manage__') {
+                  // Navigate to category management page
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ManageCategoryScreen()),
+                  );
+                } else {
+                  context.read<InventoryBloc>().add(LoadProducts(
+                    searchQuery: state.searchQuery,
+                    category: value == 'All' ? null : value,
+                    stockFilter: state.stockFilter,
+                    sortBy: state.sortBy,
+                  ));
+                }
+              },
+              itemBuilder: (context) {
+                final items = <PopupMenuEntry<String>>[];
+                
+                // Add "All" option
+                items.add(PopupMenuItem(
+                  value: 'All',
+                  child: Text('সব ক্যাটাগরি', style: const TextStyle(fontSize: 14)),
+                ));
+                
+                // Add existing categories
+                for (final cat in state.allCategories) {
+                  if (cat != 'All') {
+                    items.add(PopupMenuItem(
+                      value: cat,
+                      child: Text(cat, style: const TextStyle(fontSize: 14)),
+                    ));
+                  }
+                }
+                
+                // Add divider and manage option
+                if (state.allCategories.length > 1) {
+                  items.add(const PopupMenuDivider());
+                }
+                items.add(PopupMenuItem(
+                  value: '__manage__',
+                  child: Row(
+                    children: [
+                      Icon(Icons.settings, size: 16, color: Colors.blue.shade700),
+                      const SizedBox(width: 8),
+                      Text('ক্যাটাগরি ম্যানেজ করুন', 
+                        style: TextStyle(fontSize: 14, color: Colors.blue.shade700)),
+                    ],
+                  ),
+                ));
+                
+                return items;
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        state.category ?? 'সব ক্যাটাগরি',
+                        style: const TextStyle(fontSize: 14, color: Colors.teal),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.arrow_drop_down, color: Colors.teal),
+                  ],
+                ),
+              ),
+            ),
           ),
-          const SizedBox(width: 12),
-          _buildFilterDropdown(
-            context,
-            label: 'স্টক',
-            value: state.stockFilter ?? 'All',
-            items: const ['All', 'low', 'out'],
-            displayNames: const {'All': 'সব', 'low': 'কম', 'out': 'শেষ'},
-            onChanged: (value) {
-              context.read<InventoryBloc>().add(LoadProducts(
-                searchQuery: state.searchQuery,
-                category: state.category,
-                stockFilter: value == 'All' ? null : value,
-                sortBy: state.sortBy,
-              ));
-            },
+          const SizedBox(width: 10),
+          // Stock Filter
+          Expanded(
+            child: PopupMenuButton<String?>(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              onSelected: (value) {
+                context.read<InventoryBloc>().add(LoadProducts(
+                  searchQuery: state.searchQuery,
+                  category: state.category,
+                  stockFilter: value,
+                  sortBy: state.sortBy,
+                ));
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(value: null, child: Text('সমস্ত স্টক', style: const TextStyle(fontSize: 14))),
+                PopupMenuItem(value: 'in_stock', child: Text('স্টক আছে', style: const TextStyle(fontSize: 14))),
+                PopupMenuItem(value: 'low', child: Text('কম স্টক', style: const TextStyle(fontSize: 14))),
+                PopupMenuItem(value: 'out', child: Text('স্টক শেষ', style: const TextStyle(fontSize: 14))),
+              ],
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        stockFilterDisplay[state.stockFilter] ?? 'সমস্ত স্টক',
+                        style: const TextStyle(fontSize: 14, color: Colors.teal),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.arrow_drop_down, color: Colors.teal),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildFilterDropdown(
-    BuildContext context, {
-    required String label,
-    required String value,
-    required List<String> items,
-    Map<String, String>? displayNames,
-    required Function(String) onChanged,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          underline: const SizedBox(),
-          icon: const Icon(Icons.arrow_drop_down, size: 20),
-          items: items.map((item) {
-            return DropdownMenuItem(
-              value: item,
-              child: Text(
-                displayNames?[item] ?? item,
-                style: const TextStyle(fontSize: 14),
-              ),
-            );
-          }).toList(),
-          onChanged: (val) => val != null ? onChanged(val) : null,
-        ),
       ),
     );
   }

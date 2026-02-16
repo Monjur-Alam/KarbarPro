@@ -34,8 +34,10 @@ class InventoryRepository {
 
     // Stock Filter
     if (stockFilter != null) {
-      if (stockFilter == 'low') {
-        whereClauses.add('${DatabaseConstants.colCurrentStock} <= ${DatabaseConstants.colMinStockAlert}');
+      if (stockFilter == 'in_stock') {
+        whereClauses.add('${DatabaseConstants.colCurrentStock} > 0');
+      } else if (stockFilter == 'low') {
+        whereClauses.add('${DatabaseConstants.colCurrentStock} <= ${DatabaseConstants.colMinStockAlert} AND ${DatabaseConstants.colCurrentStock} > 0');
       } else if (stockFilter == 'out') {
         whereClauses.add('${DatabaseConstants.colCurrentStock} <= 0');
       }
