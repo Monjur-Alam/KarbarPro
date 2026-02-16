@@ -79,9 +79,10 @@ class DashboardScreenState extends State<DashboardScreen> {
 
   PreferredSizeWidget _buildAppBar(String title, BuildContext context) {
     return AppBar(
+      backgroundColor: Colors.white,
       title: Text(
         title,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        style: const TextStyle(fontWeight: FontWeight.normal, fontSize: 18, color: Colors.black),
       ),
       actions: [
         BlocBuilder<HomeBloc, HomeState>(
@@ -93,13 +94,13 @@ class DashboardScreenState extends State<DashboardScreen> {
             return _buildSyncIndicator(syncStatus);
           },
         ),
-        IconButton(
-          icon: const Icon(Icons.notifications_none),
-          onPressed: () {},
-        ),
+        // IconButton(
+        //   icon: const Icon(Icons.notifications_none, color: Colors.black,),
+        //   onPressed: () {},
+        // ),
         Builder(
           builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
+            icon: const Icon(Icons.menu, color: Colors.black,),
             onPressed: () => Scaffold.of(context).openEndDrawer(),
           ),
         ),
@@ -492,7 +493,6 @@ class DashboardHome extends StatelessWidget {
       ),
     );
   }
-
 
   Widget _buildSummaryItem(String label, String value) {
     return Column(
