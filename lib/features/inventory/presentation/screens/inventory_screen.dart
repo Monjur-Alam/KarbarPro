@@ -3,6 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/inventory_bloc.dart';
 import '../../domain/product.dart';
 import 'manage_category_screen.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:io';
+import '../../../../core/database/database_helper.dart';
+import '../../../../core/constants/database_constants.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -282,18 +287,29 @@ class _InventoryScreenState extends State<InventoryScreen> {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    backgroundColor: Colors.blue.shade50,
-                    radius: 20,
-                    child: Text(
-                      product.name[0].toUpperCase(),
-                      style: TextStyle(
-                        color: Colors.blue.shade800,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ),
+                  // Product Image or Initial
+                  product.imagePath != null && product.imagePath!.isNotEmpty && File(product.imagePath!).existsSync()
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            File(product.imagePath!),
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : CircleAvatar(
+                          backgroundColor: Colors.blue.shade50,
+                          radius: 25,
+                          child: Text(
+                            product.name[0].toUpperCase(),
+                            style: TextStyle(
+                              color: Colors.blue.shade800,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                        ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -444,111 +460,632 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   void _showAddEditProductDialog(BuildContext context, {Product? product}) {
-    final nameController = TextEditingController(text: product?.name);
-    final sellingPriceController = TextEditingController(text: product?.sellingPrice.toString());
-    final purchasePriceController = TextEditingController(text: product?.purchasePrice.toString());
-    final stockController = TextEditingController(text: product?.currentStock.toString());
-    final unitController = TextEditingController(text: product?.unit);
-    final categoryController = TextEditingController(text: product?.category);
-
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: Text(product == null ? 'নতুন পণ্য যোগ করুন' : 'পণ্য সম্পাদনা করুন'),
-        content: SingleChildScrollView(
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ProductFormBottomSheet(product: product),
+    );
+  }
+}
+
+class ProductFormBottomSheet extends StatefulWidget {
+  final Product? product;
+  
+  const ProductFormBottomSheet({super.key, this.product});
+
+  @override
+  State<ProductFormBottomSheet> createState() => _ProductFormBottomSheetState();
+}
+
+class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with SingleTickerProviderStateMixin {
+  final _nameController = TextEditingController();
+  final _categoryController = TextEditingController();
+  final _sellingPriceController = TextEditingController();
+  final _purchasePriceController = TextEditingController();
+  List<String> _existingCategories = [];
+  final _stockController = TextEditingController();
+  final _unitController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _itemCodeController = TextEditingController();
+  
+  File? _selectedImage;
+  final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingCategories();
+    
+    if (widget.product != null) {
+      _nameController.text = widget.product!.name;
+      _categoryController.text = widget.product!.category ?? '';
+      _sellingPriceController.text = widget.product!.sellingPrice.toString();
+      _purchasePriceController.text = widget.product!.purchasePrice.toString();
+      _stockController.text = widget.product!.currentStock.toString();
+      _unitController.text = widget.product!.unit;
+      _itemCodeController.text = widget.product!.barcode ?? '';
+      if (widget.product!.imagePath != null && widget.product!.imagePath!.isNotEmpty) {
+        _selectedImage = File(widget.product!.imagePath!);
+      }
+    } else {
+      _unitController.text = 'pcs';
+    }
+  }
+
+  Future<void> _loadExistingCategories() async {
+    final db = context.read<DatabaseHelper>();
+    final database = await db.database;
+    
+    final result = await database.rawQuery('''
+      SELECT DISTINCT ${DatabaseConstants.colCategory}
+      FROM ${DatabaseConstants.tableProducts}
+      WHERE ${DatabaseConstants.colCategory} IS NOT NULL 
+        AND ${DatabaseConstants.colCategory} != ''
+      ORDER BY ${DatabaseConstants.colCategory} ASC
+    ''');
+    
+    setState(() {
+      _existingCategories = result
+          .map((row) => row[DatabaseConstants.colCategory] as String)
+          .toList();
+    });
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _categoryController.dispose();
+    _sellingPriceController.dispose();
+    _purchasePriceController.dispose();
+    _stockController.dispose();
+    _unitController.dispose();
+    _descriptionController.dispose();
+    _itemCodeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    // Check camera permission
+    final status = await Permission.camera.request();
+    
+    if (status.isGranted) {
+      // Permission granted, show image source options
+      final source = await showModalBottomSheet<ImageSource>(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) => Container(
+          padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'পণ্যের নাম *',
-                  border: OutlineInputBorder(),
-                ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt, color: Colors.blue),
+                title: const Text('ক্যামেরা'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: sellingPriceController,
-                decoration: const InputDecoration(
-                  labelText: 'বিক্রয় মূল্য *',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: purchasePriceController,
-                decoration: const InputDecoration(
-                  labelText: 'ক্রয় মূল্য *',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: stockController,
-                decoration: const InputDecoration(
-                  labelText: 'স্টক পরিমাণ *',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: unitController,
-                decoration: const InputDecoration(
-                  labelText: 'একক (pcs, kg, ইত্যাদি)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: categoryController,
-                decoration: const InputDecoration(
-                  labelText: 'শ্রেণী (ঐচ্ছিক)',
-                  border: OutlineInputBorder(),
-                ),
+              ListTile(
+                leading: const Icon(Icons.photo_library, color: Colors.green),
+                title: const Text('গ্যালারি'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
               ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('বাতিল'),
+      );
+
+      if (source != null) {
+        final XFile? image = await _picker.pickImage(source: source);
+        if (image != null) {
+          setState(() {
+            _selectedImage = File(image.path);
+          });
+        }
+      }
+    } else if (status.isDenied) {
+      // Permission denied, ask again
+      await Permission.camera.request();
+    } else if (status.isPermanentlyDenied) {
+      // Permission permanently denied, navigate to settings
+      if (mounted) {
+        final shouldOpenSettings = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('অনুমতি প্রয়োজন'),
+            content: const Text(
+              'ছবি তুলতে ক্যামেরা অনুমতি প্রয়োজন। সেটিংস থেকে অনুমতি দিন।'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('বাতিল'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('সেটিংস খুলুন'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              final name = nameController.text;
-              final sellingPrice = double.tryParse(sellingPriceController.text) ?? 0.0;
-              final purchasePrice = double.tryParse(purchasePriceController.text) ?? 0.0;
-              final stock = int.tryParse(stockController.text) ?? 0;
-              final unit = unitController.text.isEmpty ? 'pcs' : unitController.text;
-              final category = categoryController.text;
+        );
 
-              if (name.isNotEmpty && sellingPrice > 0) {
-                final newProduct = Product(
-                  id: product?.id,
-                  name: name,
-                  sellingPrice: sellingPrice,
-                  purchasePrice: purchasePrice,
-                  currentStock: stock,
-                  unit: unit,
-                  category: category.isEmpty ? null : category,
-                  createdAt: product?.createdAt,
-                  updatedAt: DateTime.now(),
-                );
+        if (shouldOpenSettings == true) {
+          await openAppSettings();
+        }
+      }
+    }
+  }
 
-                if (product == null) {
-                  context.read<InventoryBloc>().add(AddProduct(newProduct));
-                } else {
-                  context.read<InventoryBloc>().add(UpdateProduct(newProduct));
-                }
-                Navigator.pop(dialogContext);
-              }
-            },
-            child: const Text('সংরক্ষণ'),
+  void _saveProduct() {
+    final name = _nameController.text.trim();
+    final sellingPrice = double.tryParse(_sellingPriceController.text) ?? 0.0;
+    final purchasePrice = double.tryParse(_purchasePriceController.text) ?? 0.0;
+    final stock = int.tryParse(_stockController.text) ?? 0;
+    final unit = _unitController.text.trim().isEmpty ? 'pcs' : _unitController.text.trim();
+    final category = _categoryController.text.trim();
+    final itemCode = _itemCodeController.text.trim();
+    final imagePath = _selectedImage?.path;
+
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('আইটেমের নাম লিখুন'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    if (sellingPrice <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('বিক্রয় মূল্য লিখুন'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    final newProduct = Product(
+      id: widget.product?.id,
+      name: name,
+      sellingPrice: sellingPrice,
+      purchasePrice: purchasePrice,
+      currentStock: stock,
+      unit: unit,
+      category: category.isEmpty ? null : category,
+      barcode: itemCode.isEmpty ? null : itemCode,
+      imagePath: imagePath,
+      minStockAlert: 5,
+      createdAt: widget.product?.createdAt,
+      updatedAt: DateTime.now(),
+    );
+
+    if (widget.product == null) {
+      context.read<InventoryBloc>().add(AddProduct(newProduct));
+    } else {
+      context.read<InventoryBloc>().add(UpdateProduct(newProduct));
+    }
+    Navigator.pop(context);
+  }
+
+  void _showInstructions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.blue.shade700, size: 28),
+                const SizedBox(width: 12),
+                const Text(
+                  'পণ্য যোগ করার নির্দেশনা',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _buildInstructionItem('১', 'আইটেমের নাম লিখুন (বাধ্যতামূলক)'),
+            _buildInstructionItem('২', 'ক্যাটাগরি নির্বাচন করুন (ঐচ্ছিক)'),
+            _buildInstructionItem('৩', 'বিক্রয় মূল্য এবং ক্রয় মূল্য লিখুন'),
+            _buildInstructionItem('৪', 'প্রাথমিক স্টক পরিমাণ এবং একক লিখুন'),
+            _buildInstructionItem('৫', 'প্রয়োজনে আইটেম কোড এবং বিবরণ যোগ করুন'),
+            _buildInstructionItem('৬', 'ছবি যোগ করতে ক্যামেরা আইকনে ক্লিক করুন'),
+            _buildInstructionItem('৭', 'সব তথ্য পূরণ করে "সেভ করুন" বাটনে ক্লিক করুন'),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('বুঝেছি'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInstructionItem(String number, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: TextStyle(
+                  color: Colors.blue.shade700,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.9,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.shade200,
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                Expanded(
+                  child: Text(
+                    widget.product == null ? 'নতুন আইটেম যোগ' : 'আইটেম সম্পাদনা',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.normal),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.info_outline),
+                  onPressed: _showInstructions,
+                ),
+              ],
+            ),
+          ),
+          
+          // Content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Product Name
+                  const Text('আইটেমের নাম *', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      hintText: 'আইটেমের নাম লিখুন',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Category
+                  const Text('শ্রেণী', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () async {
+                      final result = await showModalBottomSheet<String>(
+                        context: context,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                        builder: (context) => Container(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'ক্যাটাগরি নির্বাচন করুন',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 16),
+                              if (_existingCategories.isEmpty)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 20),
+                                  child: Center(
+                                    child: Text('কোনো ক্যাটাগরি নেই। নতুন ক্যাটাগরি লিখুন।'),
+                                  ),
+                                )
+                              else
+                                ..._existingCategories.map((cat) => ListTile(
+                                  title: Text(cat),
+                                  onTap: () => Navigator.pop(context, cat),
+                                )),
+                              const Divider(),
+                              ListTile(
+                                leading: const Icon(Icons.add, color: Colors.blue),
+                                title: const Text('নতুন ক্যাটাগরি যোগ করুন'),
+                                onTap: () async {
+                                  Navigator.pop(context);
+                                  final newCat = await showDialog<String>(
+                                    context: context,
+                                    builder: (context) {
+                                      final controller = TextEditingController();
+                                      return AlertDialog(
+                                        title: const Text('নতুন ক্যাটাগরি'),
+                                        content: TextField(
+                                          controller: controller,
+                                          autofocus: true,
+                                          decoration: const InputDecoration(
+                                            hintText: 'ক্যাটাগরি লিখুন',
+                                            border: OutlineInputBorder(),
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(context),
+                                            child: const Text('বাতিল'),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () => Navigator.pop(context, controller.text),
+                                            child: const Text('যোগ করুন'),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                  if (newCat != null && newCat.isNotEmpty) {
+                                    setState(() => _categoryController.text = newCat);
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                      if (result != null) {
+                        setState(() => _categoryController.text = result);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _categoryController.text.isEmpty ? 'ক্যাটাগরি নির্বাচন করুন' : _categoryController.text,
+                            style: TextStyle(
+                              color: _categoryController.text.isEmpty ? Colors.grey : Colors.black,
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Stock and Unit
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('প্রাথমিক স্টক', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _stockController,
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                hintText: '০',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('একক', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _unitController,
+                              decoration: InputDecoration(
+                                hintText: 'pcs',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Prices
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('বিক্রয় মূল্য *', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _sellingPriceController,
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                hintText: '০',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('ক্রয় মূল্য', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _purchasePriceController,
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                hintText: '০',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Item Code
+                  const Text('আইটেম কোড', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _itemCodeController,
+                    decoration: InputDecoration(
+                      hintText: 'আইটেম কোড লিখুন',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Description
+                  const Text('বিবরণ', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _descriptionController,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: 'বিবরণ লিখুন',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Image Upload
+                  InkWell(
+                    onTap: _pickImage,
+                    child: Container(
+                      height: 120,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                        image: _selectedImage != null
+                            ? DecorationImage(
+                                image: FileImage(_selectedImage!),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: _selectedImage == null
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add_a_photo_outlined, size: 40, color: Colors.grey.shade400),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'আইটেমের ছবি যোগ করুন',
+                                    style: TextStyle(color: Colors.teal.shade700, fontSize: 14),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Save Button
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.shade200,
+                  blurRadius: 4,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _saveProduct,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green.shade700,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('সেভ করুন', style: TextStyle(fontSize: 16, color: Colors.white)),
+              ),
+            ),
           ),
         ],
       ),

@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>পণ্যের ছবি তুলতে ক্যামেরা ব্যবহার করা হবে</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>পণ্যের ছবি নির্বাচন করতে ফটো লাইব্রেরি ব্যবহার করা হবে</string>
 </dict>
 </plist>
