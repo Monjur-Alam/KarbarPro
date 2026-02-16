@@ -11,7 +11,28 @@ abstract class InventoryEvent extends Equatable {
   List<Object> get props => [];
 }
 
-class LoadProducts extends InventoryEvent {}
+class LoadProducts extends InventoryEvent {
+  final String? searchQuery;
+  final String? category;
+  final String? stockFilter;
+  final String sortBy;
+
+  const LoadProducts({
+    this.searchQuery,
+    this.category,
+    this.stockFilter,
+    this.sortBy = 'latest',
+  });
+
+  @override
+  List<Object> get props => [
+    searchQuery ?? '',
+    category ?? '',
+    stockFilter ?? '',
+    sortBy,
+  ];
+}
+
 class AddProduct extends InventoryEvent {
   final Product product;
   const AddProduct(this.product);
@@ -35,16 +56,48 @@ class DeleteProduct extends InventoryEvent {
 abstract class InventoryState extends Equatable {
   const InventoryState();
   @override
-  List<Object> get props => [];
+  List<Object?> get props => [];
 }
 
 class InventoryInitial extends InventoryState {}
 class InventoryLoading extends InventoryState {}
 class InventoryLoaded extends InventoryState {
   final List<Product> products;
-  const InventoryLoaded(this.products);
+  final String? searchQuery;
+  final String? category;
+  final String? stockFilter;
+  final String sortBy;
+  final List<String> allCategories;
+
+  const InventoryLoaded(
+    this.products, {
+    this.searchQuery,
+    this.category,
+    this.stockFilter,
+    this.sortBy = 'latest',
+    this.allCategories = const [],
+  });
+  
+  InventoryLoaded copyWith({
+    List<Product>? products,
+    String? searchQuery,
+    String? category,
+    String? stockFilter,
+    String sortBy = 'latest',
+    List<String>? allCategories,
+  }) {
+    return InventoryLoaded(
+      products ?? this.products,
+      searchQuery: searchQuery ?? this.searchQuery,
+      category: category ?? this.category,
+      stockFilter: stockFilter ?? this.stockFilter,
+      sortBy: sortBy,
+      allCategories: allCategories ?? this.allCategories,
+    );
+  }
+
   @override
-  List<Object> get props => [products];
+  List<Object?> get props => [products, searchQuery, category, stockFilter, sortBy, allCategories];
 }
 class InventoryError extends InventoryState {
   final String message;
@@ -74,10 +127,47 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
     LoadProducts event,
     Emitter<InventoryState> emit,
   ) async {
-    emit(InventoryLoading());
+    // Determine if we are updating existing state or starting fresh
+    List<String> categories = [];
+    if (state is InventoryLoaded) {
+      categories = (state as InventoryLoaded).allCategories;
+    } else {
+      emit(InventoryLoading());
+    }
+
     try {
-      final products = await _repository.getProducts();
-      emit(InventoryLoaded(products));
+      final products = await _repository.getProducts(
+        searchQuery: event.searchQuery,
+        category: event.category,
+        stockFilter: event.stockFilter,
+        sortBy: event.sortBy,
+      );
+      
+      // Calculate categories from all products (fetched without filters ideally, but for now we aggregate from result or keep existing)
+      // To get ALL categories properly, we might need a separate repo method or just aggregate from what we have if it's the full list
+      // For now, let's assume we want categories from the current list if we are just searching, 
+      // but if we are filtering, we might lose other categories. 
+      // Better approach: If categories are empty (first load), aggregate them.
+      if (categories.isEmpty) {
+        // Fetch all products once to get categories if needed, or just use current list
+        // Optimization: For now just use unique categories from current list
+        final uniqueCats = products
+            .where((p) => p.category != null && p.category!.isNotEmpty)
+            .map((p) => p.category!)
+            .toSet()
+            .toList();
+        uniqueCats.sort();
+        categories = ['All', ...uniqueCats];
+      }
+
+      emit(InventoryLoaded(
+        products,
+        searchQuery: event.searchQuery,
+        category: event.category,
+        stockFilter: event.stockFilter,
+        sortBy: event.sortBy,
+        allCategories: categories,
+      ));
     } catch (e) {
       emit(InventoryError(e.toString()));
     }
@@ -89,7 +179,7 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
   ) async {
     try {
       await _repository.addProduct(event.product);
-      add(LoadProducts());
+      _reloadWithCurrentFilters();
       _syncService.performSync(); // Trigger sync
     } catch (e) {
       emit(InventoryError(e.toString()));
@@ -102,7 +192,7 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
   ) async {
     try {
       await _repository.updateProduct(event.product);
-      add(LoadProducts());
+      _reloadWithCurrentFilters();
       _syncService.performSync(); // Trigger sync
     } catch (e) {
       emit(InventoryError(e.toString()));
@@ -115,10 +205,32 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
   ) async {
     try {
       await _repository.deleteProduct(event.id);
-      add(LoadProducts());
+      _reloadWithCurrentFilters();
       _syncService.performSync(); // Trigger sync
     } catch (e) {
       emit(InventoryError(e.toString()));
     }
+  }
+
+  void _reloadWithCurrentFilters() {
+    String? searchQuery;
+    String? category;
+    String? stockFilter;
+    String sortBy = 'latest';
+    
+    if (state is InventoryLoaded) {
+      final loaded = state as InventoryLoaded;
+      searchQuery = loaded.searchQuery;
+      category = loaded.category;
+      stockFilter = loaded.stockFilter;
+      sortBy = loaded.sortBy;
+    }
+    
+    add(LoadProducts(
+      searchQuery: searchQuery,
+      category: category,
+      stockFilter: stockFilter,
+      sortBy: sortBy,
+    ));
   }
 }

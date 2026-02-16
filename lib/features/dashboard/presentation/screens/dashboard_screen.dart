@@ -55,7 +55,7 @@ class DashboardScreenState extends State<DashboardScreen> {
       const DashboardHome(),
       const SalesView(),
       const DueLedgerView(),
-      const InventoryView(),
+      const InventoryScreen(),
       const ExpenseView(),
     ];
 
