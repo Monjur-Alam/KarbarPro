@@ -80,6 +80,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   PreferredSizeWidget _buildAppBar(String title, BuildContext context) {
     return AppBar(
       backgroundColor: Colors.white,
+      centerTitle: false,
       title: Text(
         title,
         style: const TextStyle(fontWeight: FontWeight.normal, fontSize: 18, color: Colors.black),

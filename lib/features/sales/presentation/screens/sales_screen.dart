@@ -30,16 +30,18 @@ class SalesView extends StatefulWidget {
 }
 
 class _SalesViewState extends State<SalesView> {
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
+
   @override
   void initState() {
     super.initState();
     context.read<SalesBloc>().add(LoadSalesInitialData());
   }
 
-  Timer? _debounce;
-
   @override
   void dispose() {
+    _searchController.dispose();
     _debounce?.cancel();
     super.dispose();
   }
@@ -82,14 +84,17 @@ class _SalesViewState extends State<SalesView> {
         }
       },
       builder: (context, state) {
-        return Scaffold(
-          floatingActionButton: FloatingActionButton(
-            heroTag: 'sales_fab',
-            onPressed: () => _showSaleFormBottomSheet(context),
-            backgroundColor: Colors.teal,
-            child: const Icon(Icons.add_shopping_cart),
+        return GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Scaffold(
+            floatingActionButton: FloatingActionButton(
+              heroTag: 'sales_fab',
+              onPressed: () => _showSaleFormBottomSheet(context),
+              backgroundColor: Colors.teal,
+              child: const Icon(Icons.add_shopping_cart),
+            ),
+            body: _buildBody(state),
           ),
-          body: _buildBody(state),
         );
       },
     );
@@ -268,15 +273,27 @@ class _SalesViewState extends State<SalesView> {
         children: [
           Expanded(
             child: TextField(
+              controller: _searchController,
               onChanged: (v) {
                 if (_debounce?.isActive ?? false) _debounce?.cancel();
                 _debounce = Timer(const Duration(milliseconds: 500), () {
                   context.read<SalesBloc>().add(UpdateSalesFilters(searchQuery: v));
                 });
+                setState(() {}); // Update to show/hide clear icon
               },
               decoration: InputDecoration(
                 hintText: 'ইনভয়েস বা গ্রাহক খুঁজুন...',
                 prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          context.read<SalesBloc>().add(UpdateSalesFilters(searchQuery: ''));
+                          setState(() {});
+                        },
+                      )
+                    : null,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 fillColor: Colors.white,
@@ -349,6 +366,7 @@ class _SalesViewState extends State<SalesView> {
 
     return ListView.builder(
       padding: const EdgeInsets.only(left: 16, right: 16, bottom: 80),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       itemCount: sales.length,
       itemBuilder: (context, index) {
         final sale = sales[index];

@@ -244,39 +244,42 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(50),
-        child: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          automaticallyImplyLeading: false,
-          bottom: TabBar(
-            controller: _tabController,
-            tabs: const [
-              Tab(text: 'গ্রাহক (পাবো)'),
-              Tab(text: 'সরবরাহকারী (দিবো)'),
-            ],
-            labelColor: Colors.teal.shade800,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: Colors.teal.shade800,
-            indicatorWeight: 3,
-            labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(50),
+          child: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            automaticallyImplyLeading: false,
+            bottom: TabBar(
+              controller: _tabController,
+              tabs: const [
+                Tab(text: 'গ্রাহক (পাবো)'),
+                Tab(text: 'সরবরাহকারী (দিবো)'),
+              ],
+              labelColor: Colors.teal.shade800,
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: Colors.teal.shade800,
+              indicatorWeight: 3,
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildTabView(isCustomer: true),
-          _buildTabView(isCustomer: false),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddCustomerDialog(isSupplier: _tabController.index == 1),
-        backgroundColor: const Color(0xFF00695C),
-        child: Icon(Icons.person_add_outlined, color: Colors.white),
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildTabView(isCustomer: true),
+            _buildTabView(isCustomer: false),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () => _showAddCustomerDialog(isSupplier: _tabController.index == 1),
+          backgroundColor: const Color(0xFF00695C),
+          child: Icon(Icons.person_add_outlined, color: Colors.white),
+        ),
       ),
     );
   }
@@ -565,6 +568,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
   Widget _buildCustomerList(List<CustomerDue> customers) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       itemCount: customers.length,
       itemBuilder: (context, index) {
         final customer = customers[index];

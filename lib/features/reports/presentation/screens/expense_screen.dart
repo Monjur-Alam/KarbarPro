@@ -183,6 +183,7 @@ class _ExpenseViewState extends State<ExpenseView> {
                   ? _buildEmptyState()
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), // Extra padding for sticky buttons
+                      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                       itemCount: _transactions.length,
                       itemBuilder: (context, index) {
                         final trans = _transactions[index];

@@ -36,35 +36,38 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      body: BlocBuilder<InventoryBloc, InventoryState>(
-        builder: (context, state) {
-          if (state is InventoryLoading) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (state is InventoryLoaded) {
-            return Column(
-              children: [
-                _buildSearchAndSort(context, state),
-                _buildFilterChips(context, state),
-                Expanded(
-                  child: state.products.isEmpty
-                      ? _buildEmptyState()
-                      : _buildProductList(state.products),
-                ),
-              ],
-            );
-          } else if (state is InventoryError) {
-            return Center(child: Text('ত্রুটি: ${state.message}'));
-          }
-          return const SizedBox.shrink();
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddEditProductDialog(context),
-        icon: const Icon(Icons.add),
-        label: const Text('নতুন আইটেম যোগ'),
-        backgroundColor: Colors.green.shade700,
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade50,
+        body: BlocBuilder<InventoryBloc, InventoryState>(
+          builder: (context, state) {
+            if (state is InventoryLoading) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (state is InventoryLoaded) {
+              return Column(
+                children: [
+                  _buildSearchAndSort(context, state),
+                  _buildFilterChips(context, state),
+                  Expanded(
+                    child: state.products.isEmpty
+                        ? _buildEmptyState()
+                        : _buildProductList(state.products),
+                  ),
+                ],
+              );
+            } else if (state is InventoryError) {
+              return Center(child: Text('ত্রুটি: ${state.message}'));
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => _showAddEditProductDialog(context),
+          icon: const Icon(Icons.add),
+          label: const Text('নতুন আইটেম যোগ'),
+          backgroundColor: Colors.green.shade700,
+        ),
       ),
     );
   }
@@ -89,6 +92,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
               decoration: InputDecoration(
                 hintText: 'পণ্য অনুসন্ধান করুন...',
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () {
+                          _searchController.clear();
+                          context.read<InventoryBloc>().add(LoadProducts(
+                            searchQuery: null,
+                            category: state.category,
+                            stockFilter: state.stockFilter,
+                            sortBy: state.sortBy,
+                          ));
+                        },
+                      )
+                    : null,
                 filled: true,
                 fillColor: Colors.grey.shade100,
                 border: OutlineInputBorder(
@@ -258,6 +275,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget _buildProductList(List<Product> products) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       itemCount: products.length,
       itemBuilder: (context, index) {
         final product = products[index];
