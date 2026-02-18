@@ -93,10 +93,15 @@ class AppTheme {
       ),
 
       // Floating Action Button
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        shape: CircleBorder(),
+        shape: const StadiumBorder(),
+        sizeConstraints: BoxConstraints.tightFor(height: 40),
+        extendedSizeConstraints: BoxConstraints.tightFor(height: 40),
+        extendedPadding: const EdgeInsets.symmetric(horizontal: 24),
+        extendedIconLabelSpacing: 6,
+        iconSize: 20,
       ),
     );
   }

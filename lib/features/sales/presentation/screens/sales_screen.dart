@@ -87,11 +87,11 @@ class _SalesViewState extends State<SalesView> {
         return GestureDetector(
           onTap: () => FocusScope.of(context).unfocus(),
           child: Scaffold(
-            floatingActionButton: FloatingActionButton(
+            floatingActionButton: FloatingActionButton.extended(
               heroTag: 'sales_fab',
               onPressed: () => _showSaleFormBottomSheet(context),
-              backgroundColor: Colors.teal,
-              child: const Icon(Icons.add_shopping_cart),
+              icon: const Icon(Icons.add_shopping_cart, size: 20),
+              label: const Text('নতুন বিক্রি'),
             ),
             body: _buildBody(state),
           ),
@@ -364,12 +364,16 @@ class _SalesViewState extends State<SalesView> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 80),
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      itemCount: sales.length,
-      itemBuilder: (context, index) {
-        final sale = sales[index];
+    return RefreshIndicator(
+      onRefresh: () async {
+        context.read<SalesBloc>().add(LoadSalesInitialData());
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 80),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        itemCount: sales.length,
+        itemBuilder: (context, index) {
+          final sale = sales[index];
         final isCash = sale.paymentMethod == 'cash';
         
         return Card(
@@ -495,6 +499,7 @@ class _SalesViewState extends State<SalesView> {
           ),
         );
       },
+      ),
     );
   }
 

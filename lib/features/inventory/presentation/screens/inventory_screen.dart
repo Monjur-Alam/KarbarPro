@@ -64,9 +64,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => _showAddEditProductDialog(context),
-          icon: const Icon(Icons.add),
+          icon: const Icon(Icons.add, size: 20,),
           label: const Text('নতুন আইটেম যোগ'),
-          backgroundColor: Colors.green.shade700,
         ),
       ),
     );
@@ -273,14 +272,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildProductList(List<Product> products) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      itemCount: products.length,
-      itemBuilder: (context, index) {
-        final product = products[index];
-        return _buildProductCard(product);
+    return RefreshIndicator(
+      onRefresh: () async {
+        context.read<InventoryBloc>().add(LoadProducts());
       },
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        itemCount: products.length,
+        itemBuilder: (context, index) {
+          final product = products[index];
+          return _buildProductCard(product);
+        },
+      ),
     );
   }
 

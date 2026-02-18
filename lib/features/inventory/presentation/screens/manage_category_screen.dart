@@ -329,7 +329,7 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddCategoryDialog,
-        icon: const Icon(Icons.add),
+        icon: const Icon(Icons.add, size: 20),
         label: const Text('নতুন ক্যাটাগরি যোগ'),
         backgroundColor: Colors.green.shade700,
       ),

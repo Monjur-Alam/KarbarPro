@@ -275,10 +275,10 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
             _buildTabView(isCustomer: false),
           ],
         ),
-        floatingActionButton: FloatingActionButton(
+        floatingActionButton: FloatingActionButton.extended(
           onPressed: () => _showAddCustomerDialog(isSupplier: _tabController.index == 1),
-          backgroundColor: const Color(0xFF00695C),
-          child: Icon(Icons.person_add_outlined, color: Colors.white),
+          icon: const Icon(Icons.person_add_outlined, size: 20),
+          label: const Text('নতুন যোগ', style: TextStyle(color: Colors.white)),
         ),
       ),
     );
@@ -566,14 +566,19 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
   }
 
   Widget _buildCustomerList(List<CustomerDue> customers) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      itemCount: customers.length,
-      itemBuilder: (context, index) {
-        final customer = customers[index];
-        return _buildCustomerDueCard(customer);
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _loadData();
       },
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        itemCount: customers.length,
+        itemBuilder: (context, index) {
+          final customer = customers[index];
+          return _buildCustomerDueCard(customer);
+        },
+      ),
     );
   }
 
@@ -957,7 +962,19 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
               children: [
                 Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: Text('লেনদেনের ইতিহাস - ${customer.name}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  child: Row(
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('লেনদেনের ইতিহাস',  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                          Text(_toBengaliDigits(customer.name), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 16)),
+                        ],
+                      ),
+                      const Spacer(),
+                      Text(_toBengaliDigits(customer.totalCredit.toStringAsFixed(0)), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                    ],
+                  ),
                 ),
                 const Divider(),
                 Expanded(

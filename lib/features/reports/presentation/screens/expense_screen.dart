@@ -179,17 +179,20 @@ class _ExpenseViewState extends State<ExpenseView> {
             if (_isBackgroundLoading)
               const LinearProgressIndicator(minHeight: 2),
             Expanded(
-              child: _transactions.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), // Extra padding for sticky buttons
-                      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                      itemCount: _transactions.length,
-                      itemBuilder: (context, index) {
-                        final trans = _transactions[index];
-                        return _buildTransactionCard(trans);
-                      },
-                    ),
+              child: RefreshIndicator(
+                onRefresh: () => _loadData(),
+                child: _transactions.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), // Extra padding for sticky buttons
+                        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                        itemCount: _transactions.length,
+                        itemBuilder: (context, index) {
+                          final trans = _transactions[index];
+                          return _buildTransactionCard(trans);
+                        },
+                      ),
+              ),
             ),
           ],
         ),
@@ -251,84 +254,109 @@ class _ExpenseViewState extends State<ExpenseView> {
 
   Widget _buildFilterSection() {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         children: [
           Row(
             children: [
               // Date Filter
               Expanded(
-                flex: 2,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedDateFilter,
-                      isExpanded: true,
-                      items: [
-                        'আজ', 'গতকাল', 'গত ৭ দিন', 'গত ৩০ দিন', 'এই মাস', 'গত মাস', 'কাস্টম রেঞ্জ'
-                      ].map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value, style: const TextStyle(fontSize: 13)),
-                        );
-                      }).toList(),
-                      onChanged: (value) async {
-                        if (value == 'কাস্টম রেঞ্জ') {
-                          final picked = await showDateRangePicker(
-                            context: context,
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime.now(),
-                          );
-                          if (picked != null) {
-                            setState(() {
-                              _selectedDateFilter = value!;
-                              _customDateRange = picked;
-                            });
-                            _loadData();
-                          }
-                        } else {
-                          setState(() => _selectedDateFilter = value!);
-                          _loadData(isBackground: true);
-                        }
-                      },
+                child: PopupMenuButton<String>(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  onSelected: (value) async {
+                    if (value == 'কাস্টম রেঞ্জ') {
+                      final picked = await showDateRangePicker(
+                        context: context,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _selectedDateFilter = value;
+                          _customDateRange = picked;
+                        });
+                        _loadData();
+                      }
+                    } else {
+                      setState(() => _selectedDateFilter = value);
+                      _loadData(isBackground: true);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    'আজ', 'গতকাল', 'গত ৭ দিন', 'গত ৩০ দিন', 'এই মাস', 'গত মাস', 'কাস্টম রেঞ্জ'
+                  ].map((filter) => PopupMenuItem(
+                    value: filter,
+                    child: Text(filter, style: const TextStyle(fontSize: 14)),
+                  )).toList(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _selectedDateFilter,
+                            style: const TextStyle(fontSize: 14, color: Colors.teal),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const Icon(Icons.arrow_drop_down, color: Colors.teal),
+                      ],
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               // Category Filter
               Expanded(
-                flex: 2,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<KhorochCategory?>(
-                      value: _selectedCategoryFilter,
-                      isExpanded: true,
-                      hint: const Text('সব খাত', style: TextStyle(fontSize: 13)),
-                      items: [
-                        const DropdownMenuItem<KhorochCategory?>(
-                          value: null,
-                          child: Text('সব খাত', style: TextStyle(fontSize: 13)),
+                child: PopupMenuButton<int>(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  onSelected: (value) {
+                    if (value == -1) {
+                      setState(() => _selectedCategoryFilter = null);
+                    } else {
+                      setState(() => _selectedCategoryFilter = _categories.firstWhere((c) => c.id == value));
+                    }
+                    _loadData(isBackground: true);
+                  },
+                  itemBuilder: (context) {
+                    final items = <PopupMenuEntry<int>>[];
+                    items.add(const PopupMenuItem(
+                      value: -1,
+                      child: Text('সব খাত', style: TextStyle(fontSize: 14)),
+                    ));
+                    for (final cat in _categories) {
+                      items.add(PopupMenuItem(
+                        value: cat.id,
+                        child: Text(cat.name, style: const TextStyle(fontSize: 14)),
+                      ));
+                    }
+                    return items;
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _selectedCategoryFilter?.name ?? 'সব খাত',
+                            style: const TextStyle(fontSize: 14, color: Colors.teal),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                        ..._categories.map((cat) => DropdownMenuItem(
-                          value: cat,
-                          child: Text(cat.name, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
-                        )),
+                        const Icon(Icons.arrow_drop_down, color: Colors.teal),
                       ],
-                      onChanged: (value) {
-                        setState(() => _selectedCategoryFilter = value);
-                        _loadData(isBackground: true);
-                      },
                     ),
                   ),
                 ),
@@ -347,7 +375,7 @@ class _ExpenseViewState extends State<ExpenseView> {
                     });
                     _loadData();
                   },
-                  icon: const Icon(Icons.refresh, color: Colors.blue, size: 24),
+                  icon: const Icon(Icons.refresh, color: Colors.teal, size: 24),
                   tooltip: 'ফিল্টার রিসেট',
                 ),
             ],
