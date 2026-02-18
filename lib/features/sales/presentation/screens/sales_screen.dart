@@ -191,6 +191,8 @@ class _SalesViewState extends State<SalesView> {
                          shopName: shopName,
                          sales: state.salesHistory,
                          summary: state.statistics['today'] ?? {'total': 0.0, 'cash': 0.0, 'credit': 0.0},
+                         startDate: state.startDate,
+                         endDate: state.endDate,
                        );
                     },
                     icon: const Icon(Icons.picture_as_pdf_outlined, color: Colors.white, size: 24),

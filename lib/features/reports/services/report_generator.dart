@@ -57,55 +57,186 @@ class ReportGenerator {
     required Map<String, dynamic> summary,
     required List<CustomerDue> customers,
     required Map<int, List<CustomerTransaction>> transactionHistories,
+    DateTime? startDate,
+    DateTime? endDate,
+    required String reportType, // "গ্রাহক" or "সরবরাহকারী"
   }) async {
-    final num totalReceivable = summary['totalReceivable'] ?? 0.0;
-    final num totalCollected = summary['totalCollected'] ?? 0.0;
-    final num totalPayable = summary['totalPayable'] ?? 0.0;
-    final num totalPaid = summary['totalPaid'] ?? 0.0;
+    final now = DateTime.now();
+    final totalReceivable = (summary['totalReceivable'] ?? 0.0);
+    final totalCollected = (summary['totalCollected'] ?? 0.0);
+    final totalPayable = (summary['totalPayable'] ?? 0.0);
+    final totalPaid = (summary['totalPaid'] ?? 0.0);
+    
+    final isCustomer = reportType == 'গ্রাহক';
+    final total = isCustomer ? totalReceivable : totalPayable;
+    final collectedPaid = isCustomer ? totalCollected : totalPaid;
+    final balance = total - collectedPaid;
 
-    final html = StringBuffer(_htmlHead);
-    html.writeln('<h1>${_escapeHtml(shopName)}</h1>');
-    html.writeln('<p class="center subtitle">বাকির খাতা রিপোর্ট</p>');
-    html.writeln('<p class="center date">তারিখ: ${DateFormat('dd MMMM yyyy').format(DateTime.now())}</p>');
-    html.writeln('<hr>');
+    final html = StringBuffer();
+    html.writeln('''
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Hind Siliguri', sans-serif; padding: 40px; font-size: 14px; color: #333; line-height: 1.4; }
+  
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+  .shop-info h1 { font-size: 24px; color: #000; margin-bottom: 4px; }
+  .shop-info p { font-size: 14px; color: #444; }
+  
+  .brand { display: flex; align-items: center; color: #00695C; font-weight: bold; font-size: 20px; }
+  .brand-icon { width: 24px; height: 24px; background: #00695C; margin-right: 8px; border-radius: 4px; }
+  
+  .report-box { border: 1px solid #E0E0E0; border-radius: 8px; padding: 0; margin-bottom: 20px; overflow: hidden; }
+  .report-header { background: #fff; padding: 15px 20px; border-bottom: 1px solid #E0E0E0; display: flex; justify-content: space-between; align-items: center; }
+  .report-title { font-size: 18px; font-weight: bold; }
+  
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; padding: 15px 20px; background: #fff; }
+  .date-range { font-size: 13px; color: #666; }
+  .date-row { display: flex; margin-bottom: 5px; }
+  .date-label { width: 45px; }
+  
+  .totals-column { text-align: right; }
+  .total-row { display: flex; justify-content: flex-end; margin-bottom: 4px; font-size: 13px; }
+  .total-label { color: #666; margin-right: 25px; }
+  .total-value { font-weight: bold; width: 100px; }
+  .total-balance { color: ${isCustomer ? '#FF9800' : '#2196F3'}; font-weight: bold; width: 100px; }
+  
+  .meta-info { display: flex; justify-content: space-between; font-size: 12px; color: #777; margin-bottom: 15px; padding: 0 5px; }
+  
+  .customer-block { border: 1px solid #E0E0E0; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #fff; page-break-inside: avoid; }
+  .customer-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; border-bottom: 1px solid #F5F5F5; padding-bottom: 10px; }
+  .cust-name { font-size: 15px; font-weight: bold; margin-bottom: 2px; }
+  .cust-phone { color: #666; font-size: 12px; }
+  .cust-balance { text-align: right; }
+  .balance-label { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 2px; }
+  .balance-value { font-size: 16px; font-weight: bold; color: ${isCustomer ? '#c62828' : '#2e7d32'}; }
+  
+  .history-table { width: 100%; border-collapse: collapse; }
+  .history-table th { text-align: left; font-size: 11px; color: #888; padding: 5px 0; border-bottom: 1px solid #F5F5F5; }
+  .history-table td { font-size: 12px; padding: 8px 0; border-bottom: 1px solid #FAFAFA; }
+  .history-table tr:last-child td { border-bottom: none; }
+  
+  .text-right { text-align: right; }
+  .text-green { color: #2e7d32; font-weight: bold; }
+  .text-red { color: #c62828; font-weight: bold; }
+  .bold { font-weight: bold; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="shop-info">
+      <h1>${_escapeHtml(shopName)}</h1>
+      <p>01755467745</p>
+    </div>
+    <div class="brand">
+      <div class="brand-icon"></div>
+      Karbar
+    </div>
+  </div>
 
-    // Summary
-    html.writeln('<table><tr>');
-    html.writeln('<td><span class="bold">মোট পাবো (বাকি):</span> ৳${totalReceivable.toStringAsFixed(0)}<br>');
-    html.writeln('<span style="font-size:10px;color:#555;">আদায় হয়েছে: ৳${totalCollected.toStringAsFixed(0)}</span><br>');
-    html.writeln('<span style="font-size:10px;color:#555;">বাকি আছে: ৳${totalReceivable.toStringAsFixed(0)}</span></td>');
-    html.writeln('<td><span class="bold">মোট দিতে হবে:</span> ৳${totalPayable.toStringAsFixed(0)}<br>');
-    html.writeln('<span style="font-size:10px;color:#555;">দিয়েছি: ৳${totalPaid.toStringAsFixed(0)}</span><br>');
-    html.writeln('<span style="font-size:10px;color:#555;">বাকি দিতে হবে: ৳${totalPayable.toStringAsFixed(0)}</span></td>');
-    html.writeln('</tr></table>');
+  <div class="report-box">
+    <div class="report-header">
+      <div class="report-title">বাকির খাতা রিপোর্ট (${reportType})</div>
+      <div class="totals-column">
+        <div class="total-row">
+          <span class="total-label">মোট ${isCustomer ? 'পাবো' : 'দিতে হবে'}:</span>
+          <span class="total-value">৳ ${total.toStringAsFixed(0)}</span>
+        </div>
+        <div class="total-row">
+          <span class="total-label">${isCustomer ? 'আদায় হয়েছে' : 'দিয়েছি'}:</span>
+          <span class="total-value">৳ ${collectedPaid.toStringAsFixed(0)}</span>
+        </div>
+        <div class="total-row">
+          <span class="total-label">${isCustomer ? 'বাকি আছে' : 'বাকি দিতে হবে'}:</span>
+          <span class="total-balance">৳ ${balance.toStringAsFixed(0)}</span>
+        </div>
+      </div>
+    </div>
+    <div class="stats-grid">
+      <div class="date-range">
+        <div class="date-row">
+          <span class="date-label">থেকে:</span>
+          <span class="bold">${startDate != null ? DateFormat('dd MMM yyyy').format(startDate) : 'শুরু'}</span>
+        </div>
+        <div class="date-row">
+          <span class="date-label">তো:</span>
+          <span class="bold">${endDate != null ? DateFormat('dd MMM yyyy').format(endDate) : DateFormat('dd MMM yyyy').format(now)}</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    // Customer list
-    html.writeln('<h2 style="margin-top:16px;">গ্রাহক তালিকা:</h2>');
+  <div class="meta-info">
+    <span>মোট হিসাব : ${customers.length} টি</span>
+    <span>রিপোর্ট তৈরী হয়েছে : ${DateFormat('dd MMM yyyy • hh:mm a').format(now)}</span>
+  </div>
+
+  <h2 style="font-size: 16px; margin-bottom: 12px; color: #444;">${reportType} তালিকা:</h2>
+''');
+
     for (final customer in customers) {
       final history = transactionHistories[customer.id] ?? [];
-      html.writeln('<div class="customer-block">');
-      html.writeln('<div class="customer-header">');
-      html.writeln('<div><span class="bold">${_escapeHtml(customer.name)}</span><br><span style="font-size:10px;color:#666;">ফোন: ${_escapeHtml(customer.phone ?? 'N/A')}</span></div>');
-      html.writeln('<div class="text-red bold">৳${customer.currentCreditBalance.toStringAsFixed(0)}</div>');
-      html.writeln('</div>');
+      html.writeln('''
+  <div class="customer-block">
+    <div class="customer-header">
+      <div class="cust-info">
+        <div class="cust-name">${_escapeHtml(customer.name)}</div>
+        <div class="cust-phone">${_escapeHtml(customer.phone ?? 'ফোন নম্বর নেই')}</div>
+      </div>
+      <div class="cust-balance">
+        <div class="balance-label">${isCustomer ? 'মোট বাকি' : 'বাকি দিতে হবে'}</div>
+        <div class="balance-value">৳ ${customer.currentCreditBalance.abs().toStringAsFixed(0)}</div>
+      </div>
+    </div>
+''');
 
       if (history.isNotEmpty) {
-        html.writeln('<div style="font-size:10px;font-weight:700;margin-top:4px;">লেনদেন ইতিহাস:</div>');
+        html.writeln('''
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>তারিখ</th>
+          <th>লেনদেনের ধরণ</th>
+          <th class="text-right">পরিমাণ</th>
+        </tr>
+      </thead>
+      <tbody>
+''');
         for (final trans in history.take(5)) {
           final isSale = trans.transactionType == 'sale';
-          html.writeln('<div class="history-item">');
-          html.writeln('<span>${DateFormat('dd/MM/yyyy').format(trans.transactionDate)} - ${isSale ? 'বাকি বিক্রয়' : 'টাকা পরিশোধ'}</span>');
-          html.writeln('<span class="${isSale ? 'text-red' : 'text-green'}">৳${trans.amount.toStringAsFixed(0)}</span>');
-          html.writeln('</div>');
+          html.writeln('''
+        <tr>
+          <td>${DateFormat('dd/MM/yyyy').format(trans.transactionDate)}</td>
+          <td>${isSale ? (isCustomer ? 'বাকি বিক্রয়' : 'বাকি ক্রয়') : (isCustomer ? 'টাকা আদায়' : 'টাকা পরিশোধ')}</td>
+          <td class="text-right ${isSale ? 'text-red' : 'text-green'}">৳ ${trans.amount.toStringAsFixed(0)}</td>
+        </tr>
+''');
         }
+        html.writeln('''
+      </tbody>
+    </table>
+''');
+        if (history.length > 5) {
+          html.writeln('<div style="font-size: 9px; color: #999; margin-top:5px;">* আরও ${history.length - 5} টি লেনদেন রয়েছে</div>');
+        }
+      } else {
+        html.writeln('<p style="font-size: 11px; color: #999; text-align:center;">কোন লেনদেন ইতিহাস নেই</p>');
       }
       html.writeln('</div>');
     }
-    html.writeln(_htmlTail);
+
+    html.writeln('''
+</body>
+</html>
+''');
 
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) => Printing.convertHtml(format: format, html: html.toString()),
-      name: 'Bakir_Khata_Report_${DateFormat('dd_MMM_yyyy').format(DateTime.now())}.pdf',
+      name: 'Bakir_Khata_${isCustomer ? 'Customer' : 'Supplier'}_${DateFormat('dd_MMM_yyyy').format(now)}.pdf',
     );
   }
 
@@ -113,39 +244,144 @@ class ReportGenerator {
     required String shopName,
     required List<Sale> sales,
     required Map<String, dynamic> summary,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
-    final html = StringBuffer(_htmlHead);
-    html.writeln('<h1>${_escapeHtml(shopName)}</h1>');
-    html.writeln('<p class="center subtitle">বিক্রয় বিবরণী রিপোর্ট</p>');
-    html.writeln('<p class="center date">তারিখ: ${DateFormat('dd MMMM yyyy').format(DateTime.now())}</p>');
-    html.writeln('<hr>');
+    final now = DateTime.now();
+    final totalSales = (summary['total'] ?? 0.0);
+    final cashReceived = (summary['cash'] ?? 0.0);
+    final creditSales = (summary['credit'] ?? 0.0);
+    
+    final html = StringBuffer();
+    html.writeln('''
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Hind Siliguri', sans-serif; padding: 40px; font-size: 14px; color: #333; line-height: 1.4; }
+  
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+  .shop-info h1 { font-size: 24px; color: #000; margin-bottom: 4px; }
+  .shop-info p { font-size: 14px; color: #444; }
+  
+  .brand { display: flex; align-items: center; color: #00695C; font-weight: bold; font-size: 20px; }
+  .brand-icon { width: 24px; height: 24px; background: #00695C; margin-right: 8px; border-radius: 4px; }
+  
+  .report-box { border: 1px solid #E0E0E0; border-radius: 8px; padding: 0; margin-bottom: 20px; overflow: hidden; }
+  .report-header { background: #fff; padding: 15px 20px; border-bottom: 1px solid #E0E0E0; display: flex; justify-content: space-between; align-items: center; }
+  .report-title { font-size: 18px; font-weight: bold; }
+  
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; padding: 15px 20px; background: #fff; }
+  .date-range { font-size: 13px; color: #666; }
+  .date-row { display: flex; margin-bottom: 5px; }
+  .date-label { width: 45px; }
+  
+  .totals-column { text-align: right; }
+  .total-row { display: flex; justify-content: flex-end; margin-bottom: 4px; font-size: 13px; }
+  .total-label { color: #666; margin-right: 15px; }
+  .total-value { font-weight: bold; width: 80px; }
+  
+  .meta-info { display: flex; justify-content: space-between; font-size: 12px; color: #777; margin-bottom: 10px; padding: 0 5px; }
+  
+  table { width: 100%; border-collapse: collapse; border: 1px solid #E0E0E0; border-radius: 8px; }
+  th { background: #F5F5F5; color: #666; font-weight: bold; text-align: left; padding: 12px 10px; font-size: 12px; border-bottom: 1px solid #E0E0E0; }
+  td { padding: 12px 10px; font-size: 13px; border-bottom: 1px solid #E0E0E0; color: #333; }
+  tr:last-child td { border-bottom: none; }
+  
+  .text-right { text-align: right; }
+  .bold { font-weight: bold; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="shop-info">
+      <h1>${_escapeHtml(shopName)}</h1>
+      <p>01755467745</p>
+    </div>
+    <div class="brand">
+      <div class="brand-icon"></div>
+      Karbar
+    </div>
+  </div>
 
-    // Summary
-    html.writeln('<table><tr>');
-    html.writeln('<td class="center"><div style="font-size:10px;color:#666;">মোট বিক্রি</div><div class="bold">৳${(summary['total'] ?? 0.0).toStringAsFixed(0)}</div></td>');
-    html.writeln('<td class="center"><div style="font-size:10px;color:#666;">নগদ আদায়</div><div class="bold text-green">৳${(summary['cash'] ?? 0.0).toStringAsFixed(0)}</div></td>');
-    html.writeln('<td class="center"><div style="font-size:10px;color:#666;">বাকি বিক্রি</div><div class="bold text-red">৳${(summary['credit'] ?? 0.0).toStringAsFixed(0)}</div></td>');
-    html.writeln('</tr></table>');
+  <div class="report-box">
+    <div class="report-header">
+      <div class="report-title">বিক্রয় রিপোর্ট</div>
+      <div class="totals-column">
+        <div class="total-row">
+          <span class="total-label">গৃহীত:</span>
+          <span class="total-value">৳ ${cashReceived.toStringAsFixed(0)}</span>
+        </div>
+        <div class="total-row">
+          <span class="total-label">পরিশোধ মানি:</span>
+          <span class="total-value">৳ 0</span>
+        </div>
+        <div class="total-row">
+          <span class="total-label">মোট বিক্রয়:</span>
+          <span class="total-value">৳ ${totalSales.toStringAsFixed(0)}</span>
+        </div>
+      </div>
+    </div>
+    <div class="stats-grid">
+      <div class="date-range">
+        <div class="date-row">
+          <span class="date-label">থেকে:</span>
+          <span class="bold">${startDate != null ? DateFormat('dd MMM yyyy').format(startDate) : 'শুরু'}</span>
+        </div>
+        <div class="date-row">
+          <span class="date-label">তো:</span>
+          <span class="bold">${endDate != null ? DateFormat('dd MMM yyyy').format(endDate) : DateFormat('dd MMM yyyy').format(now)}</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    // Sales table
-    html.writeln('<h2 style="margin-top:16px;">বিক্রির তালিকা</h2>');
-    html.writeln('<table>');
-    html.writeln('<tr><th>তারিখ</th><th>ইনভয়েস</th><th>গ্রাহক</th><th>ধরণ</th><th class="text-right">পরিমাণ</th></tr>');
+  <div class="meta-info">
+    <span>মোট লেনদেন : ${sales.length}</span>
+    <span>রিপোর্ট তৈরী হয়েছে : ${DateFormat('dd MMM yyyy • hh:mm a').format(now)}</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>চালান নং</th>
+        <th>পার্টির নাম</th>
+        <th>চালানের তারিখ</th>
+        <th class="text-right">মোট পরিমাণ</th>
+        <th class="text-right">গৃহীত</th>
+        <th class="text-right">ব্যালেন্স</th>
+      </tr>
+    </thead>
+    <tbody>
+''');
+
     for (final sale in sales) {
-      html.writeln('<tr>');
-      html.writeln('<td>${DateFormat('dd/MM/yy').format(sale.saleDate)}</td>');
-      html.writeln('<td>${_escapeHtml(sale.invoiceId)}</td>');
-      html.writeln('<td>${_escapeHtml(sale.customerName ?? 'সাধারণ')}</td>');
-      html.writeln('<td>${sale.paymentMethod == 'cash' ? 'নগদ' : 'বাকি'}</td>');
-      html.writeln('<td class="text-right">৳${sale.totalAmount.toStringAsFixed(0)}</td>');
-      html.writeln('</tr>');
+      final due = sale.totalAmount - sale.paidAmount;
+      html.writeln('''
+      <tr>
+        <td>${_escapeHtml(sale.invoiceId.split('-').last)}</td>
+        <td>${_escapeHtml(sale.customerName ?? 'নগদ বিক্রয়')}</td>
+        <td>${DateFormat('dd MMM yyyy').format(sale.saleDate)}</td>
+        <td class="text-right">৳ ${sale.totalAmount.toStringAsFixed(0)}</td>
+        <td class="text-right">৳ ${sale.paidAmount.toStringAsFixed(0)}</td>
+        <td class="text-right">৳ ${due.toStringAsFixed(0)}</td>
+      </tr>
+''');
     }
-    html.writeln('</table>');
-    html.writeln(_htmlTail);
+
+    html.writeln('''
+    </tbody>
+  </table>
+</body>
+</html>
+''');
 
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) => Printing.convertHtml(format: format, html: html.toString()),
-      name: 'Sales_Report_${DateFormat('dd_MMM_yyyy').format(DateTime.now())}.pdf',
+      name: 'Sales_Report_${DateFormat('dd_MMM_yyyy').format(now)}.pdf',
     );
   }
 }

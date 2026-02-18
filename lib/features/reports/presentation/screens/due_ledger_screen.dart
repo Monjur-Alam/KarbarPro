@@ -660,6 +660,9 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
       summary: _summary,
       customers: _filteredCustomers,
       transactionHistories: histories,
+      startDate: _startDate,
+      endDate: _endDate,
+      reportType: _tabController.index == 0 ? 'গ্রাহক' : 'সরবরাহকারী',
     );
   }
 
