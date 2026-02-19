@@ -134,7 +134,7 @@ class ReportGenerator {
     </div>
     <div class="brand">
       <div class="brand-icon"></div>
-      Karbar
+      Amar Dokan
     </div>
   </div>
 
@@ -163,7 +163,7 @@ class ReportGenerator {
           <span class="bold">${startDate != null ? DateFormat('dd MMM yyyy').format(startDate) : 'শুরু'}</span>
         </div>
         <div class="date-row">
-          <span class="date-label">তো:</span>
+          <span class="date-label">পর্যন্ত:</span>
           <span class="bold">${endDate != null ? DateFormat('dd MMM yyyy').format(endDate) : DateFormat('dd MMM yyyy').format(now)}</span>
         </div>
       </div>
@@ -303,7 +303,7 @@ class ReportGenerator {
     </div>
     <div class="brand">
       <div class="brand-icon"></div>
-      Karbar
+      Amar Dokan
     </div>
   </div>
 
@@ -332,7 +332,7 @@ class ReportGenerator {
           <span class="bold">${startDate != null ? DateFormat('dd MMM yyyy').format(startDate) : 'শুরু'}</span>
         </div>
         <div class="date-row">
-          <span class="date-label">তো:</span>
+          <span class="date-label">পর্যন্ত:</span>
           <span class="bold">${endDate != null ? DateFormat('dd MMM yyyy').format(endDate) : DateFormat('dd MMM yyyy').format(now)}</span>
         </div>
       </div>

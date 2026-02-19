@@ -1,3 +1,4 @@
+import 'package:amar_dokan/core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -163,27 +164,27 @@ class DashboardScreenState extends State<DashboardScreen> {
       destinations: const [
         NavigationDestination(
           icon: Icon(Icons.home_outlined), 
-          selectedIcon: Icon(Icons.home),
+          selectedIcon: Icon(Icons.home, color: AppColors.primary),
           label: 'হোম'
         ),
         NavigationDestination(
           icon: Icon(Icons.shopping_cart_outlined), 
-          selectedIcon: Icon(Icons.shopping_cart),
+          selectedIcon: Icon(Icons.shopping_cart, color: AppColors.primary),
           label: 'বিক্রয়'
         ),
         NavigationDestination(
           icon: Icon(Icons.menu_book_outlined), 
-          selectedIcon: Icon(Icons.menu_book),
+          selectedIcon: Icon(Icons.menu_book, color: AppColors.primary),
           label: 'বাকি খাতা'
         ),
         NavigationDestination(
           icon: Icon(Icons.inventory_2_outlined), 
-          selectedIcon: Icon(Icons.inventory_2),
+          selectedIcon: Icon(Icons.inventory_2, color: AppColors.primary),
           label: 'তালিকা'
         ),
         NavigationDestination(
           icon: Icon(Icons.account_balance_wallet_outlined), 
-          selectedIcon: Icon(Icons.account_balance_wallet),
+          selectedIcon: Icon(Icons.account_balance_wallet, color: AppColors.primary),
           label: 'খরচ'
         ),
       ],

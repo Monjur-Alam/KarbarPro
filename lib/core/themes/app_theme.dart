@@ -92,6 +92,16 @@ class AppTheme {
         ),
       ),
 
+      // Navigation Bar
+      navigationBarTheme: NavigationBarThemeData(
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary);
+          }
+          return const TextStyle(fontSize: 12, color: Colors.grey);
+        }),
+      ),
+
       // Floating Action Button
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: AppColors.primary,
