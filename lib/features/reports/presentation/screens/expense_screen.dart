@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
+import 'package:printing/printing.dart';
 import '../../data/report_repository.dart';
 import '../../domain/expense_model.dart';
 import '../../../../core/database/database_helper.dart';
@@ -401,17 +402,6 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
           const SizedBox(width: 12),
           Expanded(
             child: SummaryCard(
-              label: 'ব্যালেন্স',
-              amount: '${_totalAdded - _totalExpense >= 0 ? '+' : '-'}৳${DateFormatterUtils.toBengaliNumber((_totalAdded - _totalExpense).abs())}',
-              amountColor: const Color(0xFF4CAF50),
-              icon: Icons.folder_outlined,
-              iconColor: const Color(0xFF2196F3),
-              iconBackgroundColor: const Color(0xFFE3F2FD),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: SummaryCard(
               label: 'খরচ',
               amount: '৳${DateFormatterUtils.toBengaliNumber(_totalExpense)}',
               amountColor: const Color(0xFF212121),
@@ -419,6 +409,18 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
               iconColor: const Color(0xFFF44336),
               iconBackgroundColor: const Color(0xFFFFEBEE),
               onTap: () => _showTransactionDialog(context, 'expense'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SummaryCard(
+              label: 'রিপোর্ট',
+              amount: 'PDF',
+              amountColor: const Color(0xFF2196F3),
+              icon: Icons.picture_as_pdf_outlined,
+              iconColor: const Color(0xFF2196F3),
+              iconBackgroundColor: const Color(0xFFE3F2FD),
+              onTap: () => _generateExpenseReport(),
             ),
           ),
         ],
@@ -549,6 +551,146 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
           ],
         );
       },
+    );
+  }
+
+  Future<void> _generateExpenseReport() async {
+    // Calculate date range based on current filter
+    DateTime? startDate;
+    DateTime? endDate;
+    final now = DateTime.now();
+    String dateLabel = '';
+
+    switch (widget.selectedPeriod) {
+      case 'দৈনিক':
+        startDate = DateTime(widget.selectedDate.year, widget.selectedDate.month, widget.selectedDate.day);
+        endDate = DateTime(widget.selectedDate.year, widget.selectedDate.month, widget.selectedDate.day, 23, 59, 59);
+        dateLabel = DateFormat('dd MMM yyyy').format(widget.selectedDate);
+        break;
+      case 'মাসিক':
+        final parsedMonth = DateFormat('MMM yyyy').parse(widget.selectedMonth);
+        startDate = DateTime(parsedMonth.year, parsedMonth.month, 1);
+        endDate = DateTime(parsedMonth.year, parsedMonth.month + 1, 0, 23, 59, 59);
+        dateLabel = widget.selectedMonth;
+        break;
+      case 'বাৎসরিক':
+        final yearNum = int.parse(widget.selectedYear);
+        startDate = DateTime(yearNum, 1, 1);
+        endDate = DateTime(yearNum, 12, 31, 23, 59, 59);
+        dateLabel = widget.selectedYear;
+        break;
+      case 'পরিসর':
+        if (widget.customDateRange != null) {
+          startDate = widget.customDateRange!.start;
+          endDate = widget.customDateRange!.end;
+          dateLabel = '${DateFormat('dd MMM').format(startDate)} - ${DateFormat('dd MMM yyyy').format(endDate)}';
+        }
+        break;
+    }
+
+    final html = StringBuffer();
+    html.writeln('''
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Hind Siliguri', sans-serif; padding: 40px; font-size: 14px; color: #333; line-height: 1.4; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+  .shop-info h1 { font-size: 24px; color: #000; margin-bottom: 4px; }
+  .brand { display: flex; align-items: center; color: #00695C; font-weight: bold; font-size: 20px; }
+  .brand-icon { width: 24px; height: 24px; background: #00695C; margin-right: 8px; border-radius: 4px; }
+  .report-box { border: 1px solid #E0E0E0; border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
+  .report-header { background: #fff; padding: 15px 20px; border-bottom: 1px solid #E0E0E0; display: flex; justify-content: space-between; align-items: center; }
+  .report-title { font-size: 18px; font-weight: bold; }
+  .totals-column { text-align: right; }
+  .total-row { display: flex; justify-content: flex-end; margin-bottom: 4px; font-size: 13px; }
+  .total-label { color: #666; margin-right: 15px; }
+  .total-value { font-weight: bold; width: 100px; }
+  .meta-info { display: flex; justify-content: space-between; font-size: 12px; color: #777; margin-bottom: 10px; padding: 0 5px; }
+  table { width: 100%; border-collapse: collapse; border: 1px solid #E0E0E0; }
+  th { background: #F5F5F5; color: #666; font-weight: bold; text-align: left; padding: 10px; font-size: 12px; border-bottom: 1px solid #E0E0E0; }
+  td { padding: 10px; font-size: 12px; border-bottom: 1px solid #F0F0F0; }
+  tr:last-child td { border-bottom: none; }
+  .text-right { text-align: right; }
+  .text-green { color: #2e7d32; font-weight: bold; }
+  .text-red { color: #c62828; font-weight: bold; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="shop-info">
+      <h1>আমার দোকান</h1>
+      <p>খরচের হিসাব</p>
+    </div>
+    <div class="brand">
+      <div class="brand-icon"></div>
+      Amar Dokan
+    </div>
+  </div>
+  <div class="report-box">
+    <div class="report-header">
+      <div class="report-title">খরচের রিপোর্ট ($dateLabel)</div>
+      <div class="totals-column">
+        <div class="total-row">
+          <span class="total-label">মোট জমা:</span>
+          <span class="total-value text-green">৳ ${_totalAdded.toStringAsFixed(0)}</span>
+        </div>
+        <div class="total-row">
+          <span class="total-label">মোট খরচ:</span>
+          <span class="total-value text-red">৳ ${_totalExpense.toStringAsFixed(0)}</span>
+        </div>
+        <div class="total-row">
+          <span class="total-label">ব্যালেন্স:</span>
+          <span class="total-value" style="color: ${(_totalAdded - _totalExpense) >= 0 ? '#2e7d32' : '#c62828'};">৳ ${(_totalAdded - _totalExpense).toStringAsFixed(0)}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="meta-info">
+    <span>মোট লেনদেন: ${_transactions.length} টি</span>
+    <span>রিপোর্ট তৈরী: ${DateFormat('dd MMM yyyy • hh:mm a').format(now)}</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>তারিখ</th>
+        <th>খাত</th>
+        <th>বিবরণ</th>
+        <th>ধরণ</th>
+        <th class="text-right">পরিমাণ</th>
+      </tr>
+    </thead>
+    <tbody>
+''');
+
+    for (final t in _transactions) {
+      final isIncome = t.transactionType == 'income';
+      final escapedCategory = (t.category ?? '-').replaceAll('&', '&amp;').replaceAll('<', '&lt;');
+      final escapedDesc = (t.description ?? '-').replaceAll('&', '&amp;').replaceAll('<', '&lt;');
+      html.writeln('''
+      <tr>
+        <td>${DateFormat('dd/MM/yy').format(t.transactionDate)}</td>
+        <td>$escapedCategory</td>
+        <td>$escapedDesc</td>
+        <td>${isIncome ? 'জমা' : 'খরচ'}</td>
+        <td class="text-right ${isIncome ? 'text-green' : 'text-red'}">${isIncome ? '+' : '-'}৳ ${t.amount.toStringAsFixed(0)}</td>
+      </tr>
+''');
+    }
+
+    html.writeln('''
+    </tbody>
+  </table>
+</body>
+</html>
+''');
+
+    await Printing.layoutPdf(
+      onLayout: (format) => Printing.convertHtml(format: format, html: html.toString()),
+      name: 'Expense_Report_${DateFormat('dd_MMM_yyyy').format(now)}.pdf',
     );
   }
 
