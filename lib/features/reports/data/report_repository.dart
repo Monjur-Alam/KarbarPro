@@ -301,6 +301,7 @@ class ReportRepository {
     DateTime? endDate,
     int? categoryId,
     String? searchQuery,
+    String? transactionType,
   }) async {
     final db = await _dbHelper.database;
     
@@ -316,6 +317,11 @@ class ReportRepository {
     if (categoryId != null) {
       whereClause += " AND ${DatabaseConstants.colCategoryId} = ?";
       whereArgs.add(categoryId);
+    }
+
+    if (transactionType != null) {
+      whereClause += " AND ${DatabaseConstants.colTransactionType} = ?";
+      whereArgs.add(transactionType);
     }
     
     if (searchQuery != null && searchQuery.isNotEmpty) {
