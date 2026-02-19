@@ -23,6 +23,29 @@ class DashboardScreen extends StatefulWidget {
 
 class DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
+  
+  // Expense Filter state (shared with ExpenseView)
+  String _selectedPeriod = 'মাসিক';
+  DateTime _selectedDate = DateTime.now();
+  String _selectedMonth = DateFormat('MMM yyyy').format(DateTime.now());
+  String _selectedYear = DateFormat('yyyy').format(DateTime.now());
+  DateTimeRange? _customDateRange;
+
+  void updateExpenseFilter({
+    String? selectedPeriod,
+    DateTime? selectedDate,
+    String? selectedMonth,
+    String? selectedYear,
+    DateTimeRange? customDateRange,
+  }) {
+    setState(() {
+      if (selectedPeriod != null) _selectedPeriod = selectedPeriod;
+      if (selectedDate != null) _selectedDate = selectedDate;
+      if (selectedMonth != null) _selectedMonth = selectedMonth;
+      if (selectedYear != null) _selectedYear = selectedYear;
+      if (customDateRange != null) _customDateRange = customDateRange;
+    });
+  }
 
   void setIndex(int index) {
     setState(() => _selectedIndex = index);
@@ -57,7 +80,14 @@ class DashboardScreenState extends State<DashboardScreen> {
       const SalesView(),
       const DueLedgerView(),
       const InventoryScreen(),
-      const ExpenseView(),
+      ExpenseView(
+        selectedPeriod: _selectedPeriod,
+        selectedDate: _selectedDate,
+        selectedMonth: _selectedMonth,
+        selectedYear: _selectedYear,
+        customDateRange: _customDateRange,
+        onFilterChanged: updateExpenseFilter,
+      ),
     ];
 
     final List<String> titles = [
@@ -79,12 +109,49 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   PreferredSizeWidget _buildAppBar(String title, BuildContext context) {
+    String labelText = '';
+    if (_selectedIndex == 4) {
+      if (_selectedPeriod == 'দৈনিক') {
+        labelText = DateFormat('dd MMM yyyy').format(_selectedDate);
+      } else if (_selectedPeriod == 'মাসিক') {
+        labelText = _selectedMonth;
+      } else if (_selectedPeriod == 'বাৎসরিক') {
+        labelText = _selectedYear;
+      } else if (_selectedPeriod == 'পরিসর' && _customDateRange != null) {
+        labelText = '${DateFormat('dd MMM').format(_customDateRange!.start)} - ${DateFormat('dd MMM yyyy').format(_customDateRange!.end)}';
+      }
+    }
+
     return AppBar(
       backgroundColor: Colors.white,
       centerTitle: false,
-      title: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.normal, fontSize: 18, color: Colors.black),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.normal, fontSize: 18, color: Colors.black),
+          ),
+          if (labelText.isNotEmpty)
+            Row(
+              children: [
+                const Icon(
+                  Icons.calendar_today,
+                  size: 10,
+                  color: Color(0xFF2196F3),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  labelText,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF2196F3),
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       actions: [
         BlocBuilder<HomeBloc, HomeState>(
@@ -96,10 +163,6 @@ class DashboardScreenState extends State<DashboardScreen> {
             return _buildSyncIndicator(syncStatus);
           },
         ),
-        // IconButton(
-        //   icon: const Icon(Icons.notifications_none, color: Colors.black,),
-        //   onPressed: () {},
-        // ),
         Builder(
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu, color: Colors.black,),

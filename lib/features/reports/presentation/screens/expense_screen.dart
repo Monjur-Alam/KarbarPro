@@ -16,21 +16,40 @@ class ExpenseScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: const ExpenseView(),
-    );
+    return const SizedBox.shrink(); // This shouldn't be called directly anymore
   }
 }
 
 class ExpenseView extends StatefulWidget {
-  const ExpenseView({super.key});
+  final String selectedPeriod;
+  final DateTime selectedDate;
+  final String selectedMonth;
+  final String selectedYear;
+  final DateTimeRange? customDateRange;
+  final Function({
+    String? selectedPeriod,
+    DateTime? selectedDate,
+    String? selectedMonth,
+    String? selectedYear,
+    DateTimeRange? customDateRange,
+  }) onFilterChanged;
+
+  const ExpenseView({
+    super.key,
+    required this.selectedPeriod,
+    required this.selectedDate,
+    required this.selectedMonth,
+    required this.selectedYear,
+    this.customDateRange,
+    required this.onFilterChanged,
+  });
 
   @override
   State<ExpenseView> createState() => _ExpenseViewState();
 }
 
-class _ExpenseViewState extends State<ExpenseView> {
+class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   List<ShopTransaction> _transactions = [];
   List<KhorochCategory> _categories = [];
   double _currentBalance = 0;
@@ -39,18 +58,11 @@ class _ExpenseViewState extends State<ExpenseView> {
   bool _isLoading = true;
   bool _isBackgroundLoading = false;
   
-  // Filter state
-  String _selectedPeriod = 'মাসিক'; // দৈনিক, মাসিক, বাৎসরিক, পরিসর
-  String _selectedFilter = 'সব'; // সব, জমা, খরচ
-  
-  // Specific selections
-  DateTime _selectedDate = DateTime.now();
-  String _selectedMonth = DateFormat('MMM yyyy').format(DateTime.now());
-  String _selectedYear = DateFormat('yyyy').format(DateTime.now());
+  // Filter state (now mostly controlled by widget props and TabController)
+  int _selectedTabIndex = 0;
   
   KhorochCategory? _selectedCategoryFilter;
   String _searchQuery = '';
-  DateTimeRange? _customDateRange;
   
   final _searchController = TextEditingController();
   Timer? _debounce;
@@ -62,8 +74,25 @@ class _ExpenseViewState extends State<ExpenseView> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) return;
+      setState(() => _selectedTabIndex = _tabController.index);
+    });
     _generateLists();
     _loadData();
+  }
+
+  @override
+  void didUpdateWidget(ExpenseView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedPeriod != widget.selectedPeriod ||
+        oldWidget.selectedDate != widget.selectedDate ||
+        oldWidget.selectedMonth != widget.selectedMonth ||
+        oldWidget.selectedYear != widget.selectedYear ||
+        oldWidget.customDateRange != widget.customDateRange) {
+      _loadData(isBackground: true);
+    }
   }
 
   void _generateLists() {
@@ -91,6 +120,7 @@ class _ExpenseViewState extends State<ExpenseView> {
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.dispose();
     _debounce?.cancel();
     super.dispose();
@@ -110,25 +140,25 @@ class _ExpenseViewState extends State<ExpenseView> {
       DateTime? endDate;
       final now = DateTime.now();
 
-      switch (_selectedPeriod) {
+      switch (widget.selectedPeriod) {
         case 'দৈনিক':
-          startDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-          endDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59);
+          startDate = DateTime(widget.selectedDate.year, widget.selectedDate.month, widget.selectedDate.day);
+          endDate = DateTime(widget.selectedDate.year, widget.selectedDate.month, widget.selectedDate.day, 23, 59, 59);
           break;
         case 'মাসিক':
-          final parsedMonth = DateFormat('MMM yyyy').parse(_selectedMonth);
+          final parsedMonth = DateFormat('MMM yyyy').parse(widget.selectedMonth);
           startDate = DateTime(parsedMonth.year, parsedMonth.month, 1);
           endDate = DateTime(parsedMonth.year, parsedMonth.month + 1, 0, 23, 59, 59);
           break;
         case 'বাৎসরিক':
-          final yearNum = int.parse(_selectedYear);
+          final yearNum = int.parse(widget.selectedYear);
           startDate = DateTime(yearNum, 1, 1);
           endDate = DateTime(yearNum, 12, 31, 23, 59, 59);
           break;
         case 'পরিসর':
-          if (_customDateRange != null) {
-            startDate = _customDateRange!.start;
-            endDate = _customDateRange!.end;
+          if (widget.customDateRange != null) {
+            startDate = widget.customDateRange!.start;
+            endDate = widget.customDateRange!.end;
           }
           break;
       }
@@ -136,17 +166,13 @@ class _ExpenseViewState extends State<ExpenseView> {
       final balance = await repo.getShopMainBalance();
       final categories = await repo.getKhorochCategories();
       
-      // Determine transaction type filter from _selectedFilter
-      String? typeFilter;
-      if (_selectedFilter == 'জমা') typeFilter = 'income';
-      if (_selectedFilter == 'খরচ') typeFilter = 'expense';
-      
+      // We load ALL transactions and filter them locally in the TabBarView
       final transactions = await repo.getManualKhorochTransactions(
         startDate: startDate,
         endDate: endDate,
         categoryId: _selectedCategoryFilter?.id,
         searchQuery: _searchQuery,
-        transactionType: typeFilter,
+        transactionType: null, // Load all
       );
       
       final summary = await repo.getManualKhorochSummary(
@@ -188,73 +214,28 @@ class _ExpenseViewState extends State<ExpenseView> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
-      appBar: _buildAppBar(),
       body: Column(
         children: [
           _buildPeriodTabs(),
           _buildCurrentSelectionSelector(),
-          _buildSelectedDateLabel(),
           _buildSummaryCards(),
           _buildFilterTabs(),
           if (_isBackgroundLoading)
             const LinearProgressIndicator(minHeight: 2),
           Expanded(
-            child: RefreshIndicator(
-              onRefresh: () => _loadData(),
-              child: _transactions.isEmpty
-                   ? _buildEmptyState()
-                   : _buildTransactionsList(),
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildTabTransactionsList(null),     // সব
+                _buildTabTransactionsList('income'),  // জমা
+                _buildTabTransactionsList('expense'), // খরচ
+              ],
             ),
           ),
         ],
       ),
       floatingActionButton: _buildFABs(),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: Colors.white,
-      elevation: 0,
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'দোকানের খরচ',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF212121),
-            ),
-          ),
-          Row(
-            children: [
-              const Icon(
-                Icons.calendar_today,
-                size: 12,
-                color: Color(0xFF757575),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                DateFormatterUtils.formatBengaliDate(DateTime.now()),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF757575),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.search, color: Color(0xFF757575)),
-          onPressed: () {
-            // Show search/filter options or toggle search bar
-          },
-        ),
-      ],
     );
   }
 
@@ -275,7 +256,7 @@ class _ExpenseViewState extends State<ExpenseView> {
   }
 
   Widget _buildPeriodTab(String label) {
-    final isSelected = _selectedPeriod == label;
+    final isSelected = widget.selectedPeriod == label;
     return GestureDetector(
       onTap: () async {
         if (label == 'পরিসর') {
@@ -285,15 +266,13 @@ class _ExpenseViewState extends State<ExpenseView> {
             lastDate: DateTime.now(),
           );
           if (picked != null) {
-            setState(() {
-              _selectedPeriod = label;
-              _customDateRange = picked;
-            });
-            _loadData();
+            widget.onFilterChanged(
+              selectedPeriod: label,
+              customDateRange: picked,
+            );
           }
         } else {
-          setState(() => _selectedPeriod = label);
-          _loadData(isBackground: true);
+          widget.onFilterChanged(selectedPeriod: label);
         }
       },
       child: Container(
@@ -321,37 +300,34 @@ class _ExpenseViewState extends State<ExpenseView> {
   }
 
   Widget _buildCurrentSelectionSelector() {
-    if (_selectedPeriod == 'পরিসর') return const SizedBox.shrink();
+    if (widget.selectedPeriod == 'পরিসর') return const SizedBox.shrink();
 
     List<dynamic> items = [];
     String? selectedValue;
     Function(dynamic) onSelect;
     String Function(dynamic) labelMapper;
 
-    if (_selectedPeriod == 'দৈনিক') {
+    if (widget.selectedPeriod == 'দৈনিক') {
       items = _days;
-      selectedValue = DateFormat('dd MMM yyyy').format(_selectedDate);
+      selectedValue = DateFormat('dd MMM yyyy').format(widget.selectedDate);
       labelMapper = (item) => DateFormat('dd MMM').format(item as DateTime);
       onSelect = (item) {
-        setState(() => _selectedDate = item as DateTime);
-        _loadData(isBackground: true);
+        widget.onFilterChanged(selectedDate: item as DateTime);
       };
-    } else if (_selectedPeriod == 'মাসিক') {
+    } else if (widget.selectedPeriod == 'মাসিক') {
       items = _months;
-      selectedValue = _selectedMonth;
+      selectedValue = widget.selectedMonth;
       labelMapper = (item) => (item as String).split(' ').first; // e.g. "Feb"
       onSelect = (item) {
-        setState(() => _selectedMonth = item as String);
-        _loadData(isBackground: true);
+        widget.onFilterChanged(selectedMonth: item as String);
       };
     } else {
       // বাৎসরিক
       items = _years;
-      selectedValue = _selectedYear;
+      selectedValue = widget.selectedYear;
       labelMapper = (item) => (item as String);
       onSelect = (item) {
-        setState(() => _selectedYear = item as String);
-        _loadData(isBackground: true);
+        widget.onFilterChanged(selectedYear: item as String);
       };
     }
 
@@ -359,20 +335,20 @@ class _ExpenseViewState extends State<ExpenseView> {
       color: Colors.white,
       height: 50,
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.start, 
         children: [
-          if (_selectedPeriod == 'দৈনিক')
+          if (widget.selectedPeriod == 'দৈনিক')
             IconButton(
               icon: const Icon(Icons.calendar_month, color: Color(0xFF2196F3)),
               onPressed: () async {
                 final picked = await showDatePicker(
                   context: context,
-                  initialDate: _selectedDate,
+                  initialDate: widget.selectedDate,
                   firstDate: DateTime(2020),
                   lastDate: DateTime.now(),
                 );
                 if (picked != null) {
-                  setState(() => _selectedDate = picked);
-                  _loadData();
+                  widget.onFilterChanged(selectedDate: picked);
                 }
               },
             ),
@@ -386,7 +362,7 @@ class _ExpenseViewState extends State<ExpenseView> {
                 final itemLabel = labelMapper(item);
                 final bool isSelected;
                 
-                if (_selectedPeriod == 'দৈনিক') {
+                if (widget.selectedPeriod == 'দৈনিক') {
                   isSelected = DateFormat('dd MMM yyyy').format(item as DateTime) == selectedValue;
                 } else {
                   isSelected = item as String == selectedValue;
@@ -401,36 +377,6 @@ class _ExpenseViewState extends State<ExpenseView> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSelectedDateLabel() {
-    String labelText = '';
-    if (_selectedPeriod == 'দৈনিক') {
-      labelText = DateFormat('dd MMM yyyy').format(_selectedDate);
-    } else if (_selectedPeriod == 'মাসিক') {
-      labelText = _selectedMonth;
-    } else if (_selectedPeriod == 'বাৎসরিক') {
-      labelText = _selectedYear;
-    } else if (_selectedPeriod == 'পরিসর' && _customDateRange != null) {
-      labelText = '${DateFormat('dd MMM').format(_customDateRange!.start)} - ${DateFormat('dd MMM yyyy').format(_customDateRange!.end)}';
-    }
-
-    if (labelText.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      width: double.infinity,
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      alignment: Alignment.center,
-      child: Text(
-        labelText,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF2196F3),
-        ),
       ),
     );
   }
@@ -483,43 +429,61 @@ class _ExpenseViewState extends State<ExpenseView> {
   Widget _buildFilterTabs() {
     return Container(
       color: const Color(0xFFFAFAFA),
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          FilterTab(
-            label: 'সব',
-            isSelected: _selectedFilter == 'সব',
-            onTap: () {
-              setState(() => _selectedFilter = 'সব');
-              _loadData(isBackground: true);
-            },
-          ),
-          FilterTab(
-            label: 'জমা',
-            isSelected: _selectedFilter == 'জমা',
-            onTap: () {
-              setState(() => _selectedFilter = 'জমা');
-              _loadData(isBackground: true);
-            },
-          ),
-          FilterTab(
-            label: 'খরচ',
-            isSelected: _selectedFilter == 'খরচ',
-            onTap: () {
-              setState(() => _selectedFilter = 'খরচ');
-              _loadData(isBackground: true);
-            },
-          ),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      child: TabBar(
+        controller: _tabController,
+        dividerColor: Colors.transparent,
+        indicator: BoxDecoration(
+          color: const Color(0xFFBBDEFB),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        labelColor: const Color(0xFF1976D2),
+        unselectedLabelColor: const Color(0xFF757575),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
+        padding: EdgeInsets.zero,
+        indicatorPadding: EdgeInsets.zero,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+        tabs: const [
+          Tab(text: 'সব'),
+          Tab(text: 'জমা'),
+          Tab(text: 'খরচ'),
         ],
       ),
     );
   }
 
-  Widget _buildTransactionsList() {
+  Widget _buildTabTransactionsList(String? filterType) {
+    List<ShopTransaction> filteredTransactions;
+    if (filterType == null) {
+      filteredTransactions = _transactions;
+    } else {
+      filteredTransactions = _transactions.where((t) => t.transactionType == filterType).toList();
+    }
+
+    if (filteredTransactions.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: () => _loadData(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: 400, // Approximate height for empty state
+            child: _buildEmptyState(),
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => _loadData(),
+      child: _buildTransactionsList(filteredTransactions),
+    );
+  }
+
+  Widget _buildTransactionsList(List<ShopTransaction> transactions) {
     // Group transactions by date
     final grouped = <String, List<ShopTransaction>>{};
-    for (final trans in _transactions) {
+    for (final trans in transactions) {
       final dateKey = DateFormat('dd MMM yyyy').format(trans.transactionDate);
       if (!grouped.containsKey(dateKey)) {
         grouped[dateKey] = [];
@@ -615,7 +579,7 @@ class _ExpenseViewState extends State<ExpenseView> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            _searchQuery.isNotEmpty || _selectedPeriod != 'মাসিক'
+            _searchQuery.isNotEmpty || widget.selectedPeriod != 'মাসিক'
                 ? Icons.search_off
                 : Icons.history, 
             size: 64, 
@@ -623,7 +587,7 @@ class _ExpenseViewState extends State<ExpenseView> {
           ),
           const SizedBox(height: 16),
           Text(
-            _searchQuery.isNotEmpty || _selectedPeriod != 'মাসিক'
+            _searchQuery.isNotEmpty || widget.selectedPeriod != 'মাসিক'
                 ? 'কোনো ফলাফল পাওয়া যায়নি' 
                 : 'কোনো লেনদেন রেকর্ড করা হয়নি', 
             style: const TextStyle(color: Colors.grey)
