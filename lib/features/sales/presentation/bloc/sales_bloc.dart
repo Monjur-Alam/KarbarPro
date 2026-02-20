@@ -123,7 +123,7 @@ class CartItem extends Equatable {
   final int quantity;
 
   const CartItem({required this.product, required this.quantity});
-  
+
   double get subTotal => product.sellingPrice * quantity;
   double get profit => (product.sellingPrice - product.purchasePrice) * quantity;
 
@@ -235,14 +235,14 @@ class SalesDataLoaded extends SalesState {
 
   @override
   List<Object?> get props => [
-    cart, 
-    mode, 
-    paymentType, 
-    selectedCustomer, 
-    todayTotalSales, 
-    totalAmount, 
-    isSubmitting, 
-    searchResults, 
+    cart,
+    mode,
+    paymentType,
+    selectedCustomer,
+    todayTotalSales,
+    totalAmount,
+    isSubmitting,
+    searchResults,
     isSearching,
     // New fields
     salesHistory,
@@ -300,7 +300,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     try {
       final stats = await _repository.getSalesStatistics();
       final sales = await _repository.getFilteredSales();
-      
+
       emit(SalesDataLoaded(
         cart: const [],
         mode: SalesMode.single,
@@ -313,7 +313,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
         selectedDateFilterLabel: 'সব',
       ));
     } catch (e) {
-      emit(SalesError('ডাটা লোড করতে সমস্যা হয়েছে: ${e.toString()}'));
+      emit(SalesError('ডাটা লোড করতে সমস্যা হয়েছে: ${e.toString()}'));
     }
   }
 
@@ -321,53 +321,71 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     if (state is SalesDataLoaded) {
       final s = state as SalesDataLoaded;
       emit(s.copyWith(activeTab: event.tab));
-      // Removed re-fetch on tab change to support smooth local filtering and swiping
     }
   }
 
   Future<void> _onUpdateSalesFilters(UpdateSalesFilters event, Emitter<SalesState> emit) async {
+    SalesDataLoaded s;
     if (state is SalesDataLoaded) {
-      final s = state as SalesDataLoaded;
-      
-      final newSearchQuery = event.searchQuery ?? s.searchQuery;
-      final newStartDate = event.clearStartDate ? null : (event.startDate ?? s.startDate);
-      final newEndDate = event.clearEndDate ? null : (event.endDate ?? s.endDate);
-      final newSortBy = event.sortBy ?? s.sortBy;
-      final newLabel = event.selectedDateFilterLabel ?? s.selectedDateFilterLabel;
+      s = state as SalesDataLoaded;
+    } else {
+      // Initialize state first if not yet loaded
+      emit(SalesLoading());
+      try {
+        final initStats = await _repository.getSalesStatistics();
+        s = SalesDataLoaded(
+          cart: const [],
+          mode: SalesMode.single,
+          paymentType: PaymentType.cash,
+          todayTotalSales: (initStats['today']?['total'] as num?)?.toDouble() ?? 0.0,
+          totalAmount: 0.0,
+          statistics: initStats,
+          salesHistory: const [],
+          activeTab: 'all',
+        );
+      } catch (e) {
+        emit(SalesError('ডাটা লোড করতে সমস্যা হয়েছে: ${e.toString()}'));
+        return;
+      }
+    }
 
+    final newSearchQuery = event.searchQuery ?? s.searchQuery;
+    final newStartDate = event.clearStartDate ? null : (event.startDate ?? s.startDate);
+    final newEndDate = event.clearEndDate ? null : (event.endDate ?? s.endDate);
+    final newSortBy = event.sortBy ?? s.sortBy;
+    final newLabel = event.selectedDateFilterLabel ?? s.selectedDateFilterLabel;
 
-      emit(s.copyWith(
+    emit(s.copyWith(
+      searchQuery: newSearchQuery,
+      startDate: newStartDate,
+      clearStartDate: event.clearStartDate,
+      endDate: newEndDate,
+      clearEndDate: event.clearEndDate,
+      sortBy: newSortBy,
+      selectedDateFilterLabel: newLabel,
+    ));
+
+    try {
+      final sales = await _repository.getFilteredSales(
+        paymentType: null,
         searchQuery: newSearchQuery,
         startDate: newStartDate,
-        clearStartDate: event.clearStartDate,
         endDate: newEndDate,
-        clearEndDate: event.clearEndDate,
         sortBy: newSortBy,
-        selectedDateFilterLabel: newLabel,
+      );
+
+      final stats = await _repository.getFilteredSalesStatistics(
+        startDate: newStartDate,
+        endDate: newEndDate,
+      );
+
+      emit((state as SalesDataLoaded).copyWith(
+        salesHistory: sales,
+        statistics: {...s.statistics, 'today': stats},
       ));
-
-      try {
-        final sales = await _repository.getFilteredSales(
-          paymentType: null, // Fetch ALL to support UI-side local filtering by tab
-          searchQuery: newSearchQuery,
-          startDate: newStartDate,
-          endDate: newEndDate,
-          sortBy: newSortBy,
-        );
-        
-        final stats = await _repository.getFilteredSalesStatistics(
-          startDate: newStartDate,
-          endDate: newEndDate,
-        );
-
-        emit((state as SalesDataLoaded).copyWith(
-          salesHistory: sales,
-          statistics: {'today': stats, ...s.statistics}, // Wrap in 'today' for compatibility or refactor UI
-        ));
-      } catch (e) {
-        print('Sales Filter Error: $e'); // Debugging
-        emit(SalesError('ফিল্টার করতে সমস্যা হয়েছে: $e')); 
-      }
+    } catch (e) {
+      print('Sales Filter Error: $e');
+      emit(SalesError('ফিল্টার করতে সমস্যা হয়েছে: $e'));
     }
   }
 
@@ -395,7 +413,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
   void _onAddToCart(AddToCart event, Emitter<SalesState> emit) {
     if (state is SalesDataLoaded) {
       final s = state as SalesDataLoaded;
-      
+
       // Stock Validation
       final existingItemIndex = s.cart.indexWhere((i) => i.product.id == event.product.id);
       int currentInCart = 0;
@@ -415,7 +433,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
       } else {
         cart.add(CartItem(product: event.product, quantity: event.quantity));
       }
-      
+
       emit(s.copyWith(cart: cart, totalAmount: _calculateTotal(cart)));
     }
   }
@@ -461,8 +479,6 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     if (state is SalesDataLoaded) {
       final s = state as SalesDataLoaded;
       emit(s.copyWith(isSearching: true));
-      // In a real app, this would be a repo call. For now, UI does it via BlocBuilder.
-      // But let's assume we want to handle it here if it gets complex.
       emit(s.copyWith(isSearching: false));
     }
   }
@@ -472,7 +488,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
       final s = state as SalesDataLoaded;
       if (s.cart.isEmpty) {
         emit(const SalesError('কার্ট ফাঁকা!'));
-        emit(s); 
+        emit(s);
         return;
       }
 
@@ -514,15 +530,13 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
         );
 
         await _repository.createSale(sale);
-        
-        // await _repository.getTodayTotalSales(); // Redundant and non-existent
-        
+
         // Trigger sync
         _syncService.performSync();
 
         // Return the full sale object for the success dialog
         emit(SalesSuccess(sale));
-        
+
         final newStats = await _repository.getSalesStatistics();
         final newSales = await _repository.getFilteredSales(
            paymentType: s.activeTab == 'all' ? null : s.activeTab,
@@ -534,9 +548,9 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
 
         // Reset state after success
         emit(s.copyWith(
-          cart: [], 
-          totalAmount: 0.0, 
-          isSubmitting: false, 
+          cart: [],
+          totalAmount: 0.0,
+          isSubmitting: false,
           todayTotalSales: newStats['today']['total'],
           statistics: newStats,
           salesHistory: newSales,

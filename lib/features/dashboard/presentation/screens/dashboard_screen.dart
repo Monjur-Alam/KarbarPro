@@ -175,7 +175,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         children: [
           Text(
             title,
-            style: const TextStyle(fontWeight: FontWeight.normal, fontSize: 18, color: Colors.black),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 20, color: Colors.black),
           ),
           if (labelText.isNotEmpty)
             Row(

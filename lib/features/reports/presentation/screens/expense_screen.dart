@@ -219,18 +219,33 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
         children: [
           _buildPeriodTabs(),
           _buildCurrentSelectionSelector(),
-          _buildSummaryCards(),
-          _buildFilterTabs(),
           if (_isBackgroundLoading)
             const LinearProgressIndicator(minHeight: 2),
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildTabTransactionsList(null),     // সব
-                _buildTabTransactionsList('income'),  // জমা
-                _buildTabTransactionsList('expense'), // খরচ
-              ],
+            child: NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                return [
+                  SliverToBoxAdapter(
+                    child: _buildSummaryCards(),
+                  ),
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _SliverAppBarDelegate(
+                      minHeight: 48,
+                      maxHeight: 48,
+                      child: _buildFilterTabs(),
+                    ),
+                  ),
+                ];
+              },
+              body: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildTabTransactionsList(null),     // সব
+                  _buildTabTransactionsList('income'),  // জমা
+                  _buildTabTransactionsList('expense'), // খরচ
+                ],
+              ),
             ),
           ),
         ],
@@ -1150,5 +1165,36 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
         ),
       ),
     );
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  final double minHeight;
+  final double maxHeight;
+  final Widget child;
+
+  _SliverAppBarDelegate({
+    required this.minHeight,
+    required this.maxHeight,
+    required this.child,
+  });
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return maxHeight != oldDelegate.maxHeight ||
+        minHeight != oldDelegate.minHeight ||
+        child != oldDelegate.child;
   }
 }

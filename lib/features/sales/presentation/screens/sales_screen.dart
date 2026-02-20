@@ -229,16 +229,33 @@ class _SalesViewState extends State<SalesView> {
             _buildConnectivityBanner(),
             _buildPeriodTabs(),
             _buildCurrentSelectionSelector(),
-            _buildSummaryCards(state),
-            _buildSearchBar(state),
-            _buildHistoryTabs(state),
             Expanded(
-              child: TabBarView(
-                children: [
-                  _buildHistoryList(state, 'all'),
-                  _buildHistoryList(state, 'cash'),
-                  _buildHistoryList(state, 'credit'),
-                ],
+              child: NestedScrollView(
+                headerSliverBuilder: (context, innerBoxIsScrolled) {
+                  return [
+                    SliverToBoxAdapter(
+                      child: _buildSummaryCards(state),
+                    ),
+                    SliverToBoxAdapter(
+                      child: _buildSearchBar(state),
+                    ),
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _SliverAppBarDelegate(
+                        minHeight: 48,
+                        maxHeight: 48,
+                        child: _buildHistoryTabs(state),
+                      ),
+                    ),
+                  ];
+                },
+                body: TabBarView(
+                  children: [
+                    _buildHistoryList(state, 'all'),
+                    _buildHistoryList(state, 'cash'),
+                    _buildHistoryList(state, 'credit'),
+                  ],
+                ),
               ),
             ),
           ],
@@ -389,8 +406,16 @@ class _SalesViewState extends State<SalesView> {
   }
 
   Widget _buildSummaryCards(SalesDataLoaded state) {
-    final stats = state.statistics;
-    final today = stats['today'] ?? {'total': 0.0, 'cash': 0.0, 'credit': 0.0};
+    // Compute totals directly from filtered sales list
+    double totalSales = 0;
+    double totalCredit = 0;
+    for (final sale in state.salesHistory) {
+      totalSales += sale.totalAmount;
+      if (sale.paymentMethod == 'credit') {
+        totalCredit += sale.totalAmount;
+      }
+    }
+    final totalCash = totalSales - totalCredit;
 
     return Container(
       color: Colors.white,
@@ -400,7 +425,7 @@ class _SalesViewState extends State<SalesView> {
           Expanded(
             child: SummaryCard(
               label: 'মোট বিক্রি',
-              amount: '৳${DateFormatterUtils.toBengaliNumber(today['total'] ?? 0.0)}',
+              amount: '৳${DateFormatterUtils.toBengaliNumber(totalSales)}',
               amountColor: const Color(0xFF212121),
               icon: Icons.shopping_cart,
               iconColor: const Color(0xFF1976D2),
@@ -411,7 +436,7 @@ class _SalesViewState extends State<SalesView> {
           Expanded(
             child: SummaryCard(
               label: 'বাকি বিক্রি',
-              amount: '৳${DateFormatterUtils.toBengaliNumber(today['credit'] ?? 0.0)}',
+              amount: '৳${DateFormatterUtils.toBengaliNumber(totalCredit)}',
               amountColor: const Color(0xFF212121),
               icon: Icons.account_balance_wallet_outlined,
               iconColor: const Color(0xFFFF9800),
@@ -431,7 +456,7 @@ class _SalesViewState extends State<SalesView> {
                 ReportGenerator.generateSalesPDF(
                   shopName: 'আমার দোকান',
                   sales: state.salesHistory,
-                  summary: today,
+                  summary: {'total': totalSales, 'cash': totalCash, 'credit': totalCredit},
                   startDate: state.startDate,
                   endDate: state.endDate,
                 );
@@ -797,5 +822,36 @@ class _SalesViewState extends State<SalesView> {
       contentPadding: EdgeInsets.zero,
       dense: true,
     );
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  final double minHeight;
+  final double maxHeight;
+  final Widget child;
+
+  _SliverAppBarDelegate({
+    required this.minHeight,
+    required this.maxHeight,
+    required this.child,
+  });
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return maxHeight != oldDelegate.maxHeight ||
+        minHeight != oldDelegate.minHeight ||
+        child != oldDelegate.child;
   }
 }
