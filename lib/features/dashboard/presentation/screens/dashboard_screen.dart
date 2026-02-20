@@ -69,6 +69,29 @@ class DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  // Due Ledger Filter state (shared with DueLedgerView)
+  String _dueSelectedPeriod = 'মাসিক';
+  DateTime _dueSelectedDate = DateTime.now();
+  String _dueSelectedMonth = DateFormat('MMM yyyy').format(DateTime.now());
+  String _dueSelectedYear = DateFormat('yyyy').format(DateTime.now());
+  DateTimeRange? _dueCustomDateRange;
+
+  void updateDueFilter({
+    String? selectedPeriod,
+    DateTime? selectedDate,
+    String? selectedMonth,
+    String? selectedYear,
+    DateTimeRange? customDateRange,
+  }) {
+    setState(() {
+      if (selectedPeriod != null) _dueSelectedPeriod = selectedPeriod;
+      if (selectedDate != null) _dueSelectedDate = selectedDate;
+      if (selectedMonth != null) _dueSelectedMonth = selectedMonth;
+      if (selectedYear != null) _dueSelectedYear = selectedYear;
+      if (customDateRange != null) _dueCustomDateRange = customDateRange;
+    });
+  }
+
   void setIndex(int index) {
     setState(() => _selectedIndex = index);
     _pageController.jumpToPage(index);
@@ -110,7 +133,14 @@ class DashboardScreenState extends State<DashboardScreen> {
         customDateRange: _salesCustomDateRange,
         onFilterChanged: updateSalesFilter,
       ),
-      const DueLedgerView(),
+      DueLedgerView(
+        selectedPeriod: _dueSelectedPeriod,
+        selectedDate: _dueSelectedDate,
+        selectedMonth: _dueSelectedMonth,
+        selectedYear: _dueSelectedYear,
+        customDateRange: _dueCustomDateRange,
+        onFilterChanged: updateDueFilter,
+      ),
       const InventoryScreen(),
       ExpenseView(
         selectedPeriod: _selectedPeriod,
@@ -164,6 +194,16 @@ class DashboardScreenState extends State<DashboardScreen> {
         labelText = _salesSelectedYear;
       } else if (_salesSelectedPeriod == 'পরিসর' && _salesCustomDateRange != null) {
         labelText = '${DateFormat('dd MMM').format(_salesCustomDateRange!.start)} - ${DateFormat('dd MMM yyyy').format(_salesCustomDateRange!.end)}';
+      }
+    } else if (_selectedIndex == 2) {
+      if (_dueSelectedPeriod == 'দৈনিক') {
+        labelText = DateFormat('dd MMM yyyy').format(_dueSelectedDate);
+      } else if (_dueSelectedPeriod == 'মাসিক') {
+        labelText = _dueSelectedMonth;
+      } else if (_dueSelectedPeriod == 'বাৎসরিক') {
+        labelText = _dueSelectedYear;
+      } else if (_dueSelectedPeriod == 'পরিসর' && _dueCustomDateRange != null) {
+        labelText = '${DateFormat('dd MMM').format(_dueCustomDateRange!.start)} - ${DateFormat('dd MMM yyyy').format(_dueCustomDateRange!.end)}';
       }
     }
 

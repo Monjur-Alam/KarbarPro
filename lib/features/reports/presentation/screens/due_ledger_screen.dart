@@ -9,31 +9,42 @@ import '../../domain/due_ledger_model.dart';
 import '../../services/report_generator.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../../../main.dart';
+import '../widgets/month_selector.dart';
+import '../widgets/summary_card.dart';
+import '../../utils/date_formatter_utils.dart';
 
 class DueLedgerScreen extends StatelessWidget {
   const DueLedgerScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        backgroundColor: Colors.grey.shade50,
-        appBar: AppBar(
-          title: const Text('বাকি খাতা', style: TextStyle(fontWeight: FontWeight.bold)),
-          elevation: 0,
-        ),
-        body: const DefaultTabController(
-          length: 2,
-          child: DueLedgerView(),
-        ),
-      ),
-    );
+    return const SizedBox.shrink();
   }
 }
 
 class DueLedgerView extends StatefulWidget {
-  const DueLedgerView({super.key});
+  final String selectedPeriod;
+  final DateTime selectedDate;
+  final String selectedMonth;
+  final String selectedYear;
+  final DateTimeRange? customDateRange;
+  final Function({
+    String? selectedPeriod,
+    DateTime? selectedDate,
+    String? selectedMonth,
+    String? selectedYear,
+    DateTimeRange? customDateRange,
+  }) onFilterChanged;
+
+  const DueLedgerView({
+    super.key,
+    required this.selectedPeriod,
+    required this.selectedDate,
+    required this.selectedMonth,
+    required this.selectedYear,
+    this.customDateRange,
+    required this.onFilterChanged,
+  });
 
   @override
   State<DueLedgerView> createState() => _DueLedgerViewState();
@@ -42,8 +53,8 @@ class DueLedgerView extends StatefulWidget {
 class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProviderStateMixin, RouteAware {
   late TabController _tabController;
   List<CustomerDue> _allCustomers = [];
-  List<CustomerDue> _filteredCustomers = []; // For current tab
-  
+  List<CustomerDue> _filteredCustomers = [];
+
   List<CustomerDue> _customersList = [];
   List<CustomerDue> _suppliersList = [];
   Map<String, dynamic> _summary = {
@@ -53,14 +64,14 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     'totalPaid': 0.0,
   };
   bool _isLoading = true;
-  
-  // Filter & Sort States
+
   final TextEditingController _searchController = TextEditingController();
-  String _selectedDateFilter = 'সব';
-  String _sortBy = 'name_asc'; // name_asc, name_desc, balance_asc, balance_desc, last_transaction
-  DateTime? _startDate;
-  DateTime? _endDate;
+  String _sortBy = 'name_asc';
   Timer? _debounce;
+
+  final List<DateTime> _days = [];
+  final List<String> _months = [];
+  final List<String> _years = [];
 
   @override
   void initState() {
@@ -71,7 +82,40 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
         _applyTabFilter();
       }
     });
+    _generateLists();
     _loadData();
+  }
+
+  @override
+  void didUpdateWidget(DueLedgerView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedPeriod != widget.selectedPeriod ||
+        oldWidget.selectedDate != widget.selectedDate ||
+        oldWidget.selectedMonth != widget.selectedMonth ||
+        oldWidget.selectedYear != widget.selectedYear ||
+        oldWidget.customDateRange != widget.customDateRange) {
+      _loadData();
+    }
+  }
+
+  void _generateLists() {
+    final now = DateTime.now();
+
+    _days.clear();
+    for (int i = 0; i < 30; i++) {
+      _days.add(now.subtract(Duration(days: i)));
+    }
+
+    _months.clear();
+    for (int i = 0; i < 12; i++) {
+      final date = DateTime(now.year, now.month - i, 1);
+      _months.add(DateFormat('MMM yyyy').format(date));
+    }
+
+    _years.clear();
+    for (int i = 0; i < 10; i++) {
+      _years.add((now.year - i).toString());
+    }
   }
 
   @override
@@ -94,14 +138,47 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
 
   @override
   void didPopNext() {
-    // Refresh data when returning to this screen
     _loadData();
+  }
+
+  DateTime? get _startDate {
+    switch (widget.selectedPeriod) {
+      case 'দৈনিক':
+        return DateTime(widget.selectedDate.year, widget.selectedDate.month, widget.selectedDate.day);
+      case 'মাসিক':
+        final parsedMonth = DateFormat('MMM yyyy').parse(widget.selectedMonth);
+        return DateTime(parsedMonth.year, parsedMonth.month, 1);
+      case 'বাৎসরিক':
+        final yearNum = int.parse(widget.selectedYear);
+        return DateTime(yearNum, 1, 1);
+      case 'পরিসর':
+        return widget.customDateRange?.start;
+      default:
+        return null;
+    }
+  }
+
+  DateTime? get _endDate {
+    switch (widget.selectedPeriod) {
+      case 'দৈনিক':
+        return DateTime(widget.selectedDate.year, widget.selectedDate.month, widget.selectedDate.day, 23, 59, 59);
+      case 'মাসিক':
+        final parsedMonth = DateFormat('MMM yyyy').parse(widget.selectedMonth);
+        return DateTime(parsedMonth.year, parsedMonth.month + 1, 0, 23, 59, 59);
+      case 'বাৎসরিক':
+        final yearNum = int.parse(widget.selectedYear);
+        return DateTime(yearNum, 12, 31, 23, 59, 59);
+      case 'পরিসর':
+        return widget.customDateRange?.end;
+      default:
+        return null;
+    }
   }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
-    
+
     final summary = await repo.getBakirKhataSummary();
     final customers = await repo.getFilteredCustomers(
       searchQuery: _searchController.text,
@@ -137,66 +214,6 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     });
   }
 
-  void _applyDateFilter(String filter) async {
-    final now = DateTime.now();
-    DateTime? start;
-    DateTime? end = now;
-
-    if (filter == 'কাস্টম তারিখ') {
-      final pickerDate = await showDateRangePicker(
-        context: context,
-        firstDate: DateTime(2020),
-        lastDate: now,
-        initialDateRange: _startDate != null && _endDate != null 
-            ? DateTimeRange(start: _startDate!, end: _endDate!) 
-            : null,
-      );
-      if (pickerDate != null) {
-        setState(() {
-          _selectedDateFilter = 'কাস্টম (${DateFormat('dd/MM').format(pickerDate.start)} - ${DateFormat('dd/MM').format(pickerDate.end)})';
-          _startDate = pickerDate.start;
-          _endDate = pickerDate.end;
-        });
-        _loadData();
-      }
-      return;
-    }
-
-    switch (filter) {
-      case 'আজ':
-        start = DateTime(now.year, now.month, now.day);
-        break;
-      case 'গতকাল':
-        start = DateTime(now.year, now.month, now.day - 1);
-        end = DateTime(now.year, now.month, now.day, 23, 59, 59).subtract(const Duration(days: 1));
-        break;
-      case 'গত ৭ দিন':
-        start = now.subtract(const Duration(days: 7));
-        break;
-      case 'গত ৩০ দিন':
-        start = now.subtract(const Duration(days: 30));
-        break;
-      case 'এই মাস':
-        start = DateTime(now.year, now.month, 1);
-        break;
-      case 'গত মাস':
-        start = DateTime(now.year, now.month - 1, 1);
-        end = DateTime(now.year, now.month, 0, 23, 59, 59);
-        break;
-      case 'সব':
-      default:
-        start = null;
-        end = null;
-    }
-
-    setState(() {
-      _selectedDateFilter = filter;
-      _startDate = start;
-      _endDate = end;
-    });
-    _loadData();
-  }
-
   void _sortCustomers() {
     setState(() {
       switch (_sortBy) {
@@ -225,11 +242,6 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
 
   void _resetFilters() {
     _searchController.clear();
-    setState(() {
-      _selectedDateFilter = 'সব';
-      _startDate = null;
-      _endDate = null;
-    });
     _loadData();
   }
 
@@ -247,32 +259,27 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(50),
-          child: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 0,
-            automaticallyImplyLeading: false,
-            bottom: TabBar(
-              controller: _tabController,
-              tabs: const [
-                Tab(text: 'গ্রাহক (পাবো)'),
-                Tab(text: 'সরবরাহকারী (দিবো)'),
-              ],
-              labelColor: Colors.teal.shade800,
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: Colors.teal.shade800,
-              indicatorWeight: 3,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ),
-        body: TabBarView(
-          controller: _tabController,
+        backgroundColor: Colors.grey.shade50,
+        body: Column(
           children: [
-            _buildTabView(isCustomer: true),
-            _buildTabView(isCustomer: false),
+            _buildPeriodTabs(),
+            _buildCurrentSelectionSelector(),
+            Expanded(
+              child: Column(
+                children: [
+                  _buildDueTabBar(),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildTabView(isCustomer: true),
+                        _buildTabView(isCustomer: false),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
@@ -284,22 +291,186 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     );
   }
 
+  Widget _buildPeriodTabs() {
+    return Container(
+      color: Colors.white,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildPeriodTab('দৈনিক'),
+          _buildPeriodTab('মাসিক'),
+          _buildPeriodTab('বাৎসরিক'),
+          _buildPeriodTab('পরিসর'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPeriodTab(String label) {
+    final isSelected = widget.selectedPeriod == label;
+    return GestureDetector(
+      onTap: () async {
+        if (label == 'পরিসর') {
+          final picked = await showDateRangePicker(
+            context: context,
+            firstDate: DateTime(2020),
+            lastDate: DateTime.now(),
+          );
+          if (picked != null) {
+            widget.onFilterChanged(
+              selectedPeriod: label,
+              customDateRange: picked,
+            );
+          }
+        } else {
+          widget.onFilterChanged(selectedPeriod: label);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          border: isSelected
+              ? const Border(
+                  bottom: BorderSide(
+                    color: Color(0xFF2196F3),
+                    width: 3,
+                  ),
+                )
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            color: isSelected ? const Color(0xFF2196F3) : const Color(0xFF757575),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentSelectionSelector() {
+    if (widget.selectedPeriod == 'পরিসর') return const SizedBox.shrink();
+
+    List<dynamic> items = [];
+    String? selectedValue;
+    Function(dynamic) onSelect;
+    String Function(dynamic) labelMapper;
+
+    if (widget.selectedPeriod == 'দৈনিক') {
+      items = _days;
+      selectedValue = DateFormat('dd MMM yyyy').format(widget.selectedDate);
+      labelMapper = (item) => DateFormat('dd MMM').format(item as DateTime);
+      onSelect = (item) {
+        widget.onFilterChanged(selectedDate: item as DateTime);
+      };
+    } else if (widget.selectedPeriod == 'মাসিক') {
+      items = _months;
+      selectedValue = widget.selectedMonth;
+      labelMapper = (item) => (item as String).split(' ').first;
+      onSelect = (item) {
+        widget.onFilterChanged(selectedMonth: item as String);
+      };
+    } else {
+      items = _years;
+      selectedValue = widget.selectedYear;
+      labelMapper = (item) => (item as String);
+      onSelect = (item) {
+        widget.onFilterChanged(selectedYear: item as String);
+      };
+    }
+
+    return Container(
+      color: Colors.white,
+      height: 35,
+      child: Row(
+        children: [
+          if (widget.selectedPeriod == 'দৈনিক')
+            IconButton(
+              icon: const Icon(Icons.calendar_month, color: Color(0xFF2196F3), size: 18),
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: widget.selectedDate,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now(),
+                );
+                if (picked != null) {
+                  widget.onFilterChanged(selectedDate: picked);
+                }
+              },
+            ),
+          Expanded(
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              reverse: true,
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                final itemLabel = labelMapper(item);
+                final bool isSelected;
+
+                if (widget.selectedPeriod == 'দৈনিক') {
+                  isSelected = DateFormat('dd MMM yyyy').format(item as DateTime) == selectedValue;
+                } else {
+                  isSelected = item as String == selectedValue;
+                }
+
+                return MonthSelector(
+                  month: itemLabel,
+                  isSelected: isSelected,
+                  onTap: () => onSelect(item),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDueTabBar() {
+    return Container(
+      color: const Color(0xFFFAFAFA),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: TabBar(
+        controller: _tabController,
+        dividerColor: Colors.transparent,
+        indicator: BoxDecoration(
+          color: const Color(0xFFBBDEFB),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        labelColor: const Color(0xFF1976D2),
+        unselectedLabelColor: const Color(0xFF757575),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
+        padding: EdgeInsets.zero,
+        indicatorPadding: EdgeInsets.zero,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+        tabs: const [
+          Tab(text: '  গ্রাহক (পাবো)  '),
+          Tab(text: '  সরবরাহকারী (দিবো)  '),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTabView({required bool isCustomer}) {
     final list = isCustomer ? _customersList : _suppliersList;
-    // Apply search filter locally for the tab
     final search = _searchController.text.toLowerCase();
-    final filteredList = list.where((c) => 
-      c.name.toLowerCase().contains(search) || 
+    final filteredList = list.where((c) =>
+      c.name.toLowerCase().contains(search) ||
       (c.phone != null && c.phone!.contains(search))
     ).toList();
 
     return Column(
       children: [
         _buildTabSummaryCard(isCustomer: isCustomer),
-        _buildFilterBar(),
+        _buildSearchBar(),
         _buildActionBar(isCustomer: isCustomer, count: filteredList.length),
         Expanded(
-          child: _isLoading 
+          child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : filteredList.isEmpty
               ? _buildEmptyState()
@@ -310,256 +481,150 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
   }
 
   Widget _buildTabSummaryCard({required bool isCustomer}) {
-    final total = isCustomer ? (_summary['totalReceivable'] ?? 0.0) : (_summary['totalPayable'] ?? 0.0);
-    final paid = isCustomer ? (_summary['totalCollected'] ?? 0.0) : (_summary['totalPaid'] ?? 0.0);
-    final remaining = total - paid;
-    
-    final accentColor = isCustomer ? Colors.orange : Colors.blue.shade300;
-    final labelTotal = isCustomer ? 'মোট পাবো' : 'মোট দিতে হবে';
-    final labelPaid = isCustomer ? 'আদায় হয়েছে' : 'দিয়েছি';
-    final labelRemaining = isCustomer ? 'বাকি আছে' : 'বাকি দিতে হবে';
+    // Compute totals from filtered list
+    final list = isCustomer ? _customersList : _suppliersList;
+    double total = 0;
+    double paid = 0;
+    for (final c in list) {
+      total += c.currentCreditBalance;
+      paid += c.totalPaid;
+    }
+
+    final labelTotal = isCustomer ? 'মোট পাবো' : 'মোট দিবো';
+    final labelPaid = isCustomer ? 'আদায় হয়েছে' : 'দিয়েছি';
 
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF37474F), // Darker grey-blue for clean look
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(labelTotal, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                  const SizedBox(height: 4),
-                  Text('৳${_toBengaliDigits(total.toStringAsFixed(0))}', 
-                    style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(labelPaid, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                  const SizedBox(height: 4),
-                  Text('৳${_toBengaliDigits(paid.toStringAsFixed(0))}', 
-                    style: TextStyle(color: Colors.green.shade300, fontSize: 18, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Divider(color: Colors.white24, height: 1),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(labelRemaining, style: TextStyle(color: accentColor, fontWeight: FontWeight.bold, fontSize: 15)),
-              Text('৳${_toBengaliDigits(remaining.toStringAsFixed(0))}', 
-                style: TextStyle(color: accentColor, fontWeight: FontWeight.bold, fontSize: 18)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard() {
-    final totalReceivable = _summary['totalReceivable'] ?? 0.0;
-    final totalCollected = _summary['totalCollected'] ?? 0.0;
-    final remainingReceivable = totalReceivable;
-
-    final totalPayable = _summary['totalPayable'] ?? 0.0;
-    final totalPaid = _summary['totalPaid'] ?? 0.0;
-    final remainingPayable = totalPayable;
-
-    return Container(
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF00695C),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                // Left Side: Receivables
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('মোট পাবো (বাকি)', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      Text(
-                        '৳${_toBengaliDigits(totalReceivable.toStringAsFixed(0))}',
-                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(Icons.arrow_upward, color: Colors.orange, size: 14),
-                          const SizedBox(width: 4),
-                          Text('আদায়: ৳${_toBengaliDigits(totalCollected.toStringAsFixed(0))}', 
-                            style: const TextStyle(color: Colors.white60, fontSize: 10)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Container(height: 40, width: 1, color: Colors.white24),
-                // Right Side: Payables
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('মোট দেবো (জমা)', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                        Text(
-                          '৳${_toBengaliDigits(totalPayable.toStringAsFixed(0))}',
-                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(Icons.arrow_downward, color: Colors.lightGreenAccent, size: 14),
-                            const SizedBox(width: 4),
-                            Text('দিয়েছি: ৳${_toBengaliDigits(totalPaid.toStringAsFixed(0))}', 
-                              style: const TextStyle(color: Colors.white60, fontSize: 10)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-            decoration: const BoxDecoration(
-              color: Color(0xFF004D40),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text('বাকি আছে: ৳${_toBengaliDigits(remainingReceivable.toStringAsFixed(0))}', 
-                    style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13)),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 20),
-                    child: Text('বাকি দিতে হবে: ৳${_toBengaliDigits(remainingPayable.toStringAsFixed(0))}', 
-                      style: const TextStyle(color: Colors.lightGreenAccent, fontWeight: FontWeight.bold, fontSize: 13)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       child: Row(
         children: [
           Expanded(
-            child: Container(
-              height: 45,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: _onSearchChanged,
-                decoration: InputDecoration(
-                  hintText: 'গ্রাহক খুঁজুন...',
-                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                  prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
-                  suffixIcon: _searchController.text.isNotEmpty 
-                    ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: _resetFilters)
-                    : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                ),
+            child: SummaryCard(
+              label: labelTotal,
+              amount: '৳${DateFormatterUtils.toBengaliNumber(total)}',
+              amountColor: const Color(0xFF212121),
+              icon: isCustomer ? Icons.arrow_downward : Icons.arrow_upward,
+              iconColor: isCustomer ? const Color(0xFFFF9800) : const Color(0xFF1976D2),
+              iconBackgroundColor: isCustomer ? const Color(0xFFFFF3E0) : const Color(0xFFE3F2FD),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SummaryCard(
+              label: labelPaid,
+              amount: '৳${DateFormatterUtils.toBengaliNumber(paid)}',
+              amountColor: const Color(0xFF212121),
+              icon: Icons.check_circle_outline,
+              iconColor: const Color(0xFF4CAF50),
+              iconBackgroundColor: const Color(0xFFE8F5E9),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SummaryCard(
+              label: 'রিপোর্ট',
+              amount: 'PDF',
+              amountColor: const Color(0xFF2196F3),
+              icon: Icons.picture_as_pdf_outlined,
+              iconColor: const Color(0xFFF44336),
+              iconBackgroundColor: const Color(0xFFFFEBEE),
+              onTap: () => _generateAndSharePDF(isCustomer: isCustomer),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              decoration: InputDecoration(
+                hintText: 'গ্রাহক খুঁজুন...',
+                prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: _resetFilters,
+                    )
+                  : null,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                fillColor: Colors.white,
+                filled: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.blue)),
               ),
             ),
           ),
           const SizedBox(width: 10),
-          PopupMenuButton<String>(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            onSelected: _applyDateFilter,
-            itemBuilder: (context) => ['সব', 'আজ', 'গতকাল', 'গত ৭ দিন', 'গত ৩০ দিন', 'এই মাস', 'গত মাস', 'কাস্টম তারিখ'].map((filter) => 
-              PopupMenuItem(value: filter, child: Text(filter, style: const TextStyle(fontSize: 14)))
-            ).toList(),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Row(
-                children: [
-                  Text(_selectedDateFilter, style: const TextStyle(fontSize: 14, color: Colors.teal)),
-                  const Icon(Icons.arrow_drop_down, color: Colors.teal),
-                ],
-              ),
-            ),
-          ),
+          _buildFilterButton(Icons.sort, () => _showSortOptions()),
         ],
       ),
+    );
+  }
+
+  Widget _buildFilterButton(IconData icon, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, size: 20, color: Colors.blueGrey),
+      ),
+    );
+  }
+
+  void _showSortOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Text('সাজান (Sort By)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+          _buildSortItem('নাম (A-Z)', 'name_asc'),
+          _buildSortItem('নাম (Z-A)', 'name_desc'),
+          _buildSortItem('বাকি (বেশি থেকে কম)', 'balance_desc'),
+          _buildSortItem('বাকি (কম থেকে বেশি)', 'balance_asc'),
+          _buildSortItem('সর্বশেষ লেনদেন', 'last_transaction'),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSortItem(String title, String value) {
+    final isSelected = _sortBy == value;
+    return ListTile(
+      title: Text(title, style: TextStyle(color: isSelected ? Colors.blue : Colors.black87, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+      trailing: isSelected ? const Icon(Icons.check, color: Colors.blue) : null,
+      onTap: () {
+        setState(() => _sortBy = value);
+        _sortCustomers();
+        Navigator.pop(context);
+      },
     );
   }
 
   Widget _buildActionBar({required bool isCustomer, required int count}) {
     final label = isCustomer ? 'গ্রাহক' : 'সরবরাহকারী';
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text('$label তালিকা (${_toBengaliDigits(count.toString())})', 
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.sort, color: Colors.blueGrey, size: 20),
-            tooltip: 'সাজান',
-            onSelected: (val) {
-              setState(() => _sortBy = val);
-              _sortCustomers();
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'name_asc', child: Text('নাম (A-Z)')),
-              const PopupMenuItem(value: 'name_desc', child: Text('নাম (Z-A)')),
-              const PopupMenuItem(value: 'balance_desc', child: Text('বাকি (বেশি থেকে কম)')),
-              const PopupMenuItem(value: 'balance_asc', child: Text('বাকি (কম থেকে বেশি)')),
-              const PopupMenuItem(value: 'last_transaction', child: Text('সর্বশেষ লেনদেন')),
-            ],
-          ),
-          const Spacer(),
-          TextButton.icon(
-            onPressed: () => _generateAndSharePDF(isCustomer: isCustomer),
-            icon: const Icon(Icons.picture_as_pdf, size: 18, color: Colors.teal),
-            label: Text('$label PDF', style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
-            style: TextButton.styleFrom(
-              backgroundColor: Colors.teal.shade50,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
+          Text('$label তালিকা (${_toBengaliDigits(count.toString())})',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blueGrey)),
         ],
       ),
     );
@@ -624,7 +689,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
             children: [
               Text(customer.phone ?? 'ফোন নম্বর নেই', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
               if (customer.lastTransactionDate != null)
-                Text('শেয লেনদেন: ${DateFormat('dd MMM').format(customer.lastTransactionDate!)}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                Text('শেষ লেনদেন: ${DateFormat('dd MMM').format(customer.lastTransactionDate!)}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
             ],
           ),
           trailing: Column(
@@ -635,7 +700,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                 '৳${_toBengaliDigits(customer.currentCreditBalance.abs().toStringAsFixed(0))}',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: customer.type == 'customer' ? Colors.red : Colors.green),
               ),
-              Text(customer.type == 'customer' ? 'মোট বাকি' : 'বাকি দিতে হবে', 
+              Text(customer.type == 'customer' ? 'মোট বাকি' : 'বাকি দিতে হবে',
                 style: TextStyle(fontSize: 10, color: customer.type == 'customer' ? Colors.red : Colors.green)),
             ],
           ),
@@ -649,14 +714,14 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
 
   Future<void> _generateAndSharePDF({bool isCustomer = true}) async {
     final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
-    
+
     Map<int, List<CustomerTransaction>> histories = {};
     for (var c in _filteredCustomers) {
       histories[c.id] = await repo.getCustomerTransactionHistory(c.id);
     }
 
     await ReportGenerator.generateBakirKhataPDF(
-      shopName: 'আমার দোকান', // In real app, get from settings
+      shopName: 'আমার দোকান',
       summary: _summary,
       customers: _filteredCustomers,
       transactionHistories: histories,
@@ -678,7 +743,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('⚠️ সতর্কতা'),
+        title: const Text('সতর্কতা'),
         content: Text('আপনি কি এই গ্রাহককে মুছে ফেলতে চান?\n\nনাম: ${customer.name}\nবাকি: ৳${_toBengaliDigits(customer.currentCreditBalance.toStringAsFixed(0))}\n\nসকল লেনদেন ইতিহাস মুছে যাবে!'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('বাতিল')),
@@ -710,7 +775,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
           ),
           ListTile(
             leading: const Icon(Icons.payments_outlined, color: Colors.green),
-            title: const Text('বকেয়া পরিশোধের হিসাব রাখুন'),
+            title: const Text('বকেয়া পরিশোধের হিসাব রাখুন'),
             subtitle: const Text('কাস্টমারের কাছ থেকে টাকা জমা নিন'),
             onTap: () {
               Navigator.pop(context);
@@ -758,7 +823,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
               TextField(controller: addressController, decoration: const InputDecoration(labelText: 'ঠিকানা (ঐচ্ছিক)')),
               TextField(controller: notesController, decoration: const InputDecoration(labelText: 'মন্তব্য (ঐচ্ছিক)')),
               const SizedBox(height: 16),
-              Text('বর্তমান বাকি: ৳${_toBengaliDigits(customer.currentCreditBalance.toStringAsFixed(0))}', 
+              Text('বর্তমান বাকি: ৳${_toBengaliDigits(customer.currentCreditBalance.toStringAsFixed(0))}',
                 style: const TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
@@ -768,10 +833,10 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
           ElevatedButton(
             onPressed: () async {
               if (nameController.text.isEmpty || phoneController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('নাম এবং ফোন নম্বর প্রয়োজন')));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('নাম এবং ফোন নম্বর প্রয়োজন')));
                 return;
               }
-              
+
               final updated = CustomerDue(
                 id: customer.id,
                 name: nameController.text,
@@ -787,11 +852,11 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
 
               final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
               await repo.updateCustomer(updated);
-              
+
               if (!mounted) return;
               Navigator.pop(context);
               _loadData();
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('গ্রাহক তথ্য আপডেট হয়েছে')));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('গ্রাহক তথ্য আপডেট হয়েছে')));
             },
             child: const Text('সংরক্ষণ করুন'),
           ),
@@ -800,8 +865,6 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     );
   }
 
-  // --- UI Components ---
-
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -809,7 +872,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
         children: [
           Icon(Icons.check_circle_outline, size: 64, color: Colors.green.shade200),
           const SizedBox(height: 16),
-          const Text('কোনো গ্রাহক পাওয়া যায়নি', style: TextStyle(color: Colors.grey)),
+          const Text('কোনো গ্রাহক পাওয়া যায়নি', style: TextStyle(color: Colors.grey)),
         ],
       ),
     );
@@ -836,7 +899,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                   decoration: const InputDecoration(labelText: 'ধরণ'),
                   items: const [
                     DropdownMenuItem(value: 'customer', child: Text('গ্রাহক (আমি পাবো)')),
-                    DropdownMenuItem(value: 'supplier', child: Text('সাপ্লায়ার (আমি দিবো)')),
+                    DropdownMenuItem(value: 'supplier', child: Text('সাপ্লায়ার (আমি দিবো)')),
                   ],
                   onChanged: (val) => setState(() => customerType = val!),
                 ),
@@ -852,13 +915,13 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
             ElevatedButton(
               onPressed: () async {
                 if (nameController.text.isEmpty || phoneController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('নাম এবং ফোন নম্বর প্রয়োজন')));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('নাম এবং ফোন নম্বর প্রয়োজন')));
                   return;
                 }
 
                 final db = context.read<DatabaseHelper>();
                 final database = await db.database;
-                
+
                 await database.insert(DatabaseConstants.tableCustomers, {
                   DatabaseConstants.colName: nameController.text,
                   DatabaseConstants.colPhone: phoneController.text,
@@ -878,7 +941,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                 if (!context.mounted) return;
                 Navigator.pop(context);
                 _loadData();
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('গ্রাহক যুক্ত হয়েছে')));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('গ্রাহক যুক্ত হয়েছে')));
               },
               child: const Text('সংরক্ষণ করুন'),
             ),
@@ -901,7 +964,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
           children: [
             Text('কাস্টমার: ${customer.name}'),
             const SizedBox(height: 8),
-            Text('বর্তমান বাকি: ৳${_toBengaliDigits(customer.currentCreditBalance.toStringAsFixed(0))}', 
+            Text('বর্তমান বাকি: ৳${_toBengaliDigits(customer.currentCreditBalance.toStringAsFixed(0))}',
               style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             TextField(
@@ -925,7 +988,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('সঠিক পরিমাণ লিখুন')));
                 return;
               }
-              
+
               final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
               await repo.recordCustomerPayment(
                 customerId: customer.id,
@@ -936,7 +999,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
               if (!mounted) return;
               Navigator.pop(context);
               _loadData();
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('টাকা জমা নেওয়া সফল হয়েছে')));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('টাকা জমা নেওয়া সফল হয়েছে')));
             },
             child: const Text('নিশ্চিত করুন'),
           ),
@@ -970,7 +1033,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('লেনদেনের ইতিহাস',  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                          const Text('লেনদেনের ইতিহাস', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                           Text(_toBengaliDigits(customer.name), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 16)),
                         ],
                       ),
@@ -991,12 +1054,12 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                             final trans = history[index];
                             final isSale = trans.transactionType == 'sale';
                             return ListTile(
-                              title: Text(isSale ? 'পণ্য ক্রয় (বাকি)' : 'টাকা পরিশোধ'),
+                              title: Text(isSale ? 'পণ্য ক্রয় (বাকি)' : 'টাকা পরিশোধ'),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   if (trans.description != null) Text(trans.description!, style: const TextStyle(fontSize: 12)),
-                                  Text(DateFormat('dd MMM yyyy, hh:mm a').format(trans.transactionDate), 
+                                  Text(DateFormat('dd MMM yyyy, hh:mm a').format(trans.transactionDate),
                                     style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
                                 ],
                               ),
