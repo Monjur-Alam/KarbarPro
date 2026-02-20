@@ -23,6 +23,7 @@ class DashboardScreen extends StatefulWidget {
 
 class DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
+  late PageController _pageController;
   
   // Expense Filter state (shared with ExpenseView)
   String _selectedPeriod = 'মাসিক';
@@ -49,12 +50,14 @@ class DashboardScreenState extends State<DashboardScreen> {
 
   void setIndex(int index) {
     setState(() => _selectedIndex = index);
+    _pageController.jumpToPage(index);
   }
   Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: _selectedIndex);
     context.read<HomeBloc>().add(LoadDashboard());
     // Auto-refresh summary every 30 seconds
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
@@ -67,6 +70,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -100,8 +104,11 @@ class DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       appBar: _buildAppBar(titles[_selectedIndex], context),
       endDrawer: const AppDrawer(),
-      body: IndexedStack(
-        index: _selectedIndex,
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (index) {
+          setState(() => _selectedIndex = index);
+        },
         children: screens,
       ),
       bottomNavigationBar: _buildBottomNav(),
@@ -223,6 +230,11 @@ class DashboardScreenState extends State<DashboardScreen> {
       selectedIndex: _selectedIndex,
       onDestinationSelected: (index) {
         setState(() => _selectedIndex = index);
+        _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
       },
       destinations: const [
         NavigationDestination(

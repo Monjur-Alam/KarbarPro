@@ -431,7 +431,7 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
   Widget _buildFilterTabs() {
     return Container(
       color: const Color(0xFFFAFAFA),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
       child: TabBar(
         controller: _tabController,
         dividerColor: Colors.transparent,
@@ -447,9 +447,9 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
         indicatorPadding: EdgeInsets.zero,
         labelPadding: const EdgeInsets.symmetric(horizontal: 4),
         tabs: const [
-          Tab(text: 'সব'),
-          Tab(text: 'জমা'),
-          Tab(text: 'খরচ'),
+          Tab(text: '     সব     '),
+          Tab(text: '     জমা     '),
+          Tab(text: '     খরচ     '),
         ],
       ),
     );
@@ -695,23 +695,28 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
   }
 
   Widget _buildFABs() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        FloatingActionButton(
-          heroTag: 'expense',
-          backgroundColor: const Color(0xFFF44336),
-          onPressed: () => _showTransactionDialog(context, 'expense'),
-          child: const Icon(Icons.remove, color: Colors.white),
-        ),
-        const SizedBox(height: 12),
-        FloatingActionButton(
-          heroTag: 'income',
-          backgroundColor: const Color(0xFF4CAF50),
-          onPressed: () => _showTransactionDialog(context, 'income'),
-          child: const Icon(Icons.add, color: Colors.white),
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton(
+            heroTag: 'expense',
+            backgroundColor: const Color(0xFFF44336),
+            shape: const CircleBorder(),
+            onPressed: () => _showTransactionDialog(context, 'expense'),
+            child: const Icon(Icons.remove, color: Colors.white),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton(
+            heroTag: 'income',
+            backgroundColor: const Color(0xFF4CAF50),
+            shape: const CircleBorder(),
+            onPressed: () => _showTransactionDialog(context, 'income'),
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
+        ],
+      ),
     );
   }
 
