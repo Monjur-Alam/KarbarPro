@@ -243,7 +243,7 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
   Widget _buildPeriodTabs() {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
@@ -277,7 +277,7 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         decoration: BoxDecoration(
           border: isSelected
               ? const Border(
@@ -334,13 +334,13 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
 
     return Container(
       color: Colors.white,
-      height: 50,
+      height: 35,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start, 
         children: [
           if (widget.selectedPeriod == 'দৈনিক')
             IconButton(
-              icon: const Icon(Icons.calendar_month, color: Color(0xFF2196F3)),
+              icon: const Icon(Icons.calendar_month, color: Color(0xFF2196F3), size: 18,),
               onPressed: () async {
                 final picked = await showDatePicker(
                   context: context,
@@ -695,7 +695,7 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
   }
 
   Widget _buildFABs() {
-    return Padding(
+    return Container(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
