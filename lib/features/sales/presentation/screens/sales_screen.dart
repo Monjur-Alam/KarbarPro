@@ -556,149 +556,190 @@ class _SalesViewState extends State<SalesView> {
         : state.salesHistory.where((s) => s.paymentMethod == type).toList();
 
     if (sales.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.history_edu_outlined, size: 64, color: Colors.grey.shade300),
-            const SizedBox(height: 16),
-            Text('কোনো বিক্রয় তথ্য পাওয়া যায়নি', style: TextStyle(color: Colors.grey.shade500)),
-          ],
+      return RefreshIndicator(
+        onRefresh: () async {
+          context.read<SalesBloc>().add(LoadSalesInitialData());
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: 400,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.history_edu_outlined, size: 64, color: Colors.grey.shade300),
+                  const SizedBox(height: 16),
+                  Text('কোনো বিক্রয় তথ্য পাওয়া যায়নি', style: TextStyle(color: Colors.grey.shade500)),
+                ],
+              ),
+            ),
+          ),
         ),
       );
     }
+
+    // Group sales by date
+    final grouped = <String, List<Sale>>{};
+    for (final sale in sales) {
+      final dateKey = DateFormat('dd MMM yyyy').format(sale.saleDate);
+      if (!grouped.containsKey(dateKey)) {
+        grouped[dateKey] = [];
+      }
+      grouped[dateKey]!.add(sale);
+    }
+
+    final dateKeys = grouped.keys.toList();
 
     return RefreshIndicator(
       onRefresh: () async {
         context.read<SalesBloc>().add(LoadSalesInitialData());
       },
       child: ListView.builder(
-        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 80),
+        padding: const EdgeInsets.only(bottom: 100),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        itemCount: sales.length,
+        itemCount: dateKeys.length,
         itemBuilder: (context, index) {
-          final sale = sales[index];
-          final isCash = sale.paymentMethod == 'cash';
+          final dateKey = dateKeys[index];
+          final daySales = grouped[dateKey]!;
 
-          return Card(
-            elevation: 0,
-            margin: const EdgeInsets.only(bottom: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: Colors.grey.shade200),
-            ),
-            child: InkWell(
-              onTap: () {},
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          double dayTotal = 0;
+          for (var s in daySales) {
+            dayTotal += s.totalAmount;
+          }
+
+          return Column(
+            children: [
+              // Date header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                color: Colors.white,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: isCash ? Colors.green.shade50 : Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            isCash ? Icons.payments_outlined : Icons.account_balance_wallet_outlined,
-                            color: isCash ? Colors.green : Colors.orange,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                sale.productNames ?? 'অজানা পণ্য',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (!isCash && sale.customerName != null) ...[
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(Icons.person_outline, size: 14, color: Colors.orange.shade700),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      sale.customerName!,
-                                      style: TextStyle(color: Colors.orange.shade800, fontSize: 13, fontWeight: FontWeight.w500),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              '৳${_toBengaliDigits(NumberFormat('#,##,###').format(sale.totalAmount))}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: isCash ? Colors.green.shade100 : Colors.orange.shade100,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                isCash ? 'নগদ' : 'বাকি',
-                                style: TextStyle(
-                                  color: isCash ? Colors.green.shade800 : Colors.orange.shade800,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                    Text(
+                      dateKey,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF757575),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10),
-                      child: Divider(height: 1, thickness: 0.5),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.receipt_long_outlined, size: 14, color: Colors.grey.shade600),
-                            const SizedBox(width: 4),
-                            Text(
-                              '#${_toBengaliDigits(sale.invoiceId.split('-').last)}',
-                              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            Icon(Icons.access_time, size: 14, color: Colors.grey.shade600),
-                            const SizedBox(width: 4),
-                            Text(
-                              DateFormat('dd MMM, hh:mm a').format(sale.saleDate),
-                              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ],
+                    Text(
+                      'মোট ৳${DateFormatterUtils.toBengaliNumber(dayTotal)}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF1976D2),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
+              // Day's transactions
+              Container(
+                color: Colors.white,
+                child: Column(
+                  children: daySales.map((sale) {
+                    final isCash = sale.paymentMethod == 'cash';
+                    return InkWell(
+                      onTap: () {},
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            // Icon
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: isCash ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                isCash ? Icons.payments_outlined : Icons.account_balance_wallet_outlined,
+                                color: isCash ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Content
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    sale.productNames ?? 'অজানা পণ্য',
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xFF212121),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.access_time, size: 12, color: Color(0xFF9E9E9E)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        DateFormatterUtils.formatTime(sale.saleDate),
+                                        style: const TextStyle(fontSize: 12, color: Color(0xFF9E9E9E)),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      const Icon(Icons.receipt_long_outlined, size: 12, color: Color(0xFF9E9E9E)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '#${_toBengaliDigits(sale.invoiceId.split('-').last)}',
+                                        style: const TextStyle(fontSize: 12, color: Color(0xFF9E9E9E)),
+                                      ),
+                                    ],
+                                  ),
+                                  if (!isCash && sale.customerName != null) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      sale.customerName!,
+                                      style: const TextStyle(fontSize: 13, color: Color(0xFF757575)),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Amount
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '৳${DateFormatterUtils.toBengaliNumber(sale.totalAmount)}',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: isCash ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  isCash ? 'নগদ' : 'বাকি',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isCash ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFF5F5F5)),
+            ],
           );
         },
       ),

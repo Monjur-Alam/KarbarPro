@@ -636,18 +636,23 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
         await _loadData();
       },
       child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.only(bottom: 100),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         itemCount: customers.length,
         itemBuilder: (context, index) {
           final customer = customers[index];
-          return _buildCustomerDueCard(customer);
+          return _buildCustomerDueItem(customer);
         },
       ),
     );
   }
 
-  Widget _buildCustomerDueCard(CustomerDue customer) {
+  Widget _buildCustomerDueItem(CustomerDue customer) {
+    final isCustomer = customer.type == 'customer';
+    final amountColor = isCustomer ? const Color(0xFFF44336) : const Color(0xFF4CAF50);
+    final iconBgColor = isCustomer ? const Color(0xFFFFF3E0) : const Color(0xFFE3F2FD);
+    final iconColor = isCustomer ? const Color(0xFFFF9800) : const Color(0xFF1976D2);
+
     return Dismissible(
       key: Key('customer_${customer.id}'),
       direction: DismissDirection.endToStart,
@@ -664,8 +669,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(12)),
+        color: Colors.red,
         child: const Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -674,37 +678,94 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
           ],
         ),
       ),
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade100)),
-        elevation: 0,
-        child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: Colors.blue.shade50,
-            child: Text(customer.name.isNotEmpty ? customer.name[0] : '?', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-          ),
-          title: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: InkWell(
+        onTap: () => _showCustomerMenu(context, customer),
+        child: Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
             children: [
-              Text(customer.phone ?? 'ফোন নম্বর নেই', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-              if (customer.lastTransactionDate != null)
-                Text('শেষ লেনদেন: ${DateFormat('dd MMM').format(customer.lastTransactionDate!)}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            ],
-          ),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '৳${_toBengaliDigits(customer.currentCreditBalance.abs().toStringAsFixed(0))}',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: customer.type == 'customer' ? Colors.red : Colors.green),
+              // Icon
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: iconBgColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    customer.name.isNotEmpty ? customer.name[0] : '?',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: iconColor,
+                    ),
+                  ),
+                ),
               ),
-              Text(customer.type == 'customer' ? 'মোট বাকি' : 'বাকি দিতে হবে',
-                style: TextStyle(fontSize: 10, color: customer.type == 'customer' ? Colors.red : Colors.green)),
+              const SizedBox(width: 12),
+              // Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      customer.name,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF212121),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.phone_outlined, size: 12, color: Color(0xFF9E9E9E)),
+                        const SizedBox(width: 4),
+                        Text(
+                          customer.phone ?? 'ফোন নম্বর নেই',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF9E9E9E)),
+                        ),
+                        if (customer.lastTransactionDate != null) ...[
+                          const SizedBox(width: 12),
+                          const Icon(Icons.calendar_today, size: 12, color: Color(0xFF9E9E9E)),
+                          const SizedBox(width: 4),
+                          Text(
+                            DateFormat('dd MMM').format(customer.lastTransactionDate!),
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF9E9E9E)),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Amount
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '৳${DateFormatterUtils.toBengaliNumber(customer.currentCreditBalance.abs())}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: amountColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: Color(0xFF9E9E9E),
+                  ),
+                ],
+              ),
             ],
           ),
-          onTap: () => _showCustomerMenu(context, customer),
         ),
       ),
     );
