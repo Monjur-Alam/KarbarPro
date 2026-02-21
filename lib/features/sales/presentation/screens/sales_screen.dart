@@ -558,7 +558,7 @@ class _SalesViewState extends State<SalesView> {
     if (sales.isEmpty) {
       return RefreshIndicator(
         onRefresh: () async {
-          context.read<SalesBloc>().add(LoadSalesInitialData());
+          _applyPeriodFilter();
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -593,14 +593,14 @@ class _SalesViewState extends State<SalesView> {
 
     return RefreshIndicator(
       onRefresh: () async {
-        context.read<SalesBloc>().add(LoadSalesInitialData());
+        _applyPeriodFilter();
       },
       child: ListView.builder(
         padding: const EdgeInsets.only(bottom: 100),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         itemCount: dateKeys.length,
-        itemBuilder: (context, index) {
-          final dateKey = dateKeys[index];
+        itemBuilder: (context, idx) {
+          final dateKey = dateKeys[idx];
           final daySales = grouped[dateKey]!;
 
           double dayTotal = 0;

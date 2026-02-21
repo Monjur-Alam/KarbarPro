@@ -79,7 +79,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
-        _applyTabFilter();
+        setState(() {});
       }
     });
     _generateLists();
@@ -265,19 +265,38 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
             _buildPeriodTabs(),
             _buildCurrentSelectionSelector(),
             Expanded(
-              child: Column(
-                children: [
-                  _buildDueTabBar(),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildTabView(isCustomer: true),
-                        _buildTabView(isCustomer: false),
-                      ],
+              child: NestedScrollView(
+                headerSliverBuilder: (context, innerBoxIsScrolled) {
+                  return [
+                    SliverToBoxAdapter(
+                      child: _buildTabSummaryCard(isCustomer: _tabController.index == 0),
                     ),
-                  ),
-                ],
+                    SliverToBoxAdapter(
+                      child: _buildSearchBar(),
+                    ),
+                    SliverToBoxAdapter(
+                      child: _buildActionBar(
+                        isCustomer: _tabController.index == 0,
+                        count: _getFilteredList(_tabController.index == 0).length,
+                      ),
+                    ),
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _SliverAppBarDelegate(
+                        minHeight: 48,
+                        maxHeight: 48,
+                        child: _buildDueTabBar(),
+                      ),
+                    ),
+                  ];
+                },
+                body: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildTabContent(isCustomer: true),
+                    _buildTabContent(isCustomer: false),
+                  ],
+                ),
               ),
             ),
           ],
@@ -456,28 +475,36 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     );
   }
 
-  Widget _buildTabView({required bool isCustomer}) {
+  List<CustomerDue> _getFilteredList(bool isCustomer) {
     final list = isCustomer ? _customersList : _suppliersList;
     final search = _searchController.text.toLowerCase();
-    final filteredList = list.where((c) =>
+    return list.where((c) =>
       c.name.toLowerCase().contains(search) ||
       (c.phone != null && c.phone!.contains(search))
     ).toList();
+  }
 
-    return Column(
-      children: [
-        _buildTabSummaryCard(isCustomer: isCustomer),
-        _buildSearchBar(),
-        _buildActionBar(isCustomer: isCustomer, count: filteredList.length),
-        Expanded(
-          child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : filteredList.isEmpty
-              ? _buildEmptyState()
-              : _buildCustomerList(filteredList),
+  Widget _buildTabContent({required bool isCustomer}) {
+    final filteredList = _getFilteredList(isCustomer);
+
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (filteredList.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: () => _loadData(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: 400,
+            child: _buildEmptyState(),
+          ),
         ),
-      ],
-    );
+      );
+    }
+
+    return _buildCustomerList(filteredList);
   }
 
   Widget _buildTabSummaryCard({required bool isCustomer}) {
@@ -1182,5 +1209,35 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
         ],
       ),
     );
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  final double minHeight;
+  final double maxHeight;
+  final Widget child;
+
+  _SliverAppBarDelegate({
+    required this.minHeight,
+    required this.maxHeight,
+    required this.child,
+  });
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return maxHeight != oldDelegate.maxHeight ||
+        minHeight != oldDelegate.minHeight ||
+        child != oldDelegate.child;
   }
 }

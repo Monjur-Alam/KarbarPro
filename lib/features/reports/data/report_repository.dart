@@ -472,9 +472,9 @@ class ReportRepository {
     List<dynamic> whereArgs = [];
 
     if (startDate != null && endDate != null) {
-      // Return customers who had transactions in this period
-      whereClause += " AND EXISTS (SELECT 1 FROM ${DatabaseConstants.tableCustomerTransactions} ct WHERE ct.${DatabaseConstants.colCustomerId} = ${DatabaseConstants.tableCustomers}.${DatabaseConstants.colId} AND ct.${DatabaseConstants.colTransactionDate} BETWEEN ? AND ?)";
-      whereArgs.addAll([startDate.toIso8601String(), endDate.toIso8601String()]);
+      // Return customers who had transactions in this period OR were created in this period
+      whereClause += " AND (EXISTS (SELECT 1 FROM ${DatabaseConstants.tableCustomerTransactions} ct WHERE ct.${DatabaseConstants.colCustomerId} = ${DatabaseConstants.tableCustomers}.${DatabaseConstants.colId} AND ct.${DatabaseConstants.colTransactionDate} BETWEEN ? AND ?) OR ${DatabaseConstants.colCreatedAt} BETWEEN ? AND ?)";
+      whereArgs.addAll([startDate.toIso8601String(), endDate.toIso8601String(), startDate.toIso8601String(), endDate.toIso8601String()]);
     }
 
     if (searchQuery != null && searchQuery.isNotEmpty) {
