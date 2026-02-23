@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../bloc/auth_bloc.dart';
 
 class LoginScreen extends StatelessWidget {
@@ -58,9 +59,9 @@ class LoginScreen extends StatelessWidget {
                     const SizedBox(height: 32),
 
                     // App Title
-                    const Text(
-                      'Amar Dokan',
-                      style: TextStyle(
+                    Text(
+                      context.l10n.appName,
+                      style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -71,7 +72,7 @@ class LoginScreen extends StatelessWidget {
 
                     // Subtitle
                     Text(
-                      'Manage your shop efficiently',
+                      context.l10n.loginSubtitle,
                       style: TextStyle(
                         fontSize: 16,
                         color: Colors.white.withValues(alpha: 0.9),
@@ -93,7 +94,7 @@ class LoginScreen extends StatelessWidget {
                                   width: 24,
                                   height: 24,
                                 ),
-                                label: const Text('Sign in with Google'),
+                                label: Text(context.l10n.signInWithGoogle),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.white,
                                   foregroundColor: Colors.grey.shade800,

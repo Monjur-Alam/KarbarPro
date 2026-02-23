@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/database/database_helper.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/services/invoice_service.dart';
 import '../../data/sales_repository.dart';
 import '../../domain/sale.dart';
@@ -11,24 +12,10 @@ class SaleDetailScreen extends StatelessWidget {
 
   const SaleDetailScreen({super.key, required this.sale});
 
-  String _toBengaliDigits(String input) {
-    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-    for (int i = 0; i < english.length; i++) {
-      input = input.replaceAll(english[i], bengali[i]);
-    }
-    return input;
-  }
-
-  String _formatCurrency(double amount) {
-    final formatter = NumberFormat('#,##,###');
-    return '৳${_toBengaliDigits(formatter.format(amount))}';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       appBar: AppBar(
         title: const Text('বিক্রির বিবরণ', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
@@ -50,11 +37,11 @@ class SaleDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _buildInvoiceHeader(),
+            _buildInvoiceHeader(context),
             const SizedBox(height: 16),
-            _buildItemsList(),
+            _buildItemsList(context),
             const SizedBox(height: 16),
-            _buildSummarySection(),
+            _buildSummarySection(context),
             if (sale.notes != null && sale.notes!.isNotEmpty) ...[
               const SizedBox(height: 16),
               _buildNotesSection(),
@@ -65,11 +52,12 @@ class SaleDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInvoiceHeader() {
+  Widget _buildInvoiceHeader(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
@@ -81,11 +69,11 @@ class SaleDetailScreen extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                   Text('ইনভয়েস #${_toBengaliDigits(sale.invoiceId)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                   Text('ইনভয়েস #${l10n.formatDigits(sale.invoiceId)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                    const SizedBox(height: 4),
                    Text(
-                     _toBengaliDigits(DateFormat('dd MMMM, yyyy • hh:mm a').format(sale.saleDate)),
-                     style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                     l10n.formatDigits(DateFormat('dd MMMM, yyyy • hh:mm a').format(sale.saleDate)),
+                     style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                    ),
                 ],
               ),
@@ -117,11 +105,13 @@ class SaleDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildItemsList() {
+  Widget _buildItemsList(BuildContext context) {
+    final l10n = context.l10n;
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
@@ -139,11 +129,11 @@ class SaleDetailScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(item.productName, style: const TextStyle(fontWeight: FontWeight.w500)),
-                      Text('${_toBengaliDigits(item.quantity.toString())} x ${_formatCurrency(item.unitPrice)}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                      Text('${l10n.formatDigits(item.quantity.toString())} x ৳${l10n.formatAmount(item.unitPrice)}', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
                     ],
                   ),
                 ),
-                Text(_formatCurrency(item.subTotal), style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('৳${l10n.formatAmount(item.subTotal)}', style: const TextStyle(fontWeight: FontWeight.bold)),
               ],
             ),
           )),
@@ -152,23 +142,25 @@ class SaleDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSummarySection() {
+  Widget _buildSummarySection(BuildContext context) {
+    final l10n = context.l10n;
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
       child: Column(
         children: [
-          _buildSummaryRow('মোট মূল্য', _formatCurrency(sale.totalAmount + sale.discount)),
-          if (sale.discount > 0) _buildSummaryRow('ডিসকাউন্ট', '- ${_formatCurrency(sale.discount)}', color: Colors.red),
+          _buildSummaryRow('মোট মূল্য', '৳${l10n.formatAmount(sale.totalAmount + sale.discount)}'),
+          if (sale.discount > 0) _buildSummaryRow('ডিসকাউন্ট', '- ৳${l10n.formatAmount(sale.discount)}', color: Colors.red),
           const Divider(height: 24),
-          _buildSummaryRow('সর্বমোট (Net Total)', _formatCurrency(sale.totalAmount), isBold: true, fontSize: 18),
+          _buildSummaryRow('সর্বমোট (Net Total)', '৳${l10n.formatAmount(sale.totalAmount)}', isBold: true, fontSize: 18),
           const SizedBox(height: 8),
-          _buildSummaryRow('পরিশোধিত', _formatCurrency(sale.paidAmount), color: Colors.green),
-          if (sale.dueAmount > 0) _buildSummaryRow('বাকি', _formatCurrency(sale.dueAmount), color: Colors.red, isBold: true),
+          _buildSummaryRow('পরিশোধিত', '৳${l10n.formatAmount(sale.paidAmount)}', color: Colors.green),
+          if (sale.dueAmount > 0) _buildSummaryRow('বাকি', '৳${l10n.formatAmount(sale.dueAmount)}', color: Colors.red, isBold: true),
         ],
       ),
     );

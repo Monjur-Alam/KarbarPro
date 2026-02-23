@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 import '../../../../core/database/database_helper.dart';
 import '../../../../core/constants/database_constants.dart';
+import '../../../../core/l10n/app_localizations.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -25,21 +26,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
     super.dispose();
   }
 
-  String _toBengaliDigits(String input) {
-    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-    for (int i = 0; i < english.length; i++) {
-      input = input.replaceAll(english[i], bengali[i]);
-    }
-    return input;
-  }
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.grey.shade50,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
         body: BlocBuilder<InventoryBloc, InventoryState>(
           builder: (context, state) {
             if (state is InventoryLoading) {
@@ -51,13 +43,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   _buildFilterChips(context, state),
                   Expanded(
                     child: state.products.isEmpty
-                        ? _buildEmptyState()
-                        : _buildProductList(state.products),
+                        ? _buildEmptyState(context)
+                        : _buildProductList(context, state.products),
                   ),
                 ],
               );
             } else if (state is InventoryError) {
-              return Center(child: Text('ত্রুটি: ${state.message}'));
+              return Center(child: Text('${context.l10n.errorPrefix}${state.message}'));
             }
             return const SizedBox.shrink();
           },
@@ -65,7 +57,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => _showAddEditProductDialog(context),
           icon: const Icon(Icons.add, size: 20,),
-          label: const Text('নতুন আইটেম যোগ'),
+          label: Text(context.l10n.addNewItem),
         ),
       ),
     );
@@ -74,7 +66,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget _buildSearchAndSort(BuildContext context, InventoryLoaded state) {
     return Container(
       padding: const EdgeInsets.all(16),
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface,
       child: Row(
         children: [
           Expanded(
@@ -89,7 +81,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ));
               },
               decoration: InputDecoration(
-                hintText: 'পণ্য অনুসন্ধান করুন...',
+                hintText: context.l10n.searchProducts,
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
@@ -106,7 +98,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.grey.shade100,
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -119,7 +111,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           IconButton(
             icon: const Icon(Icons.sort),
             style: IconButton.styleFrom(
-              backgroundColor: Colors.grey.shade100,
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
               padding: const EdgeInsets.all(12),
             ),
             onPressed: () => _showSortBottomSheet(context, state),
@@ -130,12 +122,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildFilterChips(BuildContext context, InventoryLoaded state) {
-    // Map internal values to Bengali display names
+    final l10n = context.l10n;
     final stockFilterDisplay = {
-      null: 'সমস্ত স্টক',
-      'in_stock': 'স্টক আছে',
-      'low': 'কম স্টক',
-      'out': 'স্টক শেষ',
+      null: l10n.allStock,
+      'in_stock': l10n.inStock,
+      'low': l10n.lowStock,
+      'out': l10n.outOfStock,
     };
 
     return Padding(
@@ -165,24 +157,21 @@ class _InventoryScreenState extends State<InventoryScreen> {
               },
               itemBuilder: (context) {
                 final items = <PopupMenuEntry<String>>[];
-                
+                final cs = Theme.of(context).colorScheme;
                 // Add "All" option
                 items.add(PopupMenuItem(
                   value: 'All',
-                  child: Text('সব ক্যাটাগরি', style: const TextStyle(fontSize: 14)),
+                  child: Text(context.l10n.allCategories, style: TextStyle(fontSize: 14, color: cs.onSurface)),
                 ));
-                
                 // Add existing categories
                 for (final cat in state.allCategories) {
                   if (cat != 'All') {
                     items.add(PopupMenuItem(
                       value: cat,
-                      child: Text(cat, style: const TextStyle(fontSize: 14)),
+                      child: Text(cat, style: TextStyle(fontSize: 14, color: cs.onSurface)),
                     ));
                   }
                 }
-                
-                // Add divider and manage option
                 if (state.allCategories.length > 1) {
                   items.add(const PopupMenuDivider());
                 }
@@ -190,36 +179,39 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   value: '__manage__',
                   child: Row(
                     children: [
-                      Icon(Icons.settings, size: 16, color: Colors.blue.shade700),
+                      Icon(Icons.settings, size: 16, color: cs.primary),
                       const SizedBox(width: 8),
-                      Text('ক্যাটাগরি ম্যানেজ করুন', 
-                        style: TextStyle(fontSize: 14, color: Colors.blue.shade700)),
+                      Text(context.l10n.manageCategories, style: TextStyle(fontSize: 14, color: cs.primary)),
                     ],
                   ),
                 ));
-                
                 return items;
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        state.category ?? 'সব ক্যাটাগরি',
-                        style: const TextStyle(fontSize: 14, color: Colors.teal),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+              child: Builder(
+                builder: (ctx) {
+                  final cs = Theme.of(ctx).colorScheme;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: cs.outlineVariant),
                     ),
-                    const Icon(Icons.arrow_drop_down, color: Colors.teal),
-                  ],
-                ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            state.category ?? context.l10n.allCategories,
+                            style: TextStyle(fontSize: 14, color: cs.primary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Icon(Icons.arrow_drop_down, color: cs.primary),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -237,32 +229,40 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   sortBy: state.sortBy,
                 ));
               },
-              itemBuilder: (context) => [
-                PopupMenuItem(value: null, child: Text('সমস্ত স্টক', style: const TextStyle(fontSize: 14))),
-                PopupMenuItem(value: 'in_stock', child: Text('স্টক আছে', style: const TextStyle(fontSize: 14))),
-                PopupMenuItem(value: 'low', child: Text('কম স্টক', style: const TextStyle(fontSize: 14))),
-                PopupMenuItem(value: 'out', child: Text('স্টক শেষ', style: const TextStyle(fontSize: 14))),
-              ],
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        stockFilterDisplay[state.stockFilter] ?? 'সমস্ত স্টক',
-                        style: const TextStyle(fontSize: 14, color: Colors.teal),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+              itemBuilder: (context) {
+                final cs = Theme.of(context).colorScheme;
+                return [
+                  PopupMenuItem(value: null, child: Text(context.l10n.allStock, style: TextStyle(fontSize: 14, color: cs.onSurface))),
+                  PopupMenuItem(value: 'in_stock', child: Text(context.l10n.inStock, style: TextStyle(fontSize: 14, color: cs.onSurface))),
+                  PopupMenuItem(value: 'low', child: Text(context.l10n.lowStock, style: TextStyle(fontSize: 14, color: cs.onSurface))),
+                  PopupMenuItem(value: 'out', child: Text(context.l10n.outOfStock, style: TextStyle(fontSize: 14, color: cs.onSurface))),
+                ];
+              },
+              child: Builder(
+                builder: (ctx) {
+                  final cs = Theme.of(ctx).colorScheme;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: cs.outlineVariant),
                     ),
-                    const Icon(Icons.arrow_drop_down, color: Colors.teal),
-                  ],
-                ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            stockFilterDisplay[state.stockFilter] ?? context.l10n.allStock,
+                            style: TextStyle(fontSize: 14, color: cs.primary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Icon(Icons.arrow_drop_down, color: cs.primary),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -271,7 +271,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _buildProductList(List<Product> products) {
+  Widget _buildProductList(BuildContext context, List<Product> products) {
     return RefreshIndicator(
       onRefresh: () async {
         context.read<InventoryBloc>().add(LoadProducts());
@@ -282,13 +282,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
         itemCount: products.length,
         itemBuilder: (context, index) {
           final product = products[index];
-          return _buildProductCard(product);
+          return _buildProductCard(context, product);
         },
       ),
     );
   }
 
-  Widget _buildProductCard(Product product) {
+  Widget _buildProductCard(BuildContext context, Product product) {
     final stockColor = product.currentStock <= 0
         ? Colors.red
         : product.currentStock <= product.minStockAlert
@@ -370,9 +370,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildInfoColumn('বিক্রয়', '৳${_toBengaliDigits(product.sellingPrice.toStringAsFixed(0))}', Colors.green),
-                  _buildInfoColumn('ক্রয়', '৳${_toBengaliDigits(product.purchasePrice.toStringAsFixed(0))}', Colors.blue),
-                  _buildInfoColumn('পরিমাণ', '${_toBengaliDigits(product.currentStock.toString())} ${product.unit}', stockColor),
+                  _buildInfoColumn(context.l10n.sellingPrice, '৳${context.l10n.formatAmount(product.sellingPrice)}', Colors.green),
+                  _buildInfoColumn(context.l10n.purchasePrice, '৳${context.l10n.formatAmount(product.purchasePrice)}', Colors.blue),
+                  _buildInfoColumn(context.l10n.quantity, '${context.l10n.formatDigits(product.currentStock.toString())} ${product.unit}', stockColor),
                 ],
               ),
             ],
@@ -406,7 +406,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -414,12 +414,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
           Icon(Icons.inventory_2_outlined, size: 80, color: Colors.grey.shade300),
           const SizedBox(height: 16),
           Text(
-            'কোনো পণ্য পাওয়া যায়নি',
+            context.l10n.noProductsFound,
             style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 8),
           Text(
-            'নতুন পণ্য যোগ করতে নিচের বাটনে ক্লিক করুন',
+            context.l10n.addProductHint,
             style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
           ),
         ],

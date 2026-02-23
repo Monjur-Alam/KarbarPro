@@ -1,4 +1,5 @@
 import 'package:amar_dokan/core/constants/app_colors.dart';
+import 'package:amar_dokan/core/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -152,12 +153,13 @@ class DashboardScreenState extends State<DashboardScreen> {
       ),
     ];
 
+    final l10n = context.l10n;
     final List<String> titles = [
-      'আমার দোকান',
-      'পণ্য বিক্রয়',
-      'বাকি খাতা',
-      'পণ্যের তালিকা',
-      'দোকানের খরচ',
+      l10n.appTitle,
+      l10n.salesTitle,
+      l10n.dueLedgerTitle,
+      l10n.inventoryTitle,
+      l10n.expenseTitle,
     ];
     return Scaffold(
       appBar: _buildAppBar(titles[_selectedIndex], context),
@@ -207,31 +209,35 @@ class DashboardScreenState extends State<DashboardScreen> {
       }
     }
 
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: colorScheme.surface,
+      foregroundColor: colorScheme.onSurface,
+      elevation: 0,
       centerTitle: false,
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 20, color: Colors.black),
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20, color: colorScheme.onSurface),
           ),
           if (labelText.isNotEmpty)
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.calendar_today,
                   size: 10,
-                  color: Color(0xFF2196F3),
+                  color: colorScheme.primary,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   labelText,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF2196F3),
+                    color: colorScheme.primary,
                   ),
                 ),
               ],
@@ -245,12 +251,12 @@ class DashboardScreenState extends State<DashboardScreen> {
             if (state is HomeLoaded) {
               syncStatus = state.syncStatus;
             }
-            return _buildSyncIndicator(syncStatus);
+            return _buildSyncIndicator(context, syncStatus);
           },
         ),
         Builder(
           builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black,),
+            icon: Icon(Icons.menu, color: colorScheme.onSurface),
             onPressed: () => Scaffold.of(context).openEndDrawer(),
           ),
         ),
@@ -258,7 +264,9 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildSyncIndicator(SyncStatus status) {
+  Widget _buildSyncIndicator(BuildContext context, SyncStatus status) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     IconData icon;
     Color color;
     String label;
@@ -267,28 +275,28 @@ class DashboardScreenState extends State<DashboardScreen> {
       case SyncStatus.syncing:
         icon = Icons.sync;
         color = Colors.orange;
-        label = 'সিঙ্ক হচ্ছে...';
+        label = l10n.syncSyncing;
         break;
       case SyncStatus.success:
         icon = Icons.cloud_done;
         color = Colors.green;
-        label = 'অনলাইন';
+        label = l10n.syncOnline;
         break;
       case SyncStatus.failed:
         icon = Icons.sync_problem;
         color = Colors.red;
-        label = 'ব্যর্থ';
+        label = l10n.syncFailed;
         break;
       case SyncStatus.queued:
       case SyncStatus.paused:
         icon = Icons.cloud_off;
         color = Colors.grey;
-        label = 'অফলাইন';
+        label = l10n.syncOffline;
         break;
       case SyncStatus.idle:
         icon = Icons.cloud_queue;
-        color = Colors.blueGrey;
-        label = 'ব্যবহার্য';
+        color = colorScheme.outline;
+        label = l10n.syncUsable;
     }
 
     return Padding(
@@ -314,31 +322,31 @@ class DashboardScreenState extends State<DashboardScreen> {
           curve: Curves.easeInOut,
         );
       },
-      destinations: const [
+      destinations: [
         NavigationDestination(
-          icon: Icon(Icons.home_outlined), 
-          selectedIcon: Icon(Icons.home, color: AppColors.primary),
-          label: 'হোম'
+          icon: const Icon(Icons.home_outlined),
+          selectedIcon: const Icon(Icons.home, color: AppColors.primary),
+          label: context.l10n.navHome,
         ),
         NavigationDestination(
-          icon: Icon(Icons.shopping_cart_outlined), 
-          selectedIcon: Icon(Icons.shopping_cart, color: AppColors.primary),
-          label: 'বিক্রয়'
+          icon: const Icon(Icons.shopping_cart_outlined),
+          selectedIcon: const Icon(Icons.shopping_cart, color: AppColors.primary),
+          label: context.l10n.navSales,
         ),
         NavigationDestination(
-          icon: Icon(Icons.menu_book_outlined), 
-          selectedIcon: Icon(Icons.menu_book, color: AppColors.primary),
-          label: 'বাকি খাতা'
+          icon: const Icon(Icons.menu_book_outlined),
+          selectedIcon: const Icon(Icons.menu_book, color: AppColors.primary),
+          label: context.l10n.navDueLedger,
         ),
         NavigationDestination(
-          icon: Icon(Icons.inventory_2_outlined), 
-          selectedIcon: Icon(Icons.inventory_2, color: AppColors.primary),
-          label: 'তালিকা'
+          icon: const Icon(Icons.inventory_2_outlined),
+          selectedIcon: const Icon(Icons.inventory_2, color: AppColors.primary),
+          label: context.l10n.navList,
         ),
         NavigationDestination(
-          icon: Icon(Icons.account_balance_wallet_outlined), 
-          selectedIcon: Icon(Icons.account_balance_wallet, color: AppColors.primary),
-          label: 'খরচ'
+          icon: const Icon(Icons.account_balance_wallet_outlined),
+          selectedIcon: const Icon(Icons.account_balance_wallet, color: AppColors.primary),
+          label: context.l10n.navExpense,
         ),
       ],
     );
@@ -347,25 +355,6 @@ class DashboardScreenState extends State<DashboardScreen> {
 
 class DashboardHome extends StatelessWidget {
   const DashboardHome({super.key});
-
-  String _toBengaliDigits(String input) {
-    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-    for (int i = 0; i < english.length; i++) {
-        input = input.replaceAll(english[i], bengali[i]);
-    }
-    return input;
-  }
-
-  String _formatCurrency(double amount) {
-    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-    String input = amount.toStringAsFixed(0);
-    for (int i = 0; i < english.length; i++) {
-        input = input.replaceAll(english[i], bengali[i]);
-    }
-    return input;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -384,27 +373,27 @@ class DashboardHome extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                   _buildSummaryCard(state),
+                   _buildSummaryCard(context, state),
                    const SizedBox(height: 16),
                    _buildBakirKhataSummaryCard(context, state),
                    const SizedBox(height: 24),
                    _buildReportOptions(context),
                    const SizedBox(height: 24),
-                   _buildSectionTitle('সাম্প্রতিক বিক্রি'),
+                   _buildSectionTitle(context, context.l10n.sectionRecentSales),
                    const SizedBox(height: 12),
-                   _buildRecentActivityList(state.summary.recentSales),
+                   _buildRecentActivityList(context, state.summary.recentSales),
                    const SizedBox(height: 24),
                    if (state.summary.lowStockProducts.isNotEmpty) ...[
-                     _buildSectionTitle('সতর্কতা (স্টক কম)'),
+                     _buildSectionTitle(context, context.l10n.sectionLowStock),
                      const SizedBox(height: 12),
-                     _buildAlertsSection(state.summary.lowStockProducts),
+                     _buildAlertsSection(context, state.summary.lowStockProducts),
                      const SizedBox(height: 24),
                    ],
                 ],
               ),
             );
           } else if (state is HomeError) {
-            return Center(child: Text('ত্রুটি: ${state.message}'));
+            return Center(child: Text('${context.l10n.errorPrefix}${state.message}'));
           }
           return const SizedBox();
         },
@@ -412,8 +401,11 @@ class DashboardHome extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryCard(HomeLoaded state) {
-    final today = _toBengaliDigits(DateFormat('d MMMM, yyyy', 'bn_BD').format(DateTime.now()));
+  Widget _buildSummaryCard(BuildContext context, HomeLoaded state) {
+    final l10n = context.l10n;
+    final locale = Localizations.localeOf(context);
+    final dateFormat = locale.languageCode == 'bn' ? 'd MMMM, yyyy' : 'MMM d, yyyy';
+    final today = l10n.formatDigits(DateFormat(dateFormat, locale.languageCode == 'bn' ? 'bn_BD' : 'en_US').format(DateTime.now()));
     
     return Container(
       width: double.infinity,
@@ -440,15 +432,15 @@ class DashboardHome extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(today, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-              const Badge(label: Text('লাইভ'), backgroundColor: Colors.red),
+              Badge(label: Text(l10n.live), backgroundColor: Colors.red),
             ],
           ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('দোকানের মেইন ব্যালেন্স', style: TextStyle(color: Colors.white70, fontSize: 14)),
-              Text('৳${_formatCurrency(state.summary.mainBalance)}', 
+              Text(l10n.shopMainBalance, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+              Text('৳${l10n.formatAmount(state.summary.mainBalance)}', 
                 style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             ],
           ),
@@ -458,9 +450,9 @@ class DashboardHome extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildSummaryItem('মোট বিক্রি (আজ)', _toBengaliDigits(state.summary.totalSalesToday.toString())),
-              _buildSummaryItem('মোট টাকা (আজ)', '৳${_formatCurrency(state.summary.totalAmountToday)}'),
-              _buildSummaryItem('লাভ (আজ)', '৳${_formatCurrency(state.summary.totalProfitToday)}'),
+              _buildSummaryItem(l10n.totalSalesToday, l10n.formatDigits(state.summary.totalSalesToday.toString())),
+              _buildSummaryItem(l10n.totalAmountToday, '৳${l10n.formatAmount(state.summary.totalAmountToday)}'),
+              _buildSummaryItem(l10n.profitToday, '৳${l10n.formatAmount(state.summary.totalProfitToday)}'),
             ],
           ),
         ],
@@ -472,7 +464,7 @@ class DashboardHome extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('রিপোর্ট'),
+        _buildSectionTitle(context, context.l10n.reportSection),
         const SizedBox(height: 12),
         GridView.count(
           crossAxisCount: 2,
@@ -485,14 +477,14 @@ class DashboardHome extends StatelessWidget {
             _buildReportCard(
               context,
               icon: Icons.receipt_long,
-              label: 'বিক্রয় রিপোর্ট',
+              label: context.l10n.salesReport,
               color: Colors.blue,
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SalesReportScreen())),
             ),
             _buildReportCard(
               context,
               icon: Icons.account_balance_wallet,
-              label: 'খরচ রিপোর্ট',
+              label: context.l10n.expenseReport,
               color: Colors.orange,
               onTap: () {
                 final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
@@ -502,7 +494,7 @@ class DashboardHome extends StatelessWidget {
             _buildReportCard(
               context,
               icon: Icons.inventory_2,
-              label: 'স্টক রিপোর্ট',
+              label: context.l10n.stockReport,
               color: Colors.green,
               onTap: () {
                 final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
@@ -512,7 +504,7 @@ class DashboardHome extends StatelessWidget {
             _buildReportCard(
               context,
               icon: Icons.people,
-              label: 'বাকি খাতা রিপোর্ট',
+              label: context.l10n.dueLedgerReport,
               color: Colors.red,
               onTap: () {
                 final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
@@ -571,7 +563,7 @@ class DashboardHome extends StatelessWidget {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Colors.grey.shade200),
+          side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
         ),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -581,14 +573,14 @@ class DashboardHome extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                   const Text('বাকির খাতা সারসংক্ষেপ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                   Text(context.l10n.dueSummaryTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                    TextButton.icon(
                      onPressed: () {
                         final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
                         dashboardState?.setState(() => dashboardState._selectedIndex = 2);
                      },
                      icon: const Icon(Icons.visibility, size: 16, color: Colors.blue),
-                     label: const Text('বিস্তারিত', style: TextStyle(color: Colors.blue, fontSize: 13)),
+                     label: Text(context.l10n.details, style: const TextStyle(color: Colors.blue, fontSize: 13)),
                      style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
                    ),
                 ],
@@ -596,33 +588,33 @@ class DashboardHome extends StatelessWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  // আমি পাবো (Receivables)
+                  // Receivables
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('আমি পাবো', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 14)),
+                        Text(context.l10n.iWillReceive, style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 14)),
                         const SizedBox(height: 8),
-                        _buildBakirMiniRow('মোট বাকি:', '৳${_formatCurrency(state.summary.totalReceivable)}'),
-                        _buildBakirMiniRow('আদায়:', '৳${_formatCurrency(state.summary.totalCollected)}'),
+                        _buildBakirMiniRow(context, context.l10n.totalDue, '৳${context.l10n.formatAmount(state.summary.totalReceivable)}'),
+                        _buildBakirMiniRow(context, context.l10n.collected, '৳${context.l10n.formatAmount(state.summary.totalCollected)}'),
                         const Divider(height: 16),
-                        _buildBakirMiniRow('বাকি আছে:', '৳${_formatCurrency(state.summary.totalReceivable - state.summary.totalCollected)}', 
+                        _buildBakirMiniRow(context, context.l10n.remainingDue, '৳${context.l10n.formatAmount(state.summary.totalReceivable - state.summary.totalCollected)}', 
                           valueStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
                       ],
                     ),
                   ),
-                  Container(height: 80, width: 1, color: Colors.grey.shade200, margin: const EdgeInsets.symmetric(horizontal: 16)),
-                  // আমি দিবো (Payables)
+                  Container(height: 80, width: 1, color: Theme.of(context).colorScheme.outlineVariant, margin: const EdgeInsets.symmetric(horizontal: 16)),
+                  // Payables
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('আমি দিবো', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 14)),
+                        Text(context.l10n.iWillPay, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 14)),
                         const SizedBox(height: 8),
-                        _buildBakirMiniRow('মোট বাকি:', '৳${_formatCurrency(state.summary.totalPayable)}'),
-                        _buildBakirMiniRow('দিয়েছি:', '৳${_formatCurrency(state.summary.totalPaid)}'),
+                        _buildBakirMiniRow(context, context.l10n.totalDue, '৳${context.l10n.formatAmount(state.summary.totalPayable)}'),
+                        _buildBakirMiniRow(context, context.l10n.paid, '৳${context.l10n.formatAmount(state.summary.totalPaid)}'),
                         const Divider(height: 16),
-                        _buildBakirMiniRow('বাকি দিতে হবে:', '৳${_formatCurrency(state.summary.totalPayable - state.summary.totalPaid)}', 
+                        _buildBakirMiniRow(context, context.l10n.remainingToPay, '৳${context.l10n.formatAmount(state.summary.totalPayable - state.summary.totalPaid)}', 
                           valueStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
                       ],
                     ),
@@ -636,13 +628,13 @@ class DashboardHome extends StatelessWidget {
     );
   }
 
-  Widget _buildBakirMiniRow(String label, String value, {TextStyle? valueStyle}) {
+  Widget _buildBakirMiniRow(BuildContext context, String label, String value, {TextStyle? valueStyle}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          Text(label, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
           Text(value, style: valueStyle ?? const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
         ],
       ),
@@ -659,7 +651,7 @@ class DashboardHome extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(BuildContext context, String title) {
     return Text(
       title,
       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -667,7 +659,7 @@ class DashboardHome extends StatelessWidget {
   }
 
 
-  Widget _buildAlertsSection(List<Map<String, dynamic>> lowStock) {
+  Widget _buildAlertsSection(BuildContext context, List<Map<String, dynamic>> lowStock) {
     return SizedBox(
       height: 80,
       child: ListView.builder(
@@ -694,7 +686,7 @@ class DashboardHome extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(p['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1),
-                      Text('স্টক: ${_toBengaliDigits(p['current_stock'].toString())}', style: TextStyle(color: Colors.red.shade700, fontSize: 11)),
+                      Text('${context.l10n.stockLabel}: ${context.l10n.formatDigits(p['current_stock'].toString())}', style: TextStyle(color: Colors.red.shade700, fontSize: 11)),
                     ],
                   ),
                 ),
@@ -706,30 +698,31 @@ class DashboardHome extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentActivityList(List<Map<String, dynamic>> sales) {
+  Widget _buildRecentActivityList(BuildContext context, List<Map<String, dynamic>> sales) {
+    final l10n = context.l10n;
     if (sales.isEmpty) {
-      return const Center(child: Text('কোন সাম্প্রতিক বিক্রি নেই'));
+      return Center(child: Text(l10n.noRecentSales));
     }
     return Column(
       children: sales.map((sale) {
         final date = DateTime.parse(sale['sale_date']);
-        final timeStr = _toBengaliDigits(DateFormat('hh:mm a').format(date));
+        final timeStr = context.l10n.formatDigits(DateFormat('hh:mm a').format(date));
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.grey.shade200),
+            side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
           ),
           child: ListTile(
             leading: CircleAvatar(
               backgroundColor: Colors.blue.shade50,
               child: const Icon(Icons.receipt, color: Colors.blue),
             ),
-            title: Text('ইনভয়েস: ${_toBengaliDigits(sale['invoice_number'])}'),
+            title: Text('${l10n.invoiceLabel}: ${l10n.formatDigits(sale['invoice_number'])}'),
             subtitle: Text(timeStr),
             trailing: Text(
-              '৳${_formatCurrency(sale['total_amount'])}',
+              '৳${l10n.formatAmount(sale['total_amount'])}',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),

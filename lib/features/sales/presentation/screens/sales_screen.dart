@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:amar_dokan/core/l10n/app_localizations.dart';
 import 'package:amar_dokan/features/sales/presentation/bloc/sales_bloc.dart';
 import 'package:amar_dokan/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:amar_dokan/features/sales/domain/sale.dart';
@@ -103,7 +104,8 @@ class _SalesViewState extends State<SalesView> {
   void _applyPeriodFilter() {
     DateTime? start;
     DateTime? end;
-    String label = 'সব';
+    // Do not use context.l10n here - this can be called from initState before inherited widgets are available.
+    String label = 'All';
 
     switch (widget.selectedPeriod) {
       case 'দৈনিক':
@@ -148,15 +150,6 @@ class _SalesViewState extends State<SalesView> {
     super.dispose();
   }
 
-  String _toBengaliDigits(String input) {
-    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-    for (int i = 0; i < english.length; i++) {
-      input = input.replaceAll(english[i], bengali[i]);
-    }
-    return input;
-  }
-
   void _showSaleFormBottomSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -191,7 +184,7 @@ class _SalesViewState extends State<SalesView> {
               heroTag: 'sales_fab',
               onPressed: () => _showSaleFormBottomSheet(context),
               icon: const Icon(Icons.add_shopping_cart, size: 20),
-              label: const Text('নতুন বিক্রি'),
+              label: Text(context.l10n.newSale),
             ),
             body: _buildBody(state),
           ),
@@ -214,7 +207,7 @@ class _SalesViewState extends State<SalesView> {
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => context.read<SalesBloc>().add(LoadSalesInitialData()),
-              child: const Text('পুনরায় চেষ্টা করুন'),
+              child: Text(context.l10n.retry),
             ),
           ],
         ),
@@ -234,7 +227,7 @@ class _SalesViewState extends State<SalesView> {
                 headerSliverBuilder: (context, innerBoxIsScrolled) {
                   return [
                     SliverToBoxAdapter(
-                      child: _buildSummaryCards(state),
+                      child: _buildSummaryCards(context, state),
                     ),
                     SliverToBoxAdapter(
                       child: _buildSearchBar(state),
@@ -251,9 +244,9 @@ class _SalesViewState extends State<SalesView> {
                 },
                 body: TabBarView(
                   children: [
-                    _buildHistoryList(state, 'all'),
-                    _buildHistoryList(state, 'cash'),
-                    _buildHistoryList(state, 'credit'),
+                    _buildHistoryList(context, state, 'all'),
+                    _buildHistoryList(context, state, 'cash'),
+                    _buildHistoryList(context, state, 'credit'),
                   ],
                 ),
               ),
@@ -263,29 +256,32 @@ class _SalesViewState extends State<SalesView> {
       );
     }
 
-    return const Center(child: Text('বিক্রয় ডাটা লোড করা যাচ্ছে না'));
+    return Center(child: Text(context.l10n.salesDataLoadError));
   }
 
   Widget _buildPeriodTabs() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: Colors.white,
+      color: colorScheme.surface,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildPeriodTab('দৈনিক'),
-          _buildPeriodTab('মাসিক'),
-          _buildPeriodTab('বাৎসরিক'),
-          _buildPeriodTab('পরিসর'),
+          _buildPeriodTab(context, 'দৈনিক'),
+          _buildPeriodTab(context, 'মাসিক'),
+          _buildPeriodTab(context, 'বাৎসরিক'),
+          _buildPeriodTab(context, 'পরিসর'),
         ],
       ),
     );
   }
 
-  Widget _buildPeriodTab(String label) {
-    final isSelected = widget.selectedPeriod == label;
+  Widget _buildPeriodTab(BuildContext context, String periodValue) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final isSelected = widget.selectedPeriod == periodValue;
     return GestureDetector(
       onTap: () async {
-        if (label == 'পরিসর') {
+        if (periodValue == 'পরিসর') {
           final picked = await showDateRangePicker(
             context: context,
             firstDate: DateTime(2020),
@@ -293,32 +289,32 @@ class _SalesViewState extends State<SalesView> {
           );
           if (picked != null) {
             widget.onFilterChanged(
-              selectedPeriod: label,
+              selectedPeriod: periodValue,
               customDateRange: picked,
             );
           }
         } else {
-          widget.onFilterChanged(selectedPeriod: label);
+          widget.onFilterChanged(selectedPeriod: periodValue);
         }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         decoration: BoxDecoration(
           border: isSelected
-              ? const Border(
+              ? Border(
                   bottom: BorderSide(
-                    color: Color(0xFF2196F3),
+                    color: colorScheme.primary,
                     width: 3,
                   ),
                 )
               : null,
         ),
         child: Text(
-          label,
+          l10n.getPeriodLabel(periodValue),
           style: TextStyle(
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-            color: isSelected ? const Color(0xFF2196F3) : const Color(0xFF757575),
+            color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
           ),
         ),
       ),
@@ -356,14 +352,15 @@ class _SalesViewState extends State<SalesView> {
       };
     }
 
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: Colors.white,
+      color: colorScheme.surface,
       height: 35,
       child: Row(
         children: [
           if (widget.selectedPeriod == 'দৈনিক')
             IconButton(
-              icon: const Icon(Icons.calendar_month, color: Color(0xFF2196F3), size: 18),
+              icon: Icon(Icons.calendar_month, color: colorScheme.primary, size: 18),
               onPressed: () async {
                 final picked = await showDatePicker(
                   context: context,
@@ -405,7 +402,7 @@ class _SalesViewState extends State<SalesView> {
     );
   }
 
-  Widget _buildSummaryCards(SalesDataLoaded state) {
+  Widget _buildSummaryCards(BuildContext context, SalesDataLoaded state) {
     // Compute totals directly from filtered sales list
     double totalSales = 0;
     double totalCredit = 0;
@@ -417,44 +414,45 @@ class _SalesViewState extends State<SalesView> {
     }
     final totalCash = totalSales - totalCredit;
 
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: Colors.white,
+      color: colorScheme.surface,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       child: Row(
         children: [
           Expanded(
             child: SummaryCard(
-              label: 'মোট বিক্রি',
-              amount: '৳${DateFormatterUtils.toBengaliNumber(totalSales)}',
-              amountColor: const Color(0xFF212121),
+              label: context.l10n.totalSales,
+              amount: '৳${context.l10n.formatAmount(totalSales)}',
+              amountColor: colorScheme.onSurface,
               icon: Icons.shopping_cart,
-              iconColor: const Color(0xFF1976D2),
-              iconBackgroundColor: const Color(0xFFE3F2FD),
+              iconColor: colorScheme.primary,
+              iconBackgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: SummaryCard(
-              label: 'বাকি বিক্রি',
-              amount: '৳${DateFormatterUtils.toBengaliNumber(totalCredit)}',
-              amountColor: const Color(0xFF212121),
+              label: context.l10n.creditSales,
+              amount: '৳${context.l10n.formatAmount(totalCredit)}',
+              amountColor: colorScheme.onSurface,
               icon: Icons.account_balance_wallet_outlined,
-              iconColor: const Color(0xFFFF9800),
-              iconBackgroundColor: const Color(0xFFFFF3E0),
+              iconColor: colorScheme.tertiary,
+              iconBackgroundColor: colorScheme.tertiary.withValues(alpha: 0.15),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: SummaryCard(
-              label: 'রিপোর্ট',
+              label: context.l10n.report,
               amount: 'PDF',
-              amountColor: const Color(0xFF2196F3),
+              amountColor: colorScheme.primary,
               icon: Icons.picture_as_pdf_outlined,
-              iconColor: const Color(0xFFF44336),
-              iconBackgroundColor: const Color(0xFFFFEBEE),
+              iconColor: colorScheme.error,
+              iconBackgroundColor: colorScheme.error.withValues(alpha: 0.15),
               onTap: () {
                 ReportGenerator.generateSalesPDF(
-                  shopName: 'আমার দোকান',
+                  shopName: context.l10n.shopNameForReport,
                   sales: state.salesHistory,
                   summary: {'total': totalSales, 'cash': totalCash, 'credit': totalCredit},
                   startDate: state.startDate,
@@ -469,6 +467,7 @@ class _SalesViewState extends State<SalesView> {
   }
 
   Widget _buildSearchBar(SalesDataLoaded state) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -484,8 +483,8 @@ class _SalesViewState extends State<SalesView> {
                 setState(() {});
               },
               decoration: InputDecoration(
-                hintText: 'ইনভয়েস বা গ্রাহক খুঁজুন...',
-                prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                hintText: context.l10n.searchInvoiceOrCustomer,
+                prefixIcon: Icon(Icons.search, size: 20, color: colorScheme.onSurfaceVariant),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.close, size: 18),
@@ -498,11 +497,11 @@ class _SalesViewState extends State<SalesView> {
                     : null,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                fillColor: Colors.white,
+                fillColor: colorScheme.surfaceContainerHighest,
                 filled: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.blue)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorScheme.outlineVariant)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorScheme.outlineVariant)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorScheme.primary)),
               ),
             ),
           ),
@@ -514,43 +513,46 @@ class _SalesViewState extends State<SalesView> {
   }
 
   Widget _buildFilterButton(IconData icon, VoidCallback onTap) {
+    final colorScheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, size: 20, color: Colors.blueGrey),
+        decoration: BoxDecoration(border: Border.all(color: colorScheme.outlineVariant), borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, size: 20, color: colorScheme.onSurfaceVariant),
       ),
     );
   }
 
   Widget _buildHistoryTabs(SalesDataLoaded state) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: const Color(0xFFFAFAFA),
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: const TabBar(
+      child: TabBar(
         dividerColor: Colors.transparent,
         indicator: BoxDecoration(
-          color: Color(0xFFBBDEFB),
-          borderRadius: BorderRadius.all(Radius.circular(20)),
+          color: colorScheme.primaryContainer.withValues(alpha: 0.6),
+          borderRadius: const BorderRadius.all(Radius.circular(20)),
         ),
-        labelColor: Color(0xFF1976D2),
-        unselectedLabelColor: Color(0xFF757575),
-        labelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
+        labelColor: colorScheme.primary,
+        unselectedLabelColor: colorScheme.onSurfaceVariant,
+        labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
         padding: EdgeInsets.zero,
         indicatorPadding: EdgeInsets.zero,
-        labelPadding: EdgeInsets.symmetric(horizontal: 4),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
         tabs: [
-          Tab(text: '     সব     '),
-          Tab(text: '     নগদ     '),
-          Tab(text: '     বাকি     '),
+          Tab(text: '    ${l10n.all}    '),
+          Tab(text: '    ${l10n.cash}    '),
+          Tab(text: '    ${l10n.credit}    '),
         ],
       ),
     );
   }
 
-  Widget _buildHistoryList(SalesDataLoaded state, String type) {
+  Widget _buildHistoryList(BuildContext context, SalesDataLoaded state, String type) {
     final sales = type == 'all'
         ? state.salesHistory
         : state.salesHistory.where((s) => s.paymentMethod == type).toList();
@@ -568,9 +570,9 @@ class _SalesViewState extends State<SalesView> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.history_edu_outlined, size: 64, color: Colors.grey.shade300),
+                  Icon(Icons.history_edu_outlined, size: 64, color: Theme.of(context).colorScheme.outline),
                   const SizedBox(height: 16),
-                  Text('কোনো বিক্রয় তথ্য পাওয়া যায়নি', style: TextStyle(color: Colors.grey.shade500)),
+                  Text(context.l10n.noSalesData, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 ],
               ),
             ),
@@ -611,134 +613,139 @@ class _SalesViewState extends State<SalesView> {
           return Column(
             children: [
               // Date header
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                color: Colors.white,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      dateKey,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF757575),
-                        fontWeight: FontWeight.w500,
-                      ),
+              Builder(
+                builder: (ctx) {
+                  final cs = Theme.of(ctx).colorScheme;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    color: cs.surface,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          dateKey,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: cs.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          '${context.l10n.totalPrefix} ৳${context.l10n.formatAmount(dayTotal)}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: cs.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      'মোট ৳${DateFormatterUtils.toBengaliNumber(dayTotal)}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF1976D2),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
               // Day's transactions
               Container(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 child: Column(
                   children: daySales.map((sale) {
                     final isCash = sale.paymentMethod == 'cash';
-                    return InkWell(
-                      onTap: () {},
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        child: Row(
-                          children: [
-                            // Icon
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: isCash ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                isCash ? Icons.payments_outlined : Icons.account_balance_wallet_outlined,
-                                color: isCash ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            // Content
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    sale.productNames ?? 'অজানা পণ্য',
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                      color: Color(0xFF212121),
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.access_time, size: 12, color: Color(0xFF9E9E9E)),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        DateFormatterUtils.formatTime(sale.saleDate),
-                                        style: const TextStyle(fontSize: 12, color: Color(0xFF9E9E9E)),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      const Icon(Icons.receipt_long_outlined, size: 12, color: Color(0xFF9E9E9E)),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '#${_toBengaliDigits(sale.invoiceId.split('-').last)}',
-                                        style: const TextStyle(fontSize: 12, color: Color(0xFF9E9E9E)),
-                                      ),
-                                    ],
-                                  ),
-                                  if (!isCash && sale.customerName != null) ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      sale.customerName!,
-                                      style: const TextStyle(fontSize: 13, color: Color(0xFF757575)),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            // Amount
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                    return Builder(
+                      builder: (ctx) {
+                        final cs = Theme.of(ctx).colorScheme;
+                        final amountColor = isCash ? cs.primary : cs.tertiary;
+                        return InkWell(
+                          onTap: () {},
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Row(
                               children: [
-                                Text(
-                                  '৳${DateFormatterUtils.toBengaliNumber(sale.totalAmount)}',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: isCash ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: amountColor.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    isCash ? Icons.payments_outlined : Icons.account_balance_wallet_outlined,
+                                    color: amountColor,
+                                    size: 24,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  isCash ? 'নগদ' : 'বাকি',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: isCash ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        sale.productNames ?? context.l10n.unknownProduct,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500,
+                                          color: cs.onSurface,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.access_time, size: 12, color: cs.outline),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            DateFormatterUtils.formatTime(sale.saleDate),
+                                            style: TextStyle(fontSize: 12, color: cs.outline),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Icon(Icons.receipt_long_outlined, size: 12, color: cs.outline),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '#${context.l10n.formatDigits(sale.invoiceId.split('-').last)}',
+                                            style: TextStyle(fontSize: 12, color: cs.outline),
+                                          ),
+                                        ],
+                                      ),
+                                      if (!isCash && sale.customerName != null) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          sale.customerName!,
+                                          style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ],
                                   ),
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '৳${context.l10n.formatAmount(sale.totalAmount)}',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: amountColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      isCash ? context.l10n.cash : context.l10n.credit,
+                                      style: TextStyle(fontSize: 11, color: amountColor),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+                        );
+                      },
                     );
                   }).toList(),
                 ),
               ),
-              const Divider(height: 1, thickness: 1, color: Color(0xFFF5F5F5)),
+              Divider(height: 1, thickness: 1, color: Theme.of(context).colorScheme.outlineVariant),
             ],
           );
         },
@@ -753,14 +760,14 @@ class _SalesViewState extends State<SalesView> {
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text('সাজান (Sort By)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Text(context.l10n.sortBy, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ),
-          _buildSortItem(context, 'সর্বশেষ থেকে পুরাতন', 'date_desc', state.sortBy == 'date_desc'),
-          _buildSortItem(context, 'পুরাতন থেকে সর্বশেষ', 'date_asc', state.sortBy == 'date_asc'),
-          _buildSortItem(context, 'টাকার অঙ্ক (বেশি থেকে কম)', 'amount_desc', state.sortBy == 'amount_desc'),
-          _buildSortItem(context, 'টাকার অঙ্ক (কম থেকে বেশি)', 'amount_asc', state.sortBy == 'amount_asc'),
+          _buildSortItem(context, context.l10n.sortNewestFirst, 'date_desc', state.sortBy == 'date_desc'),
+          _buildSortItem(context, context.l10n.sortOldestFirst, 'date_asc', state.sortBy == 'date_asc'),
+          _buildSortItem(context, context.l10n.sortAmountDesc, 'amount_desc', state.sortBy == 'amount_desc'),
+          _buildSortItem(context, context.l10n.sortAmountAsc, 'amount_asc', state.sortBy == 'amount_asc'),
           const SizedBox(height: 20),
         ],
       ),
@@ -787,12 +794,12 @@ class _SalesViewState extends State<SalesView> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 4),
             color: Colors.orange.shade800,
-            child: const Row(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.wifi_off, size: 14, color: Colors.white),
-                SizedBox(width: 8),
-                Text('অফলাইন মোডে বিক্রয় - ডেটা পরবর্তীতে সিঙ্ক হবে', style: TextStyle(color: Colors.white, fontSize: 12)),
+                const Icon(Icons.wifi_off, size: 14, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(context.l10n.offlineSalesBanner, style: const TextStyle(color: Colors.white, fontSize: 12)),
               ],
             ),
           );
@@ -808,31 +815,31 @@ class _SalesViewState extends State<SalesView> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Center(
+        title: Center(
           child: Column(
             children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 60),
-              SizedBox(height: 10),
-              Text('বিক্রয় সফল হয়েছে!', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Icon(Icons.check_circle, color: Colors.green, size: 60),
+              const SizedBox(height: 10),
+              Text(context.l10n.saleSuccess, style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildDataRow('ইনভয়েস:', _toBengaliDigits(sale.invoiceId)),
-            _buildDataRow('মোট পরিমাণ:', '৳${_toBengaliDigits(sale.totalAmount.toStringAsFixed(0))}'),
-            _buildDataRow('পেমেন্ট:', sale.paymentMethod == 'cash' ? 'নগদ' : 'বাকি'),
+            _buildDataRow(context.l10n.invoiceColon, context.l10n.formatDigits(sale.invoiceId)),
+            _buildDataRow(context.l10n.totalAmountLabel, '৳${context.l10n.formatAmount(sale.totalAmount)}'),
+            _buildDataRow(context.l10n.payment, sale.paymentMethod == 'cash' ? context.l10n.cash : context.l10n.credit),
             const Divider(),
             const SizedBox(height: 10),
-            _buildActionTile(Icons.print, 'প্রিন্ট রসিদ', Colors.blue, () => InvoiceService.printReceipt(sale)),
-            _buildActionTile(Icons.share, 'রসিদ শেয়ার করুন', Colors.green, () => InvoiceService.shareReceipt(sale)),
+            _buildActionTile(Icons.print, context.l10n.printReceipt, Colors.blue, () => InvoiceService.printReceipt(sale)),
+            _buildActionTile(Icons.share, context.l10n.shareReceipt, Colors.green, () => InvoiceService.shareReceipt(sale)),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('বন্ধ করুন', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(context.l10n.close, style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),

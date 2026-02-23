@@ -22,15 +22,16 @@ class SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFF5F5F5), width: 1),
+          border: Border.all(color: colorScheme.outlineVariant, width: 1),
         ),
         child: Column(
           children: [
@@ -46,9 +47,9 @@ class SummaryCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: Color(0xFF757575),
+                color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w400,
               ),
             ),

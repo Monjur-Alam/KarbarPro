@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
+import '../../../../core/l10n/app_localizations.dart';
 import 'package:printing/printing.dart';
 import '../../data/report_repository.dart';
 import '../../domain/expense_model.dart';
@@ -214,7 +215,7 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       body: Column(
         children: [
           _buildPeriodTabs(),
@@ -257,25 +258,27 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
 
   Widget _buildPeriodTabs() {
     return Container(
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface,
       padding: const EdgeInsets.symmetric(vertical: 0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildPeriodTab('দৈনিক'),
-          _buildPeriodTab('মাসিক'),
-          _buildPeriodTab('বাৎসরিক'),
-          _buildPeriodTab('পরিসর'),
+          _buildPeriodTab(context, 'দৈনিক'),
+          _buildPeriodTab(context, 'মাসিক'),
+          _buildPeriodTab(context, 'বাৎসরিক'),
+          _buildPeriodTab(context, 'পরিসর'),
         ],
       ),
     );
   }
 
-  Widget _buildPeriodTab(String label) {
-    final isSelected = widget.selectedPeriod == label;
+  Widget _buildPeriodTab(BuildContext context, String periodValue) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final isSelected = widget.selectedPeriod == periodValue;
     return GestureDetector(
       onTap: () async {
-        if (label == 'পরিসর') {
+        if (periodValue == 'পরিসর') {
           final picked = await showDateRangePicker(
             context: context,
             firstDate: DateTime(2020),
@@ -283,32 +286,32 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
           );
           if (picked != null) {
             widget.onFilterChanged(
-              selectedPeriod: label,
+              selectedPeriod: periodValue,
               customDateRange: picked,
             );
           }
         } else {
-          widget.onFilterChanged(selectedPeriod: label);
+          widget.onFilterChanged(selectedPeriod: periodValue);
         }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         decoration: BoxDecoration(
           border: isSelected
-              ? const Border(
+              ? Border(
                   bottom: BorderSide(
-                    color: Color(0xFF2196F3),
+                    color: colorScheme.primary,
                     width: 3,
                   ),
                 )
               : null,
         ),
         child: Text(
-          label,
+          l10n.getPeriodLabel(periodValue),
           style: TextStyle(
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-            color: isSelected ? const Color(0xFF2196F3) : const Color(0xFF757575),
+            color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
           ),
         ),
       ),
@@ -348,14 +351,14 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
     }
 
     return Container(
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface,
       height: 35,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start, 
         children: [
           if (widget.selectedPeriod == 'দৈনিক')
             IconButton(
-              icon: const Icon(Icons.calendar_month, color: Color(0xFF2196F3), size: 18,),
+              icon: Icon(Icons.calendar_month, color: Theme.of(context).colorScheme.primary, size: 18),
               onPressed: () async {
                 final picked = await showDatePicker(
                   context: context,
@@ -398,43 +401,45 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
   }
 
   Widget _buildSummaryCards() {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: Colors.white,
+      color: colorScheme.surface,
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       child: Row(
         children: [
           Expanded(
             child: SummaryCard(
-              label: 'জমা',
-              amount: '৳${DateFormatterUtils.toBengaliNumber(_totalAdded)}',
-              amountColor: const Color(0xFF212121),
+              label: l10n.income,
+              amount: '৳${context.l10n.formatAmount(_totalAdded)}',
+              amountColor: colorScheme.onSurface,
               icon: Icons.arrow_downward,
-              iconColor: const Color(0xFF4CAF50),
-              iconBackgroundColor: const Color(0xFFE8F5E9),
+              iconColor: colorScheme.primary,
+              iconBackgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
               onTap: () => _showTransactionDialog(context, 'income'),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: SummaryCard(
-              label: 'খরচ',
-              amount: '৳${DateFormatterUtils.toBengaliNumber(_totalExpense)}',
-              amountColor: const Color(0xFF212121),
+              label: l10n.expenseLabel,
+              amount: '৳${context.l10n.formatAmount(_totalExpense)}',
+              amountColor: colorScheme.onSurface,
               icon: Icons.arrow_upward,
-              iconColor: const Color(0xFFF44336),
-              iconBackgroundColor: const Color(0xFFFFEBEE),
+              iconColor: colorScheme.error,
+              iconBackgroundColor: colorScheme.error.withValues(alpha: 0.15),
               onTap: () => _showTransactionDialog(context, 'expense'),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: SummaryCard(
-              label: 'রিপোর্ট',
+              label: l10n.report,
               amount: 'PDF',
-              amountColor: const Color(0xFF2196F3),
+              amountColor: colorScheme.primary,
               icon: Icons.picture_as_pdf_outlined,
-              iconColor: const Color(0xFF2196F3),
-              iconBackgroundColor: const Color(0xFFE3F2FD),
+              iconColor: colorScheme.primary,
+              iconBackgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
               onTap: () => _generateExpenseReport(),
             ),
           ),
@@ -444,27 +449,29 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
   }
 
   Widget _buildFilterTabs() {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: const Color(0xFFFAFAFA),
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
       child: TabBar(
         controller: _tabController,
         dividerColor: Colors.transparent,
         indicator: BoxDecoration(
-          color: const Color(0xFFBBDEFB),
+          color: colorScheme.primaryContainer.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(20),
         ),
-        labelColor: const Color(0xFF1976D2),
-        unselectedLabelColor: const Color(0xFF757575),
+        labelColor: colorScheme.primary,
+        unselectedLabelColor: colorScheme.onSurfaceVariant,
         labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
         padding: EdgeInsets.zero,
         indicatorPadding: EdgeInsets.zero,
         labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-        tabs: const [
-          Tab(text: '     সব     '),
-          Tab(text: '     জমা     '),
-          Tab(text: '     খরচ     '),
+        tabs: [
+          Tab(text: '    ${l10n.all}    '),
+          Tab(text: '    ${l10n.income}    '),
+          Tab(text: '    ${l10n.expenseLabel}    '),
         ],
       ),
     );
@@ -526,33 +533,38 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
 
         return Column(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              color: Colors.white,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    dateKey,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF757575),
-                      fontWeight: FontWeight.w500,
-                    ),
+            Builder(
+              builder: (ctx) {
+                final cs = Theme.of(ctx).colorScheme;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  color: cs.surface,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        dateKey,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: cs.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        'মোট ${dayTotal >= 0 ? '+' : '-'}৳${context.l10n.formatAmount(dayTotal.abs())}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: dayTotal >= 0 ? cs.primary : cs.error,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    'মোট ${dayTotal >= 0 ? '+' : '-'}৳${DateFormatterUtils.toBengaliNumber(dayTotal.abs())}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: dayTotal >= 0 ? const Color(0xFF4CAF50) : const Color(0xFFF44336),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
             Container(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               child: Column(
                 children: dayTransactions.map((transaction) {
                   return TransactionItem(
@@ -562,7 +574,7 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
                 }).toList(),
               ),
             ),
-            const Divider(height: 1, thickness: 1, color: Color(0xFFF5F5F5)),
+            Divider(height: 1, thickness: 1, color: Theme.of(context).colorScheme.outlineVariant),
           ],
         );
       },
@@ -940,7 +952,7 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
                     children: [
                       const Text('পরিমাণ:', style: TextStyle(color: Colors.grey)),
                       Text(
-                        '৳${DateFormatterUtils.toBengaliNumber(trans.amount)}',
+                        '৳${context.l10n.formatAmount(trans.amount)}',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],

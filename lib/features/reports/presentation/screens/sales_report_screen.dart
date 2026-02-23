@@ -6,6 +6,7 @@ import '../bloc/report_bloc.dart';
 import '../../domain/report_models.dart';
 import '../../../sales/domain/sale.dart';
 import '../../../../core/database/database_helper.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../data/report_repository.dart';
 import '../../../../core/services/report_export_service.dart';
 import '../../../sales/presentation/screens/sale_detail_screen.dart';
@@ -103,20 +104,6 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
     super.dispose();
   }
 
-  String _toBengaliDigits(String input) {
-    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-    for (int i = 0; i < english.length; i++) {
-      input = input.replaceAll(english[i], bengali[i]);
-    }
-    return input;
-  }
-
-  String _formatCurrency(double amount) {
-    final formatter = NumberFormat('#,##,###');
-    return '৳${_toBengaliDigits(formatter.format(amount))}';
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ReportBloc, ReportState>(
@@ -145,7 +132,7 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                   _buildSummarySection(state.reportData.stats),
+                   _buildSummarySection(context, state.reportData.stats),
                    const SizedBox(height: 24),
                    _buildChartsSection(state.reportData),
                    const SizedBox(height: 24),
@@ -153,9 +140,9 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
                    const SizedBox(height: 24),
                    _buildPaymentDistribution(state.reportData.paymentSummary),
                    const SizedBox(height: 24),
-                   _buildTopProductsSection(state.reportData.topProducts),
+                   _buildTopProductsSection(context, state.reportData.topProducts),
                    const SizedBox(height: 24),
-                   _buildSalesListHeader(state.sales.length),
+                   _buildSalesListHeader(context, state.sales.length),
                    const SizedBox(height: 12),
                    _buildSalesTabs(context, state),
                    const SizedBox(height: 80), // Space for bottom actions
@@ -221,7 +208,8 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
     );
   }
 
-  Widget _buildSummarySection(SummaryStats stats) {
+  Widget _buildSummarySection(BuildContext context, SummaryStats stats) {
+    final l10n = context.l10n;
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
@@ -230,15 +218,15 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
       crossAxisSpacing: 12,
       childAspectRatio: 1.5,
       children: [
-        _buildStatCard('বিক্রি', _toBengaliDigits(stats.salesCount.toString()), Icons.receipt_long, Colors.blue),
-        _buildStatCard('মোট আয়', _formatCurrency(stats.totalRevenue), Icons.payments, Colors.green, growth: stats.revenueGrowth),
-        _buildStatCard('মোট লাভ', _formatCurrency(stats.totalProfit), Icons.trending_up, Colors.orange, subLabel: 'মার্জিন ${_toBengaliDigits(stats.profitMargin.toStringAsFixed(1))}%'),
-        _buildStatCard('গড় বিক্রয়', _formatCurrency(stats.averageSale), Icons.bar_chart, Colors.purple),
+        _buildStatCard(context, 'বিক্রি', l10n.formatDigits(stats.salesCount.toString()), Icons.receipt_long, Colors.blue),
+        _buildStatCard(context, 'মোট আয়', '৳${l10n.formatAmount(stats.totalRevenue)}', Icons.payments, Colors.green, growth: stats.revenueGrowth),
+        _buildStatCard(context, 'মোট লাভ', '৳${l10n.formatAmount(stats.totalProfit)}', Icons.trending_up, Colors.orange, subLabel: 'মার্জিন ${l10n.formatDigits(stats.profitMargin.toStringAsFixed(1))}%'),
+        _buildStatCard(context, 'গড় বিক্রয়', '৳${l10n.formatAmount(stats.averageSale)}', Icons.bar_chart, Colors.purple),
       ],
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color, {double? growth, String? subLabel}) {
+  Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color, {double? growth, String? subLabel}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -266,7 +254,7 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
                  Row(
                    children: [
                      Icon(growth >= 0 ? Icons.arrow_drop_up : Icons.arrow_drop_down, color: growth >= 0 ? Colors.green : Colors.red, size: 20),
-                     Text('${_toBengaliDigits(growth.abs().toStringAsFixed(1))}%', style: TextStyle(color: growth >= 0 ? Colors.green : Colors.red, fontSize: 11, fontWeight: FontWeight.bold)),
+                     Text('${context.l10n.formatDigits(growth.abs().toStringAsFixed(1))}%', style: TextStyle(color: growth >= 0 ? Colors.green : Colors.red, fontSize: 11, fontWeight: FontWeight.bold)),
                    ],
                  )
               else if (subLabel != null)
@@ -371,7 +359,7 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 40,
-                      getTitlesWidget: (value, meta) => Text(_toBengaliDigits(value.toInt().toString()), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                      getTitlesWidget: (value, meta) => Text(context.l10n.formatDigits(value.toInt().toString()), style: const TextStyle(fontSize: 10, color: Colors.grey)),
                     ),
                   ),
                   bottomTitles: AxisTitles(
@@ -473,7 +461,7 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
                           Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
                           const SizedBox(width: 8),
                           Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
-                          Text(_formatCurrency(s.revenue), style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('৳${context.l10n.formatAmount(s.revenue)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                          ],
                       ),
                     );
@@ -487,7 +475,8 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
     );
   }
 
-  Widget _buildTopProductsSection(List<ProductReportItem> products) {
+  Widget _buildTopProductsSection(BuildContext context, List<ProductReportItem> products) {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -495,9 +484,9 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
         const SizedBox(height: 16),
         Container(
            decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade100),
+            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
           ),
           child: ListView.separated(
             shrinkWrap: true,
@@ -510,15 +499,15 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
                 leading: CircleAvatar(
                   backgroundColor: Colors.blue.shade50,
                   radius: 12,
-                  child: Text(_toBengaliDigits((index + 1).toString()), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  child: Text(l10n.formatDigits((index + 1).toString()), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
                 title: Text(item.productName, style: const TextStyle(fontSize: 14)),
                 trailing: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('${_toBengaliDigits(item.quantitySold.toString())} টি', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text(_formatCurrency(item.totalRevenue), style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+                    Text('${l10n.formatDigits(item.quantitySold.toString())} টি', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text('৳${l10n.formatAmount(item.totalRevenue)}', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
                   ],
                 ),
               );
@@ -529,11 +518,11 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
     );
   }
 
-  Widget _buildSalesListHeader(int count) {
+  Widget _buildSalesListHeader(BuildContext context, int count) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text('বিক্রির তালিকা (${_toBengaliDigits(count.toString())})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text('বিক্রির তালিকা (${context.l10n.formatDigits(count.toString())})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         IconButton(
           icon: const Icon(Icons.filter_list), 
           onPressed: () => _showFilterBottomSheet(context),
@@ -645,8 +634,8 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
               title: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('ইনভয়েস #${_toBengaliDigits(sale.invoiceId)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text(_formatCurrency(sale.totalAmount), style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                  Text('ইনভয়েস #${context.l10n.formatDigits(sale.invoiceId)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text('৳${context.l10n.formatAmount(sale.totalAmount)}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                 ],
               ),
               subtitle: Column(
@@ -658,7 +647,7 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
                       Icon(Icons.access_time, size: 12, color: Colors.grey.shade500),
                       const SizedBox(width: 4),
                       Text(
-                        _toBengaliDigits(DateFormat('dd MMM • hh:mm a').format(sale.saleDate)),
+                        context.l10n.formatDigits(DateFormat('dd MMM • hh:mm a').format(sale.saleDate)),
                         style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                       ),
                       const SizedBox(width: 8),

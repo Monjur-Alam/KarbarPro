@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'core/themes/app_theme.dart';
+import 'core/settings/app_settings_cubit.dart';
 import 'features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'core/services/background_sync_helper.dart';
@@ -133,24 +134,35 @@ class MyApp extends StatelessWidget {
           BlocProvider(
             create: (context) => ReportBloc(repository: reportRepository),
           ),
+          BlocProvider(
+            create: (context) => AppSettingsCubit(),
+          ),
         ],
 
-        child: MaterialApp(
-          title: 'Amar Dokan',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: const [
-            Locale('bn', 'BD'), // Bengali (Bangladesh)
-            Locale('en', 'US'), // English (US)
-          ],
-          locale: const Locale('bn', 'BD'), // Default to Bengali
-          home: const AppView(),
-          navigatorObservers: [routeObserver],
+        child: BlocBuilder<AppSettingsCubit, AppSettingsState>(
+          buildWhen: (prev, curr) =>
+              prev.locale != curr.locale || prev.themeMode != curr.themeMode,
+          builder: (context, settingsState) {
+            return MaterialApp(
+              title: 'Amar Dokan',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: settingsState.flutterThemeMode,
+              localizationsDelegates: const [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: const [
+                Locale('bn', 'BD'),
+                Locale('en', 'US'),
+              ],
+              locale: settingsState.locale,
+              home: const AppView(),
+              navigatorObservers: [routeObserver],
+            );
+          },
         ),
       ),
     );

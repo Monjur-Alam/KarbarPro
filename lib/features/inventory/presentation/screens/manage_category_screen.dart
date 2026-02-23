@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/database/database_helper.dart';
 import '../../../../core/constants/database_constants.dart';
+import '../../../../core/database/database_helper.dart';
+import '../../../../core/l10n/app_localizations.dart';
 
 class ManageCategoryScreen extends StatefulWidget {
   const ManageCategoryScreen({super.key});
@@ -218,15 +219,6 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
     }
   }
 
-  String _toBengaliDigits(String input) {
-    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-    for (int i = 0; i < english.length; i++) {
-      input = input.replaceAll(english[i], bengali[i]);
-    }
-    return input;
-  }
-
   @override
   Widget build(BuildContext context) {
     final filteredCategories = _categories.where((cat) {
@@ -304,7 +296,7 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
                               subtitle: Text(
-                                '${_toBengaliDigits(productCount.toString())} আইটেম',
+                                '${context.l10n.formatDigits(productCount.toString())} আইটেম',
                                 style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
                               ),
                               trailing: Row(

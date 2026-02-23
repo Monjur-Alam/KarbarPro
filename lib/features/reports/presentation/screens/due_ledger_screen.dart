@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/constants/database_constants.dart';
 import '../../data/report_repository.dart';
 import '../../domain/due_ledger_model.dart';
@@ -245,15 +246,6 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     _loadData();
   }
 
-  String _toBengaliDigits(String input) {
-    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-    for (int i = 0; i < english.length; i++) {
-      input = input.replaceAll(english[i], bengali[i]);
-    }
-    return input;
-  }
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -304,7 +296,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => _showAddCustomerDialog(isSupplier: _tabController.index == 1),
           icon: const Icon(Icons.person_add_outlined, size: 20),
-          label: const Text('নতুন যোগ', style: TextStyle(color: Colors.white)),
+          label: Text(context.l10n.addNew, style: const TextStyle(color: Colors.white)),
         ),
       ),
     );
@@ -312,24 +304,26 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
 
   Widget _buildPeriodTabs() {
     return Container(
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildPeriodTab('দৈনিক'),
-          _buildPeriodTab('মাসিক'),
-          _buildPeriodTab('বাৎসরিক'),
-          _buildPeriodTab('পরিসর'),
+          _buildPeriodTab(context, 'দৈনিক'),
+          _buildPeriodTab(context, 'মাসিক'),
+          _buildPeriodTab(context, 'বাৎসরিক'),
+          _buildPeriodTab(context, 'পরিসর'),
         ],
       ),
     );
   }
 
-  Widget _buildPeriodTab(String label) {
-    final isSelected = widget.selectedPeriod == label;
+  Widget _buildPeriodTab(BuildContext context, String periodValue) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final isSelected = widget.selectedPeriod == periodValue;
     return GestureDetector(
       onTap: () async {
-        if (label == 'পরিসর') {
+        if (periodValue == 'পরিসর') {
           final picked = await showDateRangePicker(
             context: context,
             firstDate: DateTime(2020),
@@ -337,32 +331,32 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
           );
           if (picked != null) {
             widget.onFilterChanged(
-              selectedPeriod: label,
+              selectedPeriod: periodValue,
               customDateRange: picked,
             );
           }
         } else {
-          widget.onFilterChanged(selectedPeriod: label);
+          widget.onFilterChanged(selectedPeriod: periodValue);
         }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         decoration: BoxDecoration(
           border: isSelected
-              ? const Border(
+              ? Border(
                   bottom: BorderSide(
-                    color: Color(0xFF2196F3),
+                    color: colorScheme.primary,
                     width: 3,
                   ),
                 )
               : null,
         ),
         child: Text(
-          label,
+          l10n.getPeriodLabel(periodValue),
           style: TextStyle(
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-            color: isSelected ? const Color(0xFF2196F3) : const Color(0xFF757575),
+            color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
           ),
         ),
       ),
@@ -400,14 +394,15 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
       };
     }
 
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: Colors.white,
+      color: colorScheme.surface,
       height: 35,
       child: Row(
         children: [
           if (widget.selectedPeriod == 'দৈনিক')
             IconButton(
-              icon: const Icon(Icons.calendar_month, color: Color(0xFF2196F3), size: 18),
+              icon: Icon(Icons.calendar_month, color: colorScheme.primary, size: 18),
               onPressed: () async {
                 final picked = await showDatePicker(
                   context: context,
@@ -450,18 +445,19 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
   }
 
   Widget _buildDueTabBar() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: const Color(0xFFFAFAFA),
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: TabBar(
         controller: _tabController,
         dividerColor: Colors.transparent,
         indicator: BoxDecoration(
-          color: const Color(0xFFBBDEFB),
+          color: colorScheme.primaryContainer.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(20),
         ),
-        labelColor: const Color(0xFF1976D2),
-        unselectedLabelColor: const Color(0xFF757575),
+        labelColor: colorScheme.primary,
+        unselectedLabelColor: colorScheme.onSurfaceVariant,
         labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
         padding: EdgeInsets.zero,
@@ -517,44 +513,46 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
       paid += c.totalPaid;
     }
 
-    final labelTotal = isCustomer ? 'মোট পাবো' : 'মোট দিবো';
-    final labelPaid = isCustomer ? 'আদায় হয়েছে' : 'দিয়েছি';
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final labelTotal = isCustomer ? l10n.totalReceive : l10n.totalPay;
+    final labelPaid = isCustomer ? l10n.collectedLabel : l10n.paidLabel;
 
     return Container(
-      color: Colors.white,
+      color: colorScheme.surface,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       child: Row(
         children: [
           Expanded(
             child: SummaryCard(
               label: labelTotal,
-              amount: '৳${DateFormatterUtils.toBengaliNumber(total)}',
-              amountColor: const Color(0xFF212121),
+              amount: '৳${l10n.formatAmount(total)}',
+              amountColor: colorScheme.onSurface,
               icon: isCustomer ? Icons.arrow_downward : Icons.arrow_upward,
-              iconColor: isCustomer ? const Color(0xFFFF9800) : const Color(0xFF1976D2),
-              iconBackgroundColor: isCustomer ? const Color(0xFFFFF3E0) : const Color(0xFFE3F2FD),
+              iconColor: isCustomer ? colorScheme.tertiary : colorScheme.primary,
+              iconBackgroundColor: (isCustomer ? colorScheme.tertiary : colorScheme.primary).withValues(alpha: 0.2),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: SummaryCard(
               label: labelPaid,
-              amount: '৳${DateFormatterUtils.toBengaliNumber(paid)}',
-              amountColor: const Color(0xFF212121),
+              amount: '৳${l10n.formatAmount(paid)}',
+              amountColor: colorScheme.onSurface,
               icon: Icons.check_circle_outline,
-              iconColor: const Color(0xFF4CAF50),
-              iconBackgroundColor: const Color(0xFFE8F5E9),
+              iconColor: colorScheme.primary,
+              iconBackgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: SummaryCard(
-              label: 'রিপোর্ট',
+              label: l10n.report,
               amount: 'PDF',
-              amountColor: const Color(0xFF2196F3),
+              amountColor: colorScheme.primary,
               icon: Icons.picture_as_pdf_outlined,
-              iconColor: const Color(0xFFF44336),
-              iconBackgroundColor: const Color(0xFFFFEBEE),
+              iconColor: colorScheme.error,
+              iconBackgroundColor: colorScheme.error.withValues(alpha: 0.15),
               onTap: () => _generateAndSharePDF(isCustomer: isCustomer),
             ),
           ),
@@ -574,7 +572,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
               onChanged: _onSearchChanged,
               decoration: InputDecoration(
                 hintText: 'গ্রাহক খুঁজুন...',
-                prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                prefixIcon: Icon(Icons.search, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.close, size: 18),
@@ -583,11 +581,11 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                   : null,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                fillColor: Colors.white,
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                 filled: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.blue)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
               ),
             ),
           ),
@@ -603,7 +601,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.outlineVariant), borderRadius: BorderRadius.circular(10)),
         child: Icon(icon, size: 20, color: Colors.blueGrey),
       ),
     );
@@ -650,7 +648,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: Row(
         children: [
-          Text('$label তালিকা (${_toBengaliDigits(count.toString())})',
+          Text('$label তালিকা (${context.l10n.formatDigits(count.toString())})',
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blueGrey)),
         ],
       ),
@@ -676,9 +674,10 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
 
   Widget _buildCustomerDueItem(CustomerDue customer) {
     final isCustomer = customer.type == 'customer';
-    final amountColor = isCustomer ? const Color(0xFFF44336) : const Color(0xFF4CAF50);
-    final iconBgColor = isCustomer ? const Color(0xFFFFF3E0) : const Color(0xFFE3F2FD);
-    final iconColor = isCustomer ? const Color(0xFFFF9800) : const Color(0xFF1976D2);
+    final colorScheme = Theme.of(context).colorScheme;
+    final amountColor = isCustomer ? colorScheme.error : colorScheme.primary;
+    final iconBgColor = isCustomer ? colorScheme.error.withValues(alpha: 0.15) : colorScheme.primaryContainer.withValues(alpha: 0.3);
+    final iconColor = isCustomer ? colorScheme.tertiary : colorScheme.primary;
 
     return Dismissible(
       key: Key('customer_${customer.id}'),
@@ -705,95 +704,97 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
           ],
         ),
       ),
-      child: InkWell(
-        onTap: () => _showCustomerMenu(context, customer),
-        child: Container(
-          color: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              // Icon
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: iconBgColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    customer.name.isNotEmpty ? customer.name[0] : '?',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: iconColor,
+      child: Builder(
+        builder: (ctx) {
+          final cs = Theme.of(ctx).colorScheme;
+          return InkWell(
+            onTap: () => _showCustomerMenu(context, customer),
+            child: Container(
+              color: cs.surface,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: iconBgColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        customer.name.isNotEmpty ? customer.name[0] : '?',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: iconColor,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      customer.name,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF212121),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.phone_outlined, size: 12, color: Color(0xFF9E9E9E)),
-                        const SizedBox(width: 4),
                         Text(
-                          customer.phone ?? 'ফোন নম্বর নেই',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF9E9E9E)),
-                        ),
-                        if (customer.lastTransactionDate != null) ...[
-                          const SizedBox(width: 12),
-                          const Icon(Icons.calendar_today, size: 12, color: Color(0xFF9E9E9E)),
-                          const SizedBox(width: 4),
-                          Text(
-                            DateFormat('dd MMM').format(customer.lastTransactionDate!),
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF9E9E9E)),
+                          customer.name,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
                           ),
-                        ],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.phone_outlined, size: 12, color: cs.outline),
+                            const SizedBox(width: 4),
+                            Text(
+                              customer.phone ?? context.l10n.noPhone,
+                              style: TextStyle(fontSize: 12, color: cs.outline),
+                            ),
+                            if (customer.lastTransactionDate != null) ...[
+                              const SizedBox(width: 12),
+                              Icon(Icons.calendar_today, size: 12, color: cs.outline),
+                              const SizedBox(width: 4),
+                              Text(
+                                DateFormat('dd MMM').format(customer.lastTransactionDate!),
+                                style: TextStyle(fontSize: 12, color: cs.outline),
+                              ),
+                            ],
+                          ],
+                        ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Amount
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '৳${DateFormatterUtils.toBengaliNumber(customer.currentCreditBalance.abs())}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: amountColor,
-                    ),
                   ),
-                  const SizedBox(height: 4),
-                  const Icon(
-                    Icons.chevron_right,
-                    size: 20,
-                    color: Color(0xFF9E9E9E),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '৳${context.l10n.formatAmount(customer.currentCreditBalance.abs())}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: amountColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 20,
+                        color: cs.outline,
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -832,7 +833,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('সতর্কতা'),
-        content: Text('আপনি কি এই গ্রাহককে মুছে ফেলতে চান?\n\nনাম: ${customer.name}\nবাকি: ৳${_toBengaliDigits(customer.currentCreditBalance.toStringAsFixed(0))}\n\nসকল লেনদেন ইতিহাস মুছে যাবে!'),
+        content: Text('আপনি কি এই গ্রাহককে মুছে ফেলতে চান?\n\nনাম: ${customer.name}\nবাকি: ৳${context.l10n.formatAmount(customer.currentCreditBalance)}\n\nসকল লেনদেন ইতিহাস মুছে যাবে!'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('বাতিল')),
           TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('মুছে ফেলুন', style: TextStyle(color: Colors.red))),
@@ -911,7 +912,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
               TextField(controller: addressController, decoration: const InputDecoration(labelText: 'ঠিকানা (ঐচ্ছিক)')),
               TextField(controller: notesController, decoration: const InputDecoration(labelText: 'মন্তব্য (ঐচ্ছিক)')),
               const SizedBox(height: 16),
-              Text('বর্তমান বাকি: ৳${_toBengaliDigits(customer.currentCreditBalance.toStringAsFixed(0))}',
+              Text('বর্তমান বাকি: ৳${context.l10n.formatAmount(customer.currentCreditBalance)}',
                 style: const TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
@@ -1052,7 +1053,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
           children: [
             Text('কাস্টমার: ${customer.name}'),
             const SizedBox(height: 8),
-            Text('বর্তমান বাকি: ৳${_toBengaliDigits(customer.currentCreditBalance.toStringAsFixed(0))}',
+            Text('বর্তমান বাকি: ৳${context.l10n.formatAmount(customer.currentCreditBalance)}',
               style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             TextField(
@@ -1122,11 +1123,11 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text('লেনদেনের ইতিহাস', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                          Text(_toBengaliDigits(customer.name), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 16)),
+                          Text(context.l10n.formatDigits(customer.name), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 16)),
                         ],
                       ),
                       const Spacer(),
-                      Text(_toBengaliDigits(customer.totalCredit.toStringAsFixed(0)), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      Text(context.l10n.formatAmount(customer.totalCredit), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                     ],
                   ),
                 ),
@@ -1156,10 +1157,10 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Text(
-                                    '${isSale ? "+" : "-"} ৳${_toBengaliDigits(trans.amount.toStringAsFixed(0))}',
+                                    '${isSale ? "+" : "-"} ৳${context.l10n.formatAmount(trans.amount)}',
                                     style: TextStyle(fontWeight: FontWeight.bold, color: isSale ? Colors.red : Colors.green),
                                   ),
-                                  Text('ব্যালেন্স: ৳${_toBengaliDigits(trans.balanceAfter.toStringAsFixed(0))}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                  Text('${context.l10n.balance} ৳${context.l10n.formatAmount(trans.balanceAfter)}', style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.outline)),
                                 ],
                               ),
                             );

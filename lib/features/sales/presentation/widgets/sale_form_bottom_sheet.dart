@@ -6,8 +6,9 @@ import '../../../customers/presentation/bloc/customer_bloc.dart';
 import '../../../inventory/domain/product.dart';
 import '../../../inventory/presentation/bloc/inventory_bloc.dart';
 import '../bloc/sales_bloc.dart';
-import '../../../../core/database/database_helper.dart';
 import '../../../../core/constants/database_constants.dart';
+import '../../../../core/database/database_helper.dart';
+import '../../../../core/l10n/app_localizations.dart';
 
 class SaleFormBottomSheet extends StatefulWidget {
   const SaleFormBottomSheet({super.key});
@@ -41,15 +42,6 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     _paidAmountController.dispose();
     _notesController.dispose();
     super.dispose();
-  }
-
-  String _toBengaliDigits(String input) {
-    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-    for (int i = 0; i < english.length; i++) {
-      input = input.replaceAll(english[i], bengali[i]);
-    }
-    return input;
   }
 
   void _onProductSelected(Product product) {
@@ -192,7 +184,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
                   // Cart Summary Section
                   if (state.cart.isNotEmpty) ...[
                     const SizedBox(height: 24),
-                    _buildSectionHeader('🛒 কার্ট তালিকা (${_toBengaliDigits(state.cart.length.toString())}টি)', Colors.purple),
+                    _buildSectionHeader('🛒 কার্ট তালিকা (${context.l10n.formatDigits(state.cart.length.toString())}টি)', Colors.purple),
                     const SizedBox(height: 8),
                     _buildCartList(state),
                   ],
@@ -288,14 +280,14 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
             contentPadding: const EdgeInsets.only(left: 16, right: 8, top: 4, bottom: 4),
             title: Text(item.product.name, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
             subtitle: Text(
-              '${_toBengaliDigits(item.quantity.toString())} ${item.product.unit} × ৳${_toBengaliDigits(item.product.sellingPrice.toStringAsFixed(0))}',
+              '${context.l10n.formatDigits(item.quantity.toString())} ${item.product.unit} × ৳${context.l10n.formatAmount(item.product.sellingPrice)}',
               style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '৳${_toBengaliDigits(item.subTotal.toStringAsFixed(0))}',
+                  '৳${context.l10n.formatAmount(item.subTotal)}',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blueGrey),
                 ),
                 IconButton(
@@ -358,14 +350,14 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
       ),
       child: Column(
         children: [
-          _buildSummaryRow('উপ-মোট:', '৳${_toBengaliDigits(state.totalAmount.toStringAsFixed(0))}', Colors.white70),
-          _buildSummaryRow('ডিসকাউন্ট:', '- ৳${_toBengaliDigits((double.tryParse(_discountController.text) ?? 0).toStringAsFixed(0))}', Colors.red.shade300),
+          _buildSummaryRow('উপ-মোট:', '৳${context.l10n.formatAmount(state.totalAmount)}', Colors.white70),
+          _buildSummaryRow('ডিসকাউন্ট:', '- ৳${context.l10n.formatAmount(double.tryParse(_discountController.text) ?? 0)}', Colors.red.shade300),
           const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider(color: Colors.white24)),
-          _buildSummaryRow('সর্বমোট দেয়:', '৳${_toBengaliDigits(finalTotal.toStringAsFixed(0))}', Colors.white, isBold: true, fontSize: 20),
+          _buildSummaryRow('সর্বমোট দেয়:', '৳${context.l10n.formatAmount(finalTotal)}', Colors.white, isBold: true, fontSize: 20),
           if (state.paymentType == PaymentType.credit) ...[
              const SizedBox(height: 8),
-             _buildSummaryRow('আদায়কৃত:', '৳${_toBengaliDigits(paid.toStringAsFixed(0))}', Colors.green.shade300),
-             _buildSummaryRow('বাকি থাকবে:', '৳${_toBengaliDigits(due.toStringAsFixed(0))}', Colors.orange.shade300),
+             _buildSummaryRow('আদায়কৃত:', '৳${context.l10n.formatAmount(paid)}', Colors.green.shade300),
+             _buildSummaryRow('বাকি থাকবে:', '৳${context.l10n.formatAmount(due)}', Colors.orange.shade300),
           ],
         ],
       ),
@@ -450,7 +442,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
             title: 'পণ্য নির্বাচন করুন',
             items: products,
             itemLabel: (p) => p.name,
-            itemSublabel: (p) => 'স্টক: ${_toBengaliDigits(p.currentStock.toString())} ${p.unit}',
+            itemSublabel: (p) => 'স্টক: ${context.l10n.formatDigits(p.currentStock.toString())} ${p.unit}',
             onSelected: _onProductSelected,
             hintText: 'পণ্য খুঁজুন...',
           ),

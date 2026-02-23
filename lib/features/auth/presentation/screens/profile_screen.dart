@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../presentation/bloc/auth_bloc.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -9,7 +10,7 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('প্রোফাইল', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(context.l10n.profile, style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
@@ -36,12 +37,12 @@ class ProfileScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
                   ),
                   const Spacer(),
-                  const Card(
+                  Card(
                     child: ListTile(
-                      leading: Icon(Icons.sync),
-                      title: Text('অটো ব্যাকআপ'),
-                      subtitle: Text('সর্বদা গুগল ড্রাইভে সিঙ্ক থাকে'),
-                      trailing: Icon(Icons.check_circle, color: Colors.green),
+                      leading: const Icon(Icons.sync),
+                      title: Text(context.l10n.autoBackup),
+                      subtitle: Text(context.l10n.autoBackupSubtitle),
+                      trailing: const Icon(Icons.check_circle, color: Colors.green),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -52,7 +53,7 @@ class ProfileScreen extends StatelessWidget {
                         context.read<AuthBloc>().add(AuthLogoutRequested());
                       },
                       icon: const Icon(Icons.logout),
-                      label: const Text('লগ আউট'),
+                      label: Text(context.l10n.logOut),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red.shade50,
                         foregroundColor: Colors.red,

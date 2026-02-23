@@ -31,4 +31,11 @@ class AppColors {
     end: Alignment.bottomRight,
     colors: [primary, secondary],
   );
+
+  // Dark theme colors
+  static const Color backgroundDark = Color(0xFF121212);
+  static const Color surfaceDark = Color(0xFF1E1E1E);
+  static const Color textPrimaryDark = Color(0xFFE5E7EB);
+  static const Color textSecondaryDark = Color(0xFF9CA3AF);
+  static const Color borderDark = Color(0xFF374151);
 }
