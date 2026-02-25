@@ -724,23 +724,23 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
   Widget _buildFABs() {
     return Container(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          FloatingActionButton(
+          FloatingActionButton.extended(
             heroTag: 'expense',
             backgroundColor: const Color(0xFFF44336),
-            shape: const CircleBorder(),
             onPressed: () => _showTransactionDialog(context, 'expense'),
-            child: const Icon(Icons.remove, color: Colors.white),
+            icon: const Icon(Icons.remove, color: Colors.white),
+            label: Text(context.l10n.expenseLabel, style: const TextStyle(color: Colors.white)),
           ),
           const SizedBox(height: 12),
-          FloatingActionButton(
+          FloatingActionButton.extended(
             heroTag: 'income',
             backgroundColor: const Color(0xFF4CAF50),
-            shape: const CircleBorder(),
             onPressed: () => _showTransactionDialog(context, 'income'),
-            child: const Icon(Icons.add, color: Colors.white),
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: Text(context.l10n.income, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),

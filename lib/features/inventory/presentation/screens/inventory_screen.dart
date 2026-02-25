@@ -19,7 +19,7 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen> {
   final TextEditingController _searchController = TextEditingController();
-  
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -64,9 +64,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildSearchAndSort(BuildContext context, InventoryLoaded state) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(16),
-      color: Theme.of(context).colorScheme.surface,
+      color: colorScheme.surface,
       child: Row(
         children: [
           Expanded(
@@ -82,7 +83,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               },
               decoration: InputDecoration(
                 hintText: context.l10n.searchProducts,
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                prefixIcon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.close, size: 20),
@@ -98,7 +99,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                fillColor: colorScheme.surfaceContainerHighest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -111,7 +112,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           IconButton(
             icon: const Icon(Icons.sort),
             style: IconButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+              backgroundColor: colorScheme.surfaceContainerHighest,
               padding: const EdgeInsets.all(12),
             ),
             onPressed: () => _showSortBottomSheet(context, state),
@@ -289,6 +290,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildProductCard(BuildContext context, Product product) {
+    final colorScheme = Theme.of(context).colorScheme;
     final stockColor = product.currentStock <= 0
         ? Colors.red
         : product.currentStock <= product.minStockAlert
@@ -321,12 +323,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           ),
                         )
                       : CircleAvatar(
-                          backgroundColor: Colors.blue.shade50,
+                          backgroundColor: colorScheme.primaryContainer,
                           radius: 25,
                           child: Text(
                             product.name[0].toUpperCase(),
                             style: TextStyle(
-                              color: Colors.blue.shade800,
+                              color: colorScheme.onPrimaryContainer,
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
                             ),
@@ -349,14 +351,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             margin: const EdgeInsets.only(top: 4),
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.purple.shade50,
+                              color: colorScheme.tertiaryContainer,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               product.category!,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.purple.shade700,
+                                color: colorScheme.onTertiaryContainer,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -383,6 +385,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildInfoColumn(String label, String value, Color color) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -390,7 +393,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           label,
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey.shade600,
+            color: colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 2),
@@ -407,20 +410,21 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inventory_2_outlined, size: 80, color: Colors.grey.shade300),
+          Icon(Icons.inventory_2_outlined, size: 80, color: colorScheme.outlineVariant),
           const SizedBox(height: 16),
           Text(
             context.l10n.noProductsFound,
-            style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 18, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 8),
           Text(
             context.l10n.addProductHint,
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -428,6 +432,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   void _showSortBottomSheet(BuildContext context, InventoryLoaded state) {
+    final l10n = context.l10n;
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -440,16 +445,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'সাজান:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Text(
+                l10n.sortLabel,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              _buildSortOption(context, state, 'latest', 'সর্বশেষ', Icons.access_time),
-              _buildSortOption(context, state, 'quantity_high', 'পরিমাণ (বেশি থেকে কম)', Icons.arrow_downward),
-              _buildSortOption(context, state, 'quantity_low', 'পরিমাণ (কম থেকে বেশি)', Icons.arrow_upward),
-              _buildSortOption(context, state, 'name_asc', 'নাম (A-Z)', Icons.sort_by_alpha),
-              _buildSortOption(context, state, 'name_desc', 'নাম (Z-A)', Icons.sort_by_alpha),
+              _buildSortOption(context, state, 'latest', l10n.sortLatest, Icons.access_time),
+              _buildSortOption(context, state, 'quantity_high', l10n.sortQuantityHighToLow, Icons.arrow_downward),
+              _buildSortOption(context, state, 'quantity_low', l10n.sortQuantityLowToHigh, Icons.arrow_upward),
+              _buildSortOption(context, state, 'name_asc', l10n.sortNameAZ, Icons.sort_by_alpha),
+              _buildSortOption(context, state, 'name_desc', l10n.sortNameZA, Icons.sort_by_alpha),
             ],
           ),
         );
@@ -458,17 +463,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildSortOption(BuildContext context, InventoryLoaded state, String sortValue, String label, IconData icon) {
+    final colorScheme = Theme.of(context).colorScheme;
     final isSelected = state.sortBy == sortValue;
     return ListTile(
-      leading: Icon(icon, color: isSelected ? Colors.blue : Colors.grey),
+      leading: Icon(icon, color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant),
       title: Text(
         label,
         style: TextStyle(
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          color: isSelected ? Colors.blue : Colors.black,
+          color: isSelected ? colorScheme.primary : colorScheme.onSurface,
         ),
       ),
-      trailing: isSelected ? const Icon(Icons.check, color: Colors.blue) : null,
+      trailing: isSelected ? Icon(Icons.check, color: colorScheme.primary) : null,
       onTap: () {
         context.read<InventoryBloc>().add(LoadProducts(
           searchQuery: state.searchQuery,
@@ -493,7 +499,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
 class ProductFormBottomSheet extends StatefulWidget {
   final Product? product;
-  
+
   const ProductFormBottomSheet({super.key, this.product});
 
   @override
@@ -510,7 +516,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
   final _unitController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _itemCodeController = TextEditingController();
-  
+
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
 
@@ -518,7 +524,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
   void initState() {
     super.initState();
     _loadExistingCategories();
-    
+
     if (widget.product != null) {
       _nameController.text = widget.product!.name;
       _categoryController.text = widget.product!.category ?? '';
@@ -538,15 +544,15 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
   Future<void> _loadExistingCategories() async {
     final db = context.read<DatabaseHelper>();
     final database = await db.database;
-    
+
     final result = await database.rawQuery('''
       SELECT DISTINCT ${DatabaseConstants.colCategory}
       FROM ${DatabaseConstants.tableProducts}
-      WHERE ${DatabaseConstants.colCategory} IS NOT NULL 
+      WHERE ${DatabaseConstants.colCategory} IS NOT NULL
         AND ${DatabaseConstants.colCategory} != ''
       ORDER BY ${DatabaseConstants.colCategory} ASC
     ''');
-    
+
     setState(() {
       _existingCategories = result
           .map((row) => row[DatabaseConstants.colCategory] as String)
@@ -568,9 +574,11 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
   }
 
   Future<void> _pickImage() async {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     // Check camera permission
     final status = await Permission.camera.request();
-    
+
     if (status.isGranted) {
       // Permission granted, show image source options
       final source = await showModalBottomSheet<ImageSource>(
@@ -584,13 +592,13 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.camera_alt, color: Colors.blue),
-                title: const Text('ক্যামেরা'),
+                leading: Icon(Icons.camera_alt, color: colorScheme.primary),
+                title: Text(l10n.camera),
                 onTap: () => Navigator.pop(context, ImageSource.camera),
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library, color: Colors.green),
-                title: const Text('গ্যালারি'),
+                leading: Icon(Icons.photo_library, color: colorScheme.tertiary),
+                title: Text(l10n.gallery),
                 onTap: () => Navigator.pop(context, ImageSource.gallery),
               ),
             ],
@@ -615,18 +623,16 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
         final shouldOpenSettings = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('অনুমতি প্রয়োজন'),
-            content: const Text(
-              'ছবি তুলতে ক্যামেরা অনুমতি প্রয়োজন। সেটিংস থেকে অনুমতি দিন।'
-            ),
+            title: Text(l10n.permissionRequired),
+            content: Text(l10n.cameraPermissionMessage),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('বাতিল'),
+                child: Text(l10n.cancel),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('সেটিংস খুলুন'),
+                child: Text(l10n.openSettings),
               ),
             ],
           ),
@@ -640,6 +646,8 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
   }
 
   void _saveProduct() {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     final name = _nameController.text.trim();
     final sellingPrice = double.tryParse(_sellingPriceController.text) ?? 0.0;
     final purchasePrice = double.tryParse(_purchasePriceController.text) ?? 0.0;
@@ -651,14 +659,14 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
 
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('আইটেমের নাম লিখুন'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10n.enterItemName), backgroundColor: colorScheme.error),
       );
       return;
     }
 
     if (sellingPrice <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('বিক্রয় মূল্য লিখুন'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10n.enterSellingPrice), backgroundColor: colorScheme.error),
       );
       return;
     }
@@ -687,6 +695,8 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
   }
 
   void _showInstructions() {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -700,28 +710,28 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
           children: [
             Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.blue.shade700, size: 28),
+                Icon(Icons.info_outline, color: colorScheme.primary, size: 28),
                 const SizedBox(width: 12),
-                const Text(
-                  'পণ্য যোগ করার নির্দেশনা',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Text(
+                  l10n.addProductInstructionsTitle,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
             const SizedBox(height: 20),
-            _buildInstructionItem('১', 'আইটেমের নাম লিখুন (বাধ্যতামূলক)'),
-            _buildInstructionItem('২', 'ক্যাটাগরি নির্বাচন করুন (ঐচ্ছিক)'),
-            _buildInstructionItem('৩', 'বিক্রয় মূল্য এবং ক্রয় মূল্য লিখুন'),
-            _buildInstructionItem('৪', 'প্রাথমিক স্টক পরিমাণ এবং একক লিখুন'),
-            _buildInstructionItem('৫', 'প্রয়োজনে আইটেম কোড এবং বিবরণ যোগ করুন'),
-            _buildInstructionItem('৬', 'ছবি যোগ করতে ক্যামেরা আইকনে ক্লিক করুন'),
-            _buildInstructionItem('৭', 'সব তথ্য পূরণ করে "সেভ করুন" বাটনে ক্লিক করুন'),
+            _buildInstructionItem('১', l10n.instruction1),
+            _buildInstructionItem('২', l10n.instruction2),
+            _buildInstructionItem('৩', l10n.instruction3),
+            _buildInstructionItem('৪', l10n.instruction4),
+            _buildInstructionItem('৫', l10n.instruction5),
+            _buildInstructionItem('৬', l10n.instruction6),
+            _buildInstructionItem('৭', l10n.instruction7),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('বুঝেছি'),
+                child: Text(l10n.gotIt),
               ),
             ),
           ],
@@ -731,6 +741,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
   }
 
   Widget _buildInstructionItem(String number, String text) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -740,14 +751,14 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
+              color: colorScheme.primaryContainer,
               shape: BoxShape.circle,
             ),
             child: Center(
               child: Text(
                 number,
                 style: TextStyle(
-                  color: Colors.blue.shade700,
+                  color: colorScheme.onPrimaryContainer,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
                 ),
@@ -768,11 +779,13 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       height: MediaQuery.of(context).size.height * 0.9,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         children: [
@@ -780,11 +793,11 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colorScheme.surface,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.shade200,
+                  color: colorScheme.shadow.withOpacity(0.1),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -798,7 +811,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                 ),
                 Expanded(
                   child: Text(
-                    widget.product == null ? 'নতুন আইটেম যোগ' : 'আইটেম সম্পাদনা',
+                    widget.product == null ? l10n.addNewItem : l10n.editItem,
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.normal),
                     textAlign: TextAlign.center,
                   ),
@@ -810,7 +823,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
               ],
             ),
           ),
-          
+
           // Content
           Expanded(
             child: SingleChildScrollView(
@@ -819,20 +832,20 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Product Name
-                  const Text('আইটেমের নাম *', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  Text(l10n.itemNameRequired, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _nameController,
                     decoration: InputDecoration(
-                      hintText: 'আইটেমের নাম লিখুন',
+                      hintText: l10n.itemNameHint,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Category
-                  const Text('শ্রেণী', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  Text(l10n.categoryLabel, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
                   const SizedBox(height: 8),
                   InkWell(
                     onTap: () async {
@@ -847,16 +860,16 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'ক্যাটাগরি নির্বাচন করুন',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              Text(
+                                l10n.selectCategory,
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 16),
                               if (_existingCategories.isEmpty)
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 20),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 20),
                                   child: Center(
-                                    child: Text('কোনো ক্যাটাগরি নেই। নতুন ক্যাটাগরি লিখুন।'),
+                                    child: Text(l10n.noCategoriesHint),
                                   ),
                                 )
                               else
@@ -866,8 +879,8 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                                 )),
                               const Divider(),
                               ListTile(
-                                leading: const Icon(Icons.add, color: Colors.blue),
-                                title: const Text('নতুন ক্যাটাগরি যোগ করুন'),
+                                leading: Icon(Icons.add, color: colorScheme.primary),
+                                title: Text(l10n.addNewCategory),
                                 onTap: () async {
                                   Navigator.pop(context);
                                   final newCat = await showDialog<String>(
@@ -875,23 +888,23 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                                     builder: (context) {
                                       final controller = TextEditingController();
                                       return AlertDialog(
-                                        title: const Text('নতুন ক্যাটাগরি'),
+                                        title: Text(l10n.newCategory),
                                         content: TextField(
                                           controller: controller,
                                           autofocus: true,
-                                          decoration: const InputDecoration(
-                                            hintText: 'ক্যাটাগরি লিখুন',
-                                            border: OutlineInputBorder(),
+                                          decoration: InputDecoration(
+                                            hintText: l10n.categoryHint,
+                                            border: const OutlineInputBorder(),
                                           ),
                                         ),
                                         actions: [
                                           TextButton(
                                             onPressed: () => Navigator.pop(context),
-                                            child: const Text('বাতিল'),
+                                            child: Text(l10n.cancel),
                                           ),
                                           ElevatedButton(
                                             onPressed: () => Navigator.pop(context, controller.text),
-                                            child: const Text('যোগ করুন'),
+                                            child: Text(l10n.addLabel),
                                           ),
                                         ],
                                       );
@@ -913,25 +926,25 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: colorScheme.outlineVariant),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            _categoryController.text.isEmpty ? 'ক্যাটাগরি নির্বাচন করুন' : _categoryController.text,
+                            _categoryController.text.isEmpty ? l10n.selectCategory : _categoryController.text,
                             style: TextStyle(
-                              color: _categoryController.text.isEmpty ? Colors.grey : Colors.black,
+                              color: _categoryController.text.isEmpty ? colorScheme.onSurfaceVariant : colorScheme.onSurface,
                             ),
                           ),
-                          const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                          Icon(Icons.arrow_forward_ios, size: 16, color: colorScheme.onSurfaceVariant),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Stock and Unit
                   Row(
                     children: [
@@ -939,7 +952,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('প্রাথমিক স্টক', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                            Text(l10n.initialStock, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
                             const SizedBox(height: 8),
                             TextField(
                               controller: _stockController,
@@ -958,7 +971,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('একক', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                            Text(l10n.unit, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
                             const SizedBox(height: 8),
                             TextField(
                               controller: _unitController,
@@ -974,7 +987,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Prices
                   Row(
                     children: [
@@ -982,7 +995,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('বিক্রয় মূল্য *', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                            Text(l10n.sellingPriceRequired, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
                             const SizedBox(height: 8),
                             TextField(
                               controller: _sellingPriceController,
@@ -1001,7 +1014,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('ক্রয় মূল্য', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                            Text(l10n.purchasePriceLabel, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
                             const SizedBox(height: 8),
                             TextField(
                               controller: _purchasePriceController,
@@ -1018,41 +1031,41 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Item Code
-                  const Text('আইটেম কোড', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  Text(l10n.itemCode, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _itemCodeController,
                     decoration: InputDecoration(
-                      hintText: 'আইটেম কোড লিখুন',
+                      hintText: l10n.itemCodeHint,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Description
-                  const Text('বিবরণ', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  Text(l10n.description, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _descriptionController,
                     maxLines: 3,
                     decoration: InputDecoration(
-                      hintText: 'বিবরণ লিখুন',
+                      hintText: l10n.descriptionHint,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Image Upload
                   InkWell(
                     onTap: _pickImage,
                     child: Container(
                       height: 120,
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: colorScheme.outlineVariant),
                         borderRadius: BorderRadius.circular(8),
                         image: _selectedImage != null
                             ? DecorationImage(
@@ -1066,11 +1079,11 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.add_a_photo_outlined, size: 40, color: Colors.grey.shade400),
+                                  Icon(Icons.add_a_photo_outlined, size: 40, color: colorScheme.outlineVariant),
                                   const SizedBox(height: 8),
                                   Text(
-                                    'আইটেমের ছবি যোগ করুন',
-                                    style: TextStyle(color: Colors.teal.shade700, fontSize: 14),
+                                    l10n.addItemImage,
+                                    style: TextStyle(color: colorScheme.primary, fontSize: 14),
                                   ),
                                 ],
                               ),
@@ -1082,15 +1095,15 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
               ),
             ),
           ),
-          
+
           // Save Button
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colorScheme.surface,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.shade200,
+                  color: colorScheme.shadow.withOpacity(0.1),
                   blurRadius: 4,
                   offset: const Offset(0, -2),
                 ),
@@ -1105,7 +1118,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('সেভ করুন', style: TextStyle(fontSize: 16, color: Colors.white)),
+                child: Text(l10n.save, style: const TextStyle(fontSize: 16, color: Colors.white)),
               ),
             ),
           ),

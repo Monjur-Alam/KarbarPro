@@ -12,7 +12,6 @@ import '../../../../core/database/database_helper.dart';
 import '../../../../main.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/summary_card.dart';
-import '../../utils/date_formatter_utils.dart';
 
 class DueLedgerScreen extends StatelessWidget {
   const DueLedgerScreen({super.key});
@@ -251,7 +250,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.grey.shade50,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         body: Column(
           children: [
             _buildPeriodTabs(),
@@ -602,7 +601,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.outlineVariant), borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, size: 20, color: Colors.blueGrey),
+        child: Icon(icon, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
     );
   }
@@ -631,9 +630,10 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
 
   Widget _buildSortItem(String title, String value) {
     final isSelected = _sortBy == value;
+    final colorScheme = Theme.of(context).colorScheme;
     return ListTile(
-      title: Text(title, style: TextStyle(color: isSelected ? Colors.blue : Colors.black87, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-      trailing: isSelected ? const Icon(Icons.check, color: Colors.blue) : null,
+      title: Text(title, style: TextStyle(color: isSelected ? colorScheme.primary : colorScheme.onSurface, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+      trailing: isSelected ? Icon(Icons.check, color: colorScheme.primary) : null,
       onTap: () {
         setState(() => _sortBy = value);
         _sortCustomers();
@@ -649,7 +649,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
       child: Row(
         children: [
           Text('$label তালিকা (${context.l10n.formatDigits(count.toString())})',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blueGrey)),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ],
       ),
     );
@@ -836,7 +836,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
         content: Text('আপনি কি এই গ্রাহককে মুছে ফেলতে চান?\n\nনাম: ${customer.name}\nবাকি: ৳${context.l10n.formatAmount(customer.currentCreditBalance)}\n\nসকল লেনদেন ইতিহাস মুছে যাবে!'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('বাতিল')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('মুছে ফেলুন', style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('মুছে ফেলুন', style: TextStyle(color: Theme.of(context).colorScheme.error))),
         ],
       ),
     );
@@ -855,7 +855,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
           ),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.edit_outlined, color: Colors.blue),
+            leading: Icon(Icons.edit_outlined, color: Theme.of(context).colorScheme.primary),
             title: const Text('গ্রাহক তথ্য পরিবর্তন করুন'),
             onTap: () {
               Navigator.pop(context);
@@ -863,7 +863,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
             },
           ),
           ListTile(
-            leading: const Icon(Icons.payments_outlined, color: Colors.green),
+            leading: Icon(Icons.payments_outlined, color: Theme.of(context).colorScheme.primary),
             title: const Text('বকেয়া পরিশোধের হিসাব রাখুন'),
             subtitle: const Text('কাস্টমারের কাছ থেকে টাকা জমা নিন'),
             onTap: () {
@@ -872,7 +872,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
             },
           ),
           ListTile(
-            leading: const Icon(Icons.history, color: Colors.blue),
+            leading: Icon(Icons.history, color: Theme.of(context).colorScheme.primary),
             title: const Text('বাকি লেনদেনের ইতিহাস'),
             onTap: () {
               Navigator.pop(context);
@@ -880,7 +880,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
             },
           ),
           ListTile(
-            leading: const Icon(Icons.call_outlined, color: Colors.orange),
+            leading: Icon(Icons.call_outlined, color: Theme.of(context).colorScheme.tertiary),
             title: const Text('যোগাযোগ করুন'),
             onTap: () {
               Navigator.pop(context);
@@ -913,7 +913,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
               TextField(controller: notesController, decoration: const InputDecoration(labelText: 'মন্তব্য (ঐচ্ছিক)')),
               const SizedBox(height: 16),
               Text('বর্তমান বাকি: ৳${context.l10n.formatAmount(customer.currentCreditBalance)}',
-                style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
             ],
           ),
         ),
@@ -959,9 +959,9 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.check_circle_outline, size: 64, color: Colors.green.shade200),
+          Icon(Icons.check_circle_outline, size: 64, color: Theme.of(context).colorScheme.outline),
           const SizedBox(height: 16),
-          const Text('কোনো গ্রাহক পাওয়া যায়নি', style: TextStyle(color: Colors.grey)),
+          Text('কোনো গ্রাহক পাওয়া যায়নি', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ],
       ),
     );
@@ -1054,7 +1054,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
             Text('কাস্টমার: ${customer.name}'),
             const SizedBox(height: 8),
             Text('বর্তমান বাকি: ৳${context.l10n.formatAmount(customer.currentCreditBalance)}',
-              style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             TextField(
               controller: amountController,
@@ -1149,7 +1149,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                                 children: [
                                   if (trans.description != null) Text(trans.description!, style: const TextStyle(fontSize: 12)),
                                   Text(DateFormat('dd MMM yyyy, hh:mm a').format(trans.transactionDate),
-                                    style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                                    style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.outline)),
                                 ],
                               ),
                               trailing: Column(
@@ -1158,7 +1158,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                                 children: [
                                   Text(
                                     '${isSale ? "+" : "-"} ৳${context.l10n.formatAmount(trans.amount)}',
-                                    style: TextStyle(fontWeight: FontWeight.bold, color: isSale ? Colors.red : Colors.green),
+                                    style: TextStyle(fontWeight: FontWeight.bold, color: isSale ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary),
                                   ),
                                   Text('${context.l10n.balance} ৳${context.l10n.formatAmount(trans.balanceAfter)}', style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.outline)),
                                 ],
@@ -1183,7 +1183,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
-            leading: const Icon(Icons.call, color: Colors.green),
+            leading: Icon(Icons.call, color: Theme.of(context).colorScheme.primary),
             title: const Text('কল করুন'),
             onTap: () async {
               final url = 'tel:${customer.phone}';
@@ -1195,7 +1195,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
             },
           ),
           ListTile(
-            leading: const Icon(Icons.message, color: Colors.blue),
+            leading: Icon(Icons.message, color: Theme.of(context).colorScheme.primary),
             title: const Text('এসএমএস পাঠান'),
             onTap: () async {
               final url = 'sms:${customer.phone}?body=আপনার দোকানের বাকি ৳${customer.currentCreditBalance} পরিশোধ করার জন্য অনুরোধ করা হলো।';

@@ -179,6 +179,53 @@ class AppLocalizations {
   String get addItemImage => isBangla ? 'আইটেমের ছবি যোগ করুন' : 'Add item image';
   String get save => isBangla ? 'সেভ করুন' : 'Save';
 
+  // ——— Sale Form Bottom Sheet ———
+  String get newSaleInvoice => isBangla ? 'নতুন বিক্রয় (ইনভয়েস)' : 'New Sale (Invoice)';
+  String get selectProduct => isBangla ? 'পণ্য নির্বাচন করুন' : 'Select Product';
+  String get selectProductHint => isBangla ? 'পণ্য নির্বাচন করুন...' : 'Select a product...';
+  String get quantityRequired => isBangla ? 'পরিমাণ *' : 'Quantity *';
+  String get unitPriceRequired => isBangla ? 'মূল্য (একক) *' : 'Unit Price *';
+  String get addToCart => isBangla ? 'কার্টে যোগ করুন' : 'Add to Cart';
+  String get paymentInfo => isBangla ? 'পেমেন্ট তথ্য' : 'Payment Info';
+  String get cashPayment => isBangla ? 'নগদ (Cash)' : 'Cash';
+  String get creditPayment => isBangla ? 'বাকি (Credit)' : 'Credit';
+  String get selectCustomer => isBangla ? 'গ্রাহক নির্বাচন করুন' : 'Select Customer';
+  String get selectCustomerHint => isBangla ? 'গ্রাহক নির্বাচন করুন...' : 'Select a customer...';
+  String get cashCollectedQuestion => isBangla ? 'নগদ আদায় হয়েছে?' : 'Cash collected?';
+  String get collectedAmount => isBangla ? 'আদায়ের পরিমাণ' : 'Collected Amount';
+  String get discount => isBangla ? 'ডিসকাউন্ট' : 'Discount';
+  String get discountTaka => isBangla ? 'ডিসকাউন্ট (টাকা)' : 'Discount (Tk)';
+  String get additionalNotes => isBangla ? 'অতিরিক্ত নোট (ঐচ্ছিক)' : 'Additional Notes (Optional)';
+  String get subTotal => isBangla ? 'উপ-মোট:' : 'Sub-total:';
+  String get grandTotal => isBangla ? 'সর্বমোট দেয়:' : 'Grand Total:';
+  String get collectedColon => isBangla ? 'আদায়কৃত:' : 'Collected:';
+  String get dueRemaining => isBangla ? 'বাকি থাকবে:' : 'Due Remaining:';
+  String get completeSale => isBangla ? 'বিক্রয় সম্পন্ন করুন' : 'Complete Sale';
+  String get selectCustomerWarning => isBangla ? 'গ্রাহক নির্বাচন করুন!' : 'Please select a customer!';
+  String get addNewCustomer => isBangla ? 'নতুন গ্রাহক যোগ করুন' : 'Add New Customer';
+  String get nameRequired => isBangla ? 'নাম *' : 'Name *';
+  String get phoneRequired => isBangla ? 'ফোন নম্বর *' : 'Phone *';
+  String get searchCustomer => isBangla ? 'গ্রাহক খুঁজুন...' : 'Search customer...';
+  String get searchProduct => isBangla ? 'পণ্য খুঁজুন...' : 'Search product...';
+  String get noDataFound => isBangla ? 'কোনো তথ্য পাওয়া যায়নি' : 'No data found';
+  String cartListCount(String count) => isBangla ? 'কার্ট তালিকা (${count}টি)' : 'Cart ($count items)';
+  String stockInfo(String stock, String unit) => isBangla ? 'স্টক: $stock $unit' : 'Stock: $stock $unit';
+
+  // ——— Inventory Sort ———
+  String get sortLabel => isBangla ? 'সাজান:' : 'Sort by:';
+  String get sortQuantityHighToLow => isBangla ? 'পরিমাণ (বেশি থেকে কম)' : 'Quantity (high to low)';
+  String get sortQuantityLowToHigh => isBangla ? 'পরিমাণ (কম থেকে বেশি)' : 'Quantity (low to high)';
+  String get sortNameAZ => isBangla ? 'নাম (A-Z)' : 'Name (A-Z)';
+  String get sortNameZA => isBangla ? 'নাম (Z-A)' : 'Name (Z-A)';
+
+  // ——— Product Form Bottom Sheet ———
+  String get noCategoriesHint => isBangla ? 'কোনো ক্যাটাগরি নেই। নতুন ক্যাটাগরি লিখুন।' : 'No categories yet. Enter a new one.';
+  String get cameraPermissionMessage => isBangla ? 'ছবি তুলতে ক্যামেরা অনুমতি প্রয়োজন। সেটিংস থেকে অনুমতি দিন।' : 'Camera permission is required. Please grant it from settings.';
+  String get openSettings => isBangla ? 'সেটিংস খুলুন' : 'Open Settings';
+  String get sellingPriceRequired => isBangla ? 'বিক্রয় মূল্য *' : 'Selling Price *';
+  String get purchasePriceLabel => isBangla ? 'ক্রয় মূল্য' : 'Purchase Price';
+  String get itemNameRequired => isBangla ? 'আইটেমের নাম *' : 'Item Name *';
+
   // ——— Due Ledger & Expense (shared) ———
   String get filterAll => isBangla ? 'সব' : 'All';
   String get addNew => isBangla ? 'নতুন যোগ' : 'Add New';
