@@ -283,9 +283,41 @@ class AppLocalizations {
   String get deleteCustomerConfirm => isBangla ? 'আপনি কি এই গ্রাহককে মুছে ফেলতে চান?' : 'Are you sure you want to delete this customer?';
   String get name => isBangla ? 'নাম' : 'Name';
   String get due => isBangla ? 'বাকি' : 'Due';
+  String get date => isBangla ? 'তারিখ' : 'Date';
+  String get amountLabel => isBangla ? 'পরিমাণ' : 'Amount';
   String get allTransactionsDeletedWarning => isBangla ? 'সকল লেনদেন ইতিহাস মুছে যাবে!' : 'All transaction history will be deleted!';
   String get sortDueHighToLow => isBangla ? 'বাকি (বেশি থেকে কম)' : 'Due (high to low)';
   String get sortDueLowToHigh => isBangla ? 'বাকি (কম থেকে বেশি)' : 'Due (low to high)';
+  String get editTransaction => isBangla ? 'লেনদেন সম্পাদনা' : 'Edit Transaction';
+  String get depositJoma => isBangla ? 'টাকা জমা (Joma)' : 'Deposit (Joma)';
+  String get expenseKhoroch => isBangla ? 'খরচ (Khoroch)' : 'Expense (Khoroch)';
+  String get categoryOrSource => isBangla ? 'খাত বা উৎস' : 'Category or Source';
+  String get selectCategoryHint => isBangla ? 'খাত নির্বাচন করুন' : 'Select Category';
+  String get addNewCategoryAction => isBangla ? '+ নতুন খাত যোগ করুন' : '+ Add New Category';
+  String get amountTaka => isBangla ? 'টাকার পরিমাণ' : 'Amount (Taka)';
+  String get descriptionOptional => isBangla ? 'বিবরণ (ঐচ্ছিক)' : 'Description (Optional)';
+  String get transactionUpdated => isBangla ? 'লেনদেন আপডেট করা হয়েছে' : 'Transaction updated';
+  String get transactionUpdateFailed => isBangla ? 'আপডেট করতে সমস্যা হয়েছে' : 'Transaction update failed';
+  String get deleteTransactionConfirmQuestion => isBangla ? 'আপনি কি এই লেনদেনটি মুছে ফেলতে চান?' : 'Are you sure you want to delete this transaction?';
+  String get transactionDeleted => isBangla ? 'লেনদেন মুছে ফেলা হয়েছে' : 'Transaction deleted';
+  String get transactionDeleteFailed => isBangla ? 'মুছে ফেলতে সমস্যা হয়েছে' : 'Transaction delete failed';
+  String get addNewCategoryTitle => isBangla ? 'নতুন খাত যোগ করুন' : 'Add New Category';
+  String get categoryNameLabel => isBangla ? 'খাতের নাম' : 'Category Name';
+  String get categoryNameHint => isBangla ? 'উদা: যাতায়াত' : 'e.g. Transport';
+  String get categoryAlreadyExistsError => isBangla ? 'এই নামে ইতিমধ্যে একটি খাত আছে' : 'A category with this name already exists';
+  String get depositMoneyTitle => isBangla ? 'টাকা জমা দিন' : 'Deposit Money';
+  String get recordExpenseTitle => isBangla ? 'খরচ রেকর্ড করুন' : 'Record Expense';
+  String get depositSourceLabel => isBangla ? 'জমার উৎস' : 'Deposit Source';
+  String get expenseCategoryLabel => isBangla ? 'খরচের খাত' : 'Expense Category';
+  String get amountRequired => isBangla ? 'পরিমাণ আবশ্যক' : 'Amount Required';
+  String get searchExpense => isBangla ? 'খুঁজুন...' : 'Search...';
+  String get depositSuccess => isBangla ? 'সাফল্যের সাথে যোগ করা হয়েছে' : 'Deposit added successfully';
+  String get expenseRecorded => isBangla ? 'খরচ রেকর্ড করা হয়েছে' : 'Expense recorded successfully';
+  String get noResultsFound => isBangla ? 'কোনো ফলাফল পাওয়া যায়নি' : 'No results found';
+  String get noTransactionsRecorded => isBangla ? 'কোনো লেনদেন রেকর্ড করা হয়নি' : 'No transactions recorded';
+  String get amountColon => isBangla ? 'পরিমাণ:' : 'Amount:';
+  String get categoryColon => isBangla ? 'খাত:' : 'Category:';
+  String get deleteConfirmAction => isBangla ? 'মুছে ফেলুন' : 'Delete';
 
   /// Format number for display (Bengali digits when locale is bn).
   String formatAmount(num value) {
