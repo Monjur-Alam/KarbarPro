@@ -265,14 +265,9 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                     SliverToBoxAdapter(
                       child: _buildSearchBar(),
                     ),
-                    SliverToBoxAdapter(
-                      child: _buildActionBar(
-                        isCustomer: _tabController.index == 0,
-                        count: _getFilteredList(_tabController.index == 0).length,
-                      ),
-                    ),
                     SliverPersistentHeader(
                       pinned: true,
+                      floating: true,
                       delegate: _SliverAppBarDelegate(
                         minHeight: 48,
                         maxHeight: 48,
@@ -444,16 +439,17 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
   }
 
   Widget _buildDueTabBar() {
+    final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: TabBar(
         controller: _tabController,
         dividerColor: Colors.transparent,
         indicator: BoxDecoration(
-          color: colorScheme.primaryContainer.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colorScheme.primary, width: 1),
         ),
         labelColor: colorScheme.primary,
         unselectedLabelColor: colorScheme.onSurfaceVariant,
@@ -462,9 +458,9 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
         padding: EdgeInsets.zero,
         indicatorPadding: EdgeInsets.zero,
         labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-        tabs: const [
-          Tab(text: '  গ্রাহক (পাবো)  '),
-          Tab(text: '  সরবরাহকারী (দিবো)  '),
+        tabs: [
+          Tab(text: '  ${l10n.customer}  '),
+          Tab(text: '  ${l10n.supplier}  '),
         ],
       ),
     );
@@ -574,7 +570,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                 prefixIcon: Icon(Icons.search, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.close, size: 18),
+                      icon: const Icon(Icons.close, size: 20),
                       onPressed: _resetFilters,
                     )
                   : null,
@@ -639,19 +635,6 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
         _sortCustomers();
         Navigator.pop(context);
       },
-    );
-  }
-
-  Widget _buildActionBar({required bool isCustomer, required int count}) {
-    final label = isCustomer ? 'গ্রাহক' : 'সরবরাহকারী';
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      child: Row(
-        children: [
-          Text('$label তালিকা (${context.l10n.formatDigits(count.toString())})',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-        ],
-      ),
     );
   }
 

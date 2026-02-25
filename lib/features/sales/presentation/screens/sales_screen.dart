@@ -533,8 +533,8 @@ class _SalesViewState extends State<SalesView> {
       child: TabBar(
         dividerColor: Colors.transparent,
         indicator: BoxDecoration(
-          color: colorScheme.primaryContainer.withValues(alpha: 0.6),
-          borderRadius: const BorderRadius.all(Radius.circular(20)),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colorScheme.primary, width: 1),
         ),
         labelColor: colorScheme.primary,
         unselectedLabelColor: colorScheme.onSurfaceVariant,

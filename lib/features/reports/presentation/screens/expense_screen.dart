@@ -52,6 +52,7 @@ class ExpenseView extends StatefulWidget {
 
 class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+
   List<ShopTransaction> _transactions = [];
   List<KhorochCategory> _categories = [];
   double _currentBalance = 0;
@@ -59,13 +60,13 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
   double _totalExpense = 0;
   bool _isLoading = true;
   bool _isBackgroundLoading = false;
-  
+
   // Filter state (now mostly controlled by widget props and TabController)
   int _selectedTabIndex = 0;
-  
+
   KhorochCategory? _selectedCategoryFilter;
   String _searchQuery = '';
-  
+
   final _searchController = TextEditingController();
   Timer? _debounce;
 
@@ -252,7 +253,6 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
         ],
       ),
       floatingActionButton: _buildFABs(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -458,8 +458,8 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
         controller: _tabController,
         dividerColor: Colors.transparent,
         indicator: BoxDecoration(
-          color: colorScheme.primaryContainer.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colorScheme.primary, width: 1),
         ),
         labelColor: colorScheme.primary,
         unselectedLabelColor: colorScheme.onSurfaceVariant,
@@ -722,28 +722,26 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
   }
 
   Widget _buildFABs() {
-    return Container(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          FloatingActionButton.extended(
-            heroTag: 'expense',
-            backgroundColor: const Color(0xFFF44336),
-            onPressed: () => _showTransactionDialog(context, 'expense'),
-            icon: const Icon(Icons.remove, color: Colors.white),
-            label: Text(context.l10n.expenseLabel, style: const TextStyle(color: Colors.white)),
-          ),
-          const SizedBox(height: 12),
-          FloatingActionButton.extended(
-            heroTag: 'income',
-            backgroundColor: const Color(0xFF4CAF50),
-            onPressed: () => _showTransactionDialog(context, 'income'),
-            icon: const Icon(Icons.add, color: Colors.white),
-            label: Text(context.l10n.income, style: const TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        FloatingActionButton.extended(
+          heroTag: 'expense',
+          backgroundColor: const Color(0xFFF44336),
+          onPressed: () => _showTransactionDialog(context, 'expense'),
+          icon: const Icon(Icons.remove, color: Colors.white, size: 20),
+          label: Text(context.l10n.expenseLabel, style: const TextStyle(color: Colors.white)),
+        ),
+        const SizedBox(height: 12),
+        FloatingActionButton.extended(
+          heroTag: 'income',
+          backgroundColor: const Color(0xFF4CAF50),
+          onPressed: () => _showTransactionDialog(context, 'income'),
+          icon: const Icon(Icons.add, color: Colors.white, size: 20),
+          label: Text(context.l10n.income, style: const TextStyle(color: Colors.white)),
+        ),
+      ],
     );
   }
 

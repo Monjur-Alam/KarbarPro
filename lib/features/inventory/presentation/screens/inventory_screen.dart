@@ -109,15 +109,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          IconButton(
-            icon: const Icon(Icons.sort),
-            style: IconButton.styleFrom(
-              backgroundColor: colorScheme.surfaceContainerHighest,
-              padding: const EdgeInsets.all(12),
-            ),
-            onPressed: () => _showSortBottomSheet(context, state),
-          ),
+          _buildFilterButton(Icons.sort, () => _showSortBottomSheet(context, state)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilterButton(IconData icon, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.outlineVariant), borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
     );
   }
