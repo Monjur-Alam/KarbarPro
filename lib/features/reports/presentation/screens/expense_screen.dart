@@ -527,14 +527,18 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
         
         double dayTotal = 0;
         for (var t in dayTransactions) {
-          if (t.transactionType == 'income') dayTotal += t.amount;
-          else dayTotal -= t.amount;
+          if (t.transactionType == 'income') {
+            dayTotal += t.amount;
+          } else {
+            dayTotal -= t.amount;
+          }
         }
 
         return Column(
           children: [
             Builder(
               builder: (ctx) {
+                final l10n = context.l10n;
                 final cs = Theme.of(ctx).colorScheme;
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -551,7 +555,7 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
                         ),
                       ),
                       Text(
-                        'মোট ${dayTotal >= 0 ? '+' : '-'}৳${context.l10n.formatAmount(dayTotal.abs())}',
+                        '${l10n.totalPrefix} ${dayTotal >= 0 ? '+' : '-'}৳${context.l10n.formatAmount(dayTotal.abs())}',
                         style: TextStyle(
                           fontSize: 14,
                           color: dayTotal >= 0 ? cs.primary : cs.error,

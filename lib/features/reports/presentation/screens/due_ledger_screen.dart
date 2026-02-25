@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -566,7 +568,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
               controller: _searchController,
               onChanged: _onSearchChanged,
               decoration: InputDecoration(
-                hintText: 'গ্রাহক খুঁজুন...',
+                hintText: context.l10n.searchCustomer,
                 prefixIcon: Icon(Icons.search, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
@@ -609,15 +611,15 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text('সাজান (Sort By)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            child: Text(context.l10n.sortBy, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ),
-          _buildSortItem('নাম (A-Z)', 'name_asc'),
-          _buildSortItem('নাম (Z-A)', 'name_desc'),
-          _buildSortItem('বাকি (বেশি থেকে কম)', 'balance_desc'),
-          _buildSortItem('বাকি (কম থেকে বেশি)', 'balance_asc'),
-          _buildSortItem('সর্বশেষ লেনদেন', 'last_transaction'),
+          _buildSortItem(context.l10n.sortNameAZ, 'name_asc'),
+          _buildSortItem(context.l10n.sortNameZA, 'name_desc'),
+          _buildSortItem(context.l10n.sortDueHighToLow, 'balance_desc'),
+          _buildSortItem(context.l10n.sortDueLowToHigh, 'balance_asc'),
+          _buildSortItem(context.l10n.sortByLastTransaction, 'last_transaction'),
           const SizedBox(height: 20),
         ],
       ),
@@ -668,7 +670,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
       confirmDismiss: (direction) async {
         if (customer.currentCreditBalance > 0) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('বাকি পরিশোধ না করে গ্রাহক মুছা যাবে না'), backgroundColor: Colors.red),
+            SnackBar(content: Text(context.l10n.cannotDeleteCustomerWithDue), backgroundColor: Colors.red),
           );
           return false;
         }
@@ -679,11 +681,11 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         color: Colors.red,
-        child: const Column(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.delete, color: Colors.white),
-            Text('মুছুন', style: TextStyle(color: Colors.white, fontSize: 10)),
+            const Icon(Icons.delete, color: Colors.white),
+            Text(context.l10n.delete, style: const TextStyle(color: Colors.white, fontSize: 10)),
           ],
         ),
       ),
@@ -793,13 +795,13 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     }
 
     await ReportGenerator.generateBakirKhataPDF(
-      shopName: 'আমার দোকান',
+      shopName: context.l10n.shopNameForReport,
       summary: _summary,
       customers: _filteredCustomers,
       transactionHistories: histories,
       startDate: _startDate,
       endDate: _endDate,
-      reportType: _tabController.index == 0 ? 'গ্রাহক' : 'সরবরাহকারী',
+      reportType: _tabController.index == 0 ? context.l10n.customer : context.l10n.supplier,
     );
   }
 
@@ -808,18 +810,18 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     await repo.deleteCustomer(id);
     _loadData();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('গ্রাহক মুছে ফেলা হয়েছে')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.customerDeleted)));
   }
 
   Future<bool?> _showDeleteConfirmation(CustomerDue customer) {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('সতর্কতা'),
-        content: Text('আপনি কি এই গ্রাহককে মুছে ফেলতে চান?\n\nনাম: ${customer.name}\nবাকি: ৳${context.l10n.formatAmount(customer.currentCreditBalance)}\n\nসকল লেনদেন ইতিহাস মুছে যাবে!'),
+        title: Text(context.l10n.warning),
+        content: Text('${context.l10n.deleteCustomerConfirm}\n\n${context.l10n.name}: ${customer.name}\n${context.l10n.due}: ৳${context.l10n.formatAmount(customer.currentCreditBalance)}\n\n${context.l10n.allTransactionsDeletedWarning}'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('বাতিল')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('মুছে ফেলুন', style: TextStyle(color: Theme.of(context).colorScheme.error))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.cancel)),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(context.l10n.deleteConfirm, style: TextStyle(color: Theme.of(context).colorScheme.error))),
         ],
       ),
     );
@@ -839,7 +841,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
           const Divider(),
           ListTile(
             leading: Icon(Icons.edit_outlined, color: Theme.of(context).colorScheme.primary),
-            title: const Text('গ্রাহক তথ্য পরিবর্তন করুন'),
+            title: Text(context.l10n.editCustomerInfo),
             onTap: () {
               Navigator.pop(context);
               _showEditCustomerDialog(customer);
@@ -847,8 +849,8 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
           ),
           ListTile(
             leading: Icon(Icons.payments_outlined, color: Theme.of(context).colorScheme.primary),
-            title: const Text('বকেয়া পরিশোধের হিসাব রাখুন'),
-            subtitle: const Text('কাস্টমারের কাছ থেকে টাকা জমা নিন'),
+            title: Text(context.l10n.recordPayment),
+            subtitle: Text(context.l10n.recordPaymentSubtitle),
             onTap: () {
               Navigator.pop(context);
               _showPaymentCollectionDialog(context, customer);
@@ -856,7 +858,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
           ),
           ListTile(
             leading: Icon(Icons.history, color: Theme.of(context).colorScheme.primary),
-            title: const Text('বাকি লেনদেনের ইতিহাস'),
+            title: Text(context.l10n.transactionHistory),
             onTap: () {
               Navigator.pop(context);
               _showTransactionHistorySheet(context, customer);
@@ -864,7 +866,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
           ),
           ListTile(
             leading: Icon(Icons.call_outlined, color: Theme.of(context).colorScheme.tertiary),
-            title: const Text('যোগাযোগ করুন'),
+            title: Text(context.l10n.contact),
             onTap: () {
               Navigator.pop(context);
               _showContactOptions(context, customer);
@@ -885,27 +887,27 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('গ্রাহক সম্পাদনা'),
+        title: Text(context.l10n.editCustomer),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'নাম (আবশ্যক)')),
-              TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'ফোন নম্বর (আবশ্যক)')),
-              TextField(controller: addressController, decoration: const InputDecoration(labelText: 'ঠিকানা (ঐচ্ছিক)')),
-              TextField(controller: notesController, decoration: const InputDecoration(labelText: 'মন্তব্য (ঐচ্ছিক)')),
+              TextField(controller: nameController, decoration: InputDecoration(labelText: context.l10n.nameRequiredLabel)),
+              TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: context.l10n.phoneRequiredLabel)),
+              TextField(controller: addressController, decoration: InputDecoration(labelText: context.l10n.addressOptional)),
+              TextField(controller: notesController, decoration: InputDecoration(labelText: context.l10n.commentOptional)),
               const SizedBox(height: 16),
-              Text('বর্তমান বাকি: ৳${context.l10n.formatAmount(customer.currentCreditBalance)}',
+              Text('${context.l10n.currentDue}: ৳${context.l10n.formatAmount(customer.currentCreditBalance)}',
                 style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('বাতিল')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
           ElevatedButton(
             onPressed: () async {
               if (nameController.text.isEmpty || phoneController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('নাম এবং ফোন নম্বর প্রয়োজন')));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.namePhoneRequiredError)));
                 return;
               }
 
@@ -928,9 +930,9 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
               if (!mounted) return;
               Navigator.pop(context);
               _loadData();
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('গ্রাহক তথ্য আপডেট হয়েছে')));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.customerUpdated)));
             },
-            child: const Text('সংরক্ষণ করুন'),
+            child: Text(context.l10n.save),
           ),
         ],
       ),
@@ -944,7 +946,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
         children: [
           Icon(Icons.check_circle_outline, size: 64, color: Theme.of(context).colorScheme.outline),
           const SizedBox(height: 16),
-          Text('কোনো গ্রাহক পাওয়া যায়নি', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          Text(context.l10n.noCustomersFound, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ],
       ),
     );
@@ -956,40 +958,41 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     final addressController = TextEditingController();
     final notesController = TextEditingController();
     String customerType = isSupplier ? 'supplier' : 'customer';
+    final l10n = (context).l10n;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: Text(isSupplier ? 'নতুন সরবরাহকারী' : 'নতুন গ্রাহক'),
+          title: Text(isSupplier ? l10n.newSupplier : l10n.newCustomer),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
                   value: customerType,
-                  decoration: const InputDecoration(labelText: 'ধরণ'),
-                  items: const [
-                    DropdownMenuItem(value: 'customer', child: Text('গ্রাহক (আমি পাবো)')),
-                    DropdownMenuItem(value: 'supplier', child: Text('সাপ্লায়ার (আমি দিবো)')),
+                  decoration: InputDecoration(labelText: l10n.type),
+                  items: [
+                    DropdownMenuItem(value: 'customer', child: Text(context.l10n.customerReceivable)),
+                    DropdownMenuItem(value: 'supplier', child: Text(context.l10n.supplierPayable)),
                   ],
                   onChanged: (val) => setState(() => customerType = val!),
                 ),
-                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'নাম (আবশ্যক)')),
-                TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'ফোন নম্বর (আবশ্যক)')),
-                TextField(controller: addressController, decoration: const InputDecoration(labelText: 'ঠিকানা (ঐচ্ছিক)')),
-                TextField(controller: notesController, decoration: const InputDecoration(labelText: 'মন্তব্য (ঐচ্ছিক)')),
+                TextField(controller: nameController, decoration: InputDecoration(labelText: context.l10n.nameRequiredLabel)),
+                TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: context.l10n.phoneRequiredLabel)),
+                TextField(controller: addressController, decoration: InputDecoration(labelText: context.l10n.addressOptional)),
+                TextField(controller: notesController, decoration: InputDecoration(labelText: context.l10n.commentOptional)),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('বাতিল')),
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
             ElevatedButton(
               onPressed: () async {
-                if (nameController.text.isEmpty || phoneController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('নাম এবং ফোন নম্বর প্রয়োজন')));
-                  return;
-                }
+              if (nameController.text.isEmpty || phoneController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.namePhoneRequiredError)));
+                return;
+              }
 
                 final db = context.read<DatabaseHelper>();
                 final database = await db.database;
@@ -1013,9 +1016,9 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                 if (!context.mounted) return;
                 Navigator.pop(context);
                 _loadData();
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('গ্রাহক যুক্ত হয়েছে')));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.customerAdded)));
               },
-              child: const Text('সংরক্ষণ করুন'),
+              child: Text(context.l10n.save),
             ),
           ],
         ),
@@ -1030,34 +1033,34 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('টাকা জমা নিন'),
+        title: Text(context.l10n.collectMoney),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('কাস্টমার: ${customer.name}'),
+            Text('${context.l10n.customer}: ${customer.name}'),
             const SizedBox(height: 8),
-            Text('বর্তমান বাকি: ৳${context.l10n.formatAmount(customer.currentCreditBalance)}',
+            Text('${context.l10n.currentDue}: ৳${context.l10n.formatAmount(customer.currentCreditBalance)}',
               style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'জমা করা টাকার পরিমাণ', prefixText: '৳', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: context.l10n.amountToCollect, prefixText: '৳', border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: notesController,
-              decoration: const InputDecoration(labelText: 'নোট (ঐচ্ছিক)', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: context.l10n.noteOptional, border: const OutlineInputBorder()),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('বাতিল')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
           ElevatedButton(
             onPressed: () async {
               final amount = double.tryParse(amountController.text);
               if (amount == null || amount <= 0) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('সঠিক পরিমাণ লিখুন')));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.enterCorrectAmount)));
                 return;
               }
 
@@ -1071,9 +1074,9 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
               if (!mounted) return;
               Navigator.pop(context);
               _loadData();
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('টাকা জমা নেওয়া সফল হয়েছে')));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.moneyCollectionSuccess)));
             },
-            child: const Text('নিশ্চিত করুন'),
+            child: Text(context.l10n.confirm),
           ),
         ],
       ),
@@ -1105,7 +1108,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('লেনদেনের ইতিহাস', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                          Text(context.l10n.transactionHistory, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                           Text(context.l10n.formatDigits(customer.name), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 16)),
                         ],
                       ),
@@ -1117,7 +1120,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                 const Divider(),
                 Expanded(
                   child: history.isEmpty
-                      ? const Center(child: Text('কোনো লেনদেনের ইতিহাস নেই'))
+                      ? Center(child: Text(context.l10n.noTransactionHistory))
                       : ListView.separated(
                           controller: scrollController,
                           itemCount: history.length,
@@ -1126,7 +1129,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                             final trans = history[index];
                             final isSale = trans.transactionType == 'sale';
                             return ListTile(
-                              title: Text(isSale ? 'পণ্য ক্রয় (বাকি)' : 'টাকা পরিশোধ'),
+                              title: Text(isSale ? context.l10n.productPurchaseDue : context.l10n.payMoney),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -1167,7 +1170,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
         children: [
           ListTile(
             leading: Icon(Icons.call, color: Theme.of(context).colorScheme.primary),
-            title: const Text('কল করুন'),
+            title: Text(context.l10n.call),
             onTap: () async {
               final url = 'tel:${customer.phone}';
               if (await canLaunchUrl(Uri.parse(url))) {
@@ -1179,9 +1182,9 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
           ),
           ListTile(
             leading: Icon(Icons.message, color: Theme.of(context).colorScheme.primary),
-            title: const Text('এসএমএস পাঠান'),
+            title: Text(context.l10n.sendSms),
             onTap: () async {
-              final url = 'sms:${customer.phone}?body=আপনার দোকানের বাকি ৳${customer.currentCreditBalance} পরিশোধ করার জন্য অনুরোধ করা হলো।';
+              final url = 'sms:${customer.phone}?body=${context.l10n.yourShopDueMessage} ৳${customer.currentCreditBalance} ${context.l10n.paymentRequestMessage}';
               if (await canLaunchUrl(Uri.parse(url))) {
                 await launchUrl(Uri.parse(url));
               }

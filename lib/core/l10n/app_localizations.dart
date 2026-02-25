@@ -255,6 +255,37 @@ class AppLocalizations {
   String get totalIncome => isBangla ? 'মোট জমা:' : 'Total income:';
   String get totalExpense => isBangla ? 'মোট খরচ:' : 'Total expense:';
   String get balance => isBangla ? 'ব্যালেন্স:' : 'Balance:';
+  String get newSupplier => isBangla ? 'নতুন সরবরাহকারী' : 'New Supplier';
+  String get newCustomer => isBangla ? 'নতুন গ্রাহক' : 'New Customer';
+  String get type => isBangla ? 'ধরণ' : 'Type';
+  String get customerReceivable => isBangla ? 'গ্রাহক (আমি পাবো)' : 'Customer (I will receive)';
+  String get supplierPayable => isBangla ? 'সাপ্লায়ার (আমি দিবো)' : 'Supplier (I will pay)';
+  String get nameRequiredLabel => isBangla ? 'নাম (আবশ্যক)' : 'Name (Required)';
+  String get phoneRequiredLabel => isBangla ? 'ফোন নম্বর (আবশ্যক)' : 'Phone Number (Required)';
+  String get addressOptional => isBangla ? 'ঠিকানা (ঐচ্ছিক)' : 'Address (Optional)';
+  String get commentOptional => isBangla ? 'মন্তব্য (ঐচ্ছিক)' : 'Comment (Optional)';
+  String get namePhoneRequiredError => isBangla ? 'নাম এবং ফোন নম্বর প্রয়োজন' : 'Name and phone number are required';
+  String get customerAdded => isBangla ? 'গ্রাহক যুক্ত হয়েছে' : 'Customer added';
+  String get collectMoney => isBangla ? 'টাকা জমা নিন' : 'Collect Money';
+  String get currentDue => isBangla ? 'বর্তমান বাকি' : 'Current Due';
+  String get amountToCollect => isBangla ? 'জমা করা টাকার পরিমাণ' : 'Amount to Collect';
+  String get noteOptional => isBangla ? 'নোট (ঐচ্ছিক)' : 'Note (Optional)';
+  String get enterCorrectAmount => isBangla ? 'সঠিক পরিমাণ লিখুন' : 'Enter correct amount';
+  String get moneyCollectionSuccess => isBangla ? 'টাকা জমা নেওয়া সফল হয়েছে' : 'Money collection successful';
+  String get confirm => isBangla ? 'নিশ্চিত করুন' : 'Confirm';
+  String get noTransactionHistory => isBangla ? 'কোনো লেনদেনের ইতিহাস নেই' : 'No transaction history';
+  String get productPurchaseDue => isBangla ? 'পণ্য ক্রয় (বাকি)' : 'Product Purchase (Due)';
+  String get payMoney => isBangla ? 'টাকা পরিশোধ' : 'Pay Money';
+  String get call => isBangla ? 'কল করুন' : 'Call';
+  String get sendSms => isBangla ? 'এসএমএস পাঠান' : 'Send SMS';
+  String get yourShopDueMessage => isBangla ? 'আপনার দোকানের বাকি' : 'Your shop due';
+  String get paymentRequestMessage => isBangla ? 'পরিশোধ করার জন্য অনুরোধ করা হলো।' : 'Payment request initiated.';
+  String get deleteCustomerConfirm => isBangla ? 'আপনি কি এই গ্রাহককে মুছে ফেলতে চান?' : 'Are you sure you want to delete this customer?';
+  String get name => isBangla ? 'নাম' : 'Name';
+  String get due => isBangla ? 'বাকি' : 'Due';
+  String get allTransactionsDeletedWarning => isBangla ? 'সকল লেনদেন ইতিহাস মুছে যাবে!' : 'All transaction history will be deleted!';
+  String get sortDueHighToLow => isBangla ? 'বাকি (বেশি থেকে কম)' : 'Due (high to low)';
+  String get sortDueLowToHigh => isBangla ? 'বাকি (কম থেকে বেশি)' : 'Due (low to high)';
 
   /// Format number for display (Bengali digits when locale is bn).
   String formatAmount(num value) {
