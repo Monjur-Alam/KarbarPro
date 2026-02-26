@@ -352,16 +352,16 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.inverseSurface,
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         children: [
-          _buildSummaryRow(l10n.subTotal, '৳${l10n.formatAmount(state.totalAmount)}', colorScheme.onInverseSurface.withOpacity(0.7)),
+          _buildSummaryRow(l10n.subTotal, '৳${l10n.formatAmount(state.totalAmount)}', colorScheme.onSurface.withOpacity(0.7)),
           _buildSummaryRow('${l10n.discount}:', '- ৳${l10n.formatAmount(double.tryParse(_discountController.text) ?? 0)}', Colors.red.shade300),
-          Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Divider(color: colorScheme.onInverseSurface.withOpacity(0.24))),
-          _buildSummaryRow(l10n.grandTotal, '৳${l10n.formatAmount(finalTotal)}', colorScheme.onInverseSurface, isBold: true, fontSize: 20),
+          Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Divider(color: colorScheme.onSurface.withOpacity(0.24))),
+          _buildSummaryRow(l10n.grandTotal, '৳${l10n.formatAmount(finalTotal)}', colorScheme.onSurface, isBold: true, fontSize: 20),
           if (state.paymentType == PaymentType.credit) ...[
              const SizedBox(height: 8),
              _buildSummaryRow(l10n.collectedColon, '৳${l10n.formatAmount(paid)}', Colors.green.shade300),
