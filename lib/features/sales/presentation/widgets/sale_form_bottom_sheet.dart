@@ -124,7 +124,6 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
               ),
               child: ListView(
                 controller: scrollController,
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
                 children: [
                   const SizedBox(height: 12),

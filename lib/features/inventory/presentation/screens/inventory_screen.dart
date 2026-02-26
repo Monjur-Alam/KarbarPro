@@ -283,7 +283,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
       },
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         itemCount: products.length,
         itemBuilder: (context, index) {
           final product = products[index];
@@ -860,7 +859,6 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                 Expanded(
                   child: ListView(
                     controller: scrollController,
-                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.all(16),
                     children: [
                       // Product Name
