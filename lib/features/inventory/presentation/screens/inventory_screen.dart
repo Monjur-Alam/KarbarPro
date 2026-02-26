@@ -521,6 +521,14 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
   final _descriptionController = TextEditingController();
   final _itemCodeController = TextEditingController();
 
+  final _nameFocus = FocusNode();
+  final _stockFocus = FocusNode();
+  final _unitFocus = FocusNode();
+  final _sellingPriceFocus = FocusNode();
+  final _purchasePriceFocus = FocusNode();
+  final _itemCodeFocus = FocusNode();
+  final _descriptionFocus = FocusNode();
+
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
 
@@ -574,6 +582,13 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
     _unitController.dispose();
     _descriptionController.dispose();
     _itemCodeController.dispose();
+    _nameFocus.dispose();
+    _stockFocus.dispose();
+    _unitFocus.dispose();
+    _sellingPriceFocus.dispose();
+    _purchasePriceFocus.dispose();
+    _itemCodeFocus.dispose();
+    _descriptionFocus.dispose();
     super.dispose();
   }
 
@@ -853,6 +868,9 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                       const SizedBox(height: 8),
                       TextField(
                         controller: _nameController,
+                        focusNode: _nameFocus,
+                        textInputAction: TextInputAction.next,
+                        onSubmitted: (_) => _stockFocus.requestFocus(),
                         decoration: InputDecoration(
                           hintText: l10n.itemNameHint,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -973,6 +991,9 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                                 const SizedBox(height: 8),
                                 TextField(
                                   controller: _stockController,
+                                  focusNode: _stockFocus,
+                                  textInputAction: TextInputAction.next,
+                                  onSubmitted: (_) => _unitFocus.requestFocus(),
                                   keyboardType: TextInputType.number,
                                   decoration: InputDecoration(
                                     hintText: '০',
@@ -992,6 +1013,9 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                                 const SizedBox(height: 8),
                                 TextField(
                                   controller: _unitController,
+                                  focusNode: _unitFocus,
+                                  textInputAction: TextInputAction.next,
+                                  onSubmitted: (_) => _sellingPriceFocus.requestFocus(),
                                   decoration: InputDecoration(
                                     hintText: 'pcs',
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -1016,6 +1040,9 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                                 const SizedBox(height: 8),
                                 TextField(
                                   controller: _sellingPriceController,
+                                  focusNode: _sellingPriceFocus,
+                                  textInputAction: TextInputAction.next,
+                                  onSubmitted: (_) => _purchasePriceFocus.requestFocus(),
                                   keyboardType: TextInputType.number,
                                   decoration: InputDecoration(
                                     hintText: '০',
@@ -1035,6 +1062,9 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                                 const SizedBox(height: 8),
                                 TextField(
                                   controller: _purchasePriceController,
+                                  focusNode: _purchasePriceFocus,
+                                  textInputAction: TextInputAction.next,
+                                  onSubmitted: (_) => _itemCodeFocus.requestFocus(),
                                   keyboardType: TextInputType.number,
                                   decoration: InputDecoration(
                                     hintText: '০',
@@ -1054,6 +1084,9 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                       const SizedBox(height: 8),
                       TextField(
                         controller: _itemCodeController,
+                        focusNode: _itemCodeFocus,
+                        textInputAction: TextInputAction.next,
+                        onSubmitted: (_) => _descriptionFocus.requestFocus(),
                         decoration: InputDecoration(
                           hintText: l10n.itemCodeHint,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -1067,6 +1100,8 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                       const SizedBox(height: 8),
                       TextField(
                         controller: _descriptionController,
+                        focusNode: _descriptionFocus,
+                        textInputAction: TextInputAction.done,
                         maxLines: 3,
                         decoration: InputDecoration(
                           hintText: l10n.descriptionHint,
@@ -1114,28 +1149,31 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                 ),
 
                 // Save Button
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surface,
-                    boxShadow: [
-                      BoxShadow(
-                        color: colorScheme.shadow.withOpacity(0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, -2),
+                Padding(
+                  padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface,
+                      boxShadow: [
+                        BoxShadow(
+                          color: colorScheme.shadow.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, -2),
+                        ),
+                      ],
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _saveProduct,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade700,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: Text(l10n.save, style: const TextStyle(fontSize: 16, color: Colors.white)),
                       ),
-                    ],
-                  ),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _saveProduct,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade700,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      child: Text(l10n.save, style: const TextStyle(fontSize: 16, color: Colors.white)),
                     ),
                   ),
                 ),

@@ -24,6 +24,12 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
   final TextEditingController _paidAmountController = TextEditingController(text: '0');
   final TextEditingController _notesController = TextEditingController();
 
+  final FocusNode _quantityFocus = FocusNode();
+  final FocusNode _priceFocus = FocusNode();
+  final FocusNode _discountFocus = FocusNode();
+  final FocusNode _paidAmountFocus = FocusNode();
+  final FocusNode _notesFocus = FocusNode();
+
   Product? _selectedProduct;
   bool _isPartialPayment = false;
 
@@ -41,6 +47,11 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     _discountController.dispose();
     _paidAmountController.dispose();
     _notesController.dispose();
+    _quantityFocus.dispose();
+    _priceFocus.dispose();
+    _discountFocus.dispose();
+    _paidAmountFocus.dispose();
+    _notesFocus.dispose();
     super.dispose();
   }
 
@@ -114,6 +125,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
               child: ListView(
                 controller: scrollController,
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
                 children: [
                   const SizedBox(height: 12),
                   Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: colorScheme.outlineVariant, borderRadius: BorderRadius.circular(2)))),
@@ -155,7 +167,10 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
                                   suffix: _selectedProduct!.unit,
                                   isNumber: true,
                                   textAlign: TextAlign.center,
-                                  onChanged: (_) => setState(() {})
+                                  onChanged: (_) => setState(() {}),
+                                  focusNode: _quantityFocus,
+                                  textInputAction: TextInputAction.next,
+                                  nextFocus: _priceFocus,
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -167,7 +182,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
                           ),
                         ),
                         const SizedBox(width: 16),
-                        Expanded(child: _buildTextField(_priceController, l10n.unitPriceRequired, prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}))),
+                        Expanded(child: _buildTextField(_priceController, l10n.unitPriceRequired, prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}), focusNode: _priceFocus)),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -207,11 +222,11 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
                     const SizedBox(height: 16),
                     _buildPartialPaymentSection(finalTotal),
                   ] else ...[
-                    _buildTextField(_discountController, l10n.discountTaka, prefix: '৳', isNumber: true, onChanged: (_) => setState(() {})),
+                    _buildTextField(_discountController, l10n.discountTaka, prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}), focusNode: _discountFocus, textInputAction: TextInputAction.next, nextFocus: _notesFocus),
                   ],
 
                   const SizedBox(height: 16),
-                  _buildTextField(_notesController, '💬 ${l10n.additionalNotes}', maxLines: 2),
+                  _buildTextField(_notesController, '💬 ${l10n.additionalNotes}', maxLines: 2, focusNode: _notesFocus),
 
                   const SizedBox(height: 32),
                   _buildCheckoutSummary(state, finalTotal),
@@ -334,9 +349,9 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
             padding: const EdgeInsets.only(top: 8.0),
             child: Row(
               children: [
-                Expanded(child: _buildTextField(_paidAmountController, l10n.collectedAmount, prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}))),
+                Expanded(child: _buildTextField(_paidAmountController, l10n.collectedAmount, prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}), focusNode: _paidAmountFocus, textInputAction: TextInputAction.next, nextFocus: _discountFocus)),
                 const SizedBox(width: 16),
-                Expanded(child: _buildTextField(_discountController, l10n.discount, prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}))),
+                Expanded(child: _buildTextField(_discountController, l10n.discount, prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}), focusNode: _discountFocus, textInputAction: TextInputAction.next, nextFocus: _notesFocus)),
               ],
             ),
           ),
@@ -424,10 +439,13 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     ));
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, {String? prefix, String? suffix, bool isNumber = false, int maxLines = 1, TextAlign textAlign = TextAlign.start, Function(String)? onChanged}) {
+  Widget _buildTextField(TextEditingController controller, String label, {String? prefix, String? suffix, bool isNumber = false, int maxLines = 1, TextAlign textAlign = TextAlign.start, Function(String)? onChanged, FocusNode? focusNode, TextInputAction? textInputAction, FocusNode? nextFocus}) {
     final colorScheme = Theme.of(context).colorScheme;
     return TextField(
       controller: controller,
+      focusNode: focusNode,
+      textInputAction: textInputAction ?? TextInputAction.done,
+      onSubmitted: nextFocus != null ? (_) => nextFocus.requestFocus() : null,
       keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
       maxLines: maxLines,
       textAlign: textAlign,
