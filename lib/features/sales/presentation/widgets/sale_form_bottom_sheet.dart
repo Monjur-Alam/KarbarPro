@@ -97,7 +97,9 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
         double finalTotal = subTotal - discount;
         if (finalTotal < 0) finalTotal = 0;
 
-        return DraggableScrollableSheet(
+        return GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: DraggableScrollableSheet(
           initialChildSize: 0.9,
           minChildSize: 0.6,
           maxChildSize: 0.95,
@@ -111,6 +113,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
               ),
               child: ListView(
                 controller: scrollController,
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 children: [
                   const SizedBox(height: 12),
                   Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: colorScheme.outlineVariant, borderRadius: BorderRadius.circular(2)))),
@@ -250,6 +253,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
               ),
             );
           },
+        ),
         );
       },
     );

@@ -785,348 +785,364 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(16),
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.6,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) {
+          return Container(
             decoration: BoxDecoration(
               color: colorScheme.surface,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.shadow.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
-            child: Row(
+            child: Column(
               children: [
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                Expanded(
-                  child: Text(
-                    widget.product == null ? l10n.addNewItem : l10n.editItem,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.normal),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.info_outline),
-                  onPressed: _showInstructions,
-                ),
-              ],
-            ),
-          ),
-
-          // Content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Product Name
-                  Text(l10n.itemNameRequired, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      hintText: l10n.itemNameHint,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Category
-                  Text(l10n.categoryLabel, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () async {
-                      final result = await showModalBottomSheet<String>(
-                        context: context,
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                        ),
-                        builder: (context) => Container(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l10n.selectCategory,
-                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 16),
-                              if (_existingCategories.isEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 20),
-                                  child: Center(
-                                    child: Text(l10n.noCategoriesHint),
-                                  ),
-                                )
-                              else
-                                ..._existingCategories.map((cat) => ListTile(
-                                  title: Text(cat),
-                                  onTap: () => Navigator.pop(context, cat),
-                                )),
-                              const Divider(),
-                              ListTile(
-                                leading: Icon(Icons.add, color: colorScheme.primary),
-                                title: Text(l10n.addNewCategory),
-                                onTap: () async {
-                                  Navigator.pop(context);
-                                  final newCat = await showDialog<String>(
-                                    context: context,
-                                    builder: (context) {
-                                      final controller = TextEditingController();
-                                      return AlertDialog(
-                                        title: Text(l10n.newCategory),
-                                        content: TextField(
-                                          controller: controller,
-                                          autofocus: true,
-                                          decoration: InputDecoration(
-                                            hintText: l10n.categoryHint,
-                                            border: const OutlineInputBorder(),
-                                          ),
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(context),
-                                            child: Text(l10n.cancel),
-                                          ),
-                                          ElevatedButton(
-                                            onPressed: () => Navigator.pop(context, controller.text),
-                                            child: Text(l10n.addLabel),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  );
-                                  if (newCat != null && newCat.isNotEmpty) {
-                                    setState(() => _categoryController.text = newCat);
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                      if (result != null) {
-                        setState(() => _categoryController.text = result);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: colorScheme.outlineVariant),
-                        borderRadius: BorderRadius.circular(8),
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colorScheme.shadow.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: colorScheme.outlineVariant, borderRadius: BorderRadius.circular(2)))),
+                      const SizedBox(height: 12),
+                      Row(
                         children: [
-                          Text(
-                            _categoryController.text.isEmpty ? l10n.selectCategory : _categoryController.text,
-                            style: TextStyle(
-                              color: _categoryController.text.isEmpty ? colorScheme.onSurfaceVariant : colorScheme.onSurface,
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          Expanded(
+                            child: Text(
+                              widget.product == null ? l10n.addNewItem : l10n.editItem,
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.normal),
+                              textAlign: TextAlign.center,
                             ),
                           ),
-                          Icon(Icons.arrow_forward_ios, size: 16, color: colorScheme.onSurfaceVariant),
+                          IconButton(
+                            icon: const Icon(Icons.info_outline),
+                            onPressed: _showInstructions,
+                          ),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Stock and Unit
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(l10n.initialStock, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _stockController,
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                hintText: '০',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(l10n.unit, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _unitController,
-                              decoration: InputDecoration(
-                                hintText: 'pcs',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                ),
 
-                  // Prices
-                  Row(
+                // Content
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.all(16),
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(l10n.sellingPriceRequired, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _sellingPriceController,
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                hintText: '০',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              ),
-                            ),
-                          ],
+                      // Product Name
+                      Text(l10n.itemNameRequired, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _nameController,
+                        decoration: InputDecoration(
+                          hintText: l10n.itemNameHint,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(l10n.purchasePriceLabel, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _purchasePriceController,
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                hintText: '০',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              ),
+                      const SizedBox(height: 16),
+
+                      // Category
+                      Text(l10n.categoryLabel, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () async {
+                          final result = await showModalBottomSheet<String>(
+                            context: context,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Item Code
-                  Text(l10n.itemCode, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _itemCodeController,
-                    decoration: InputDecoration(
-                      hintText: l10n.itemCodeHint,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Description
-                  Text(l10n.description, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _descriptionController,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      hintText: l10n.descriptionHint,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Image Upload
-                  InkWell(
-                    onTap: _pickImage,
-                    child: Container(
-                      height: 120,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: colorScheme.outlineVariant),
-                        borderRadius: BorderRadius.circular(8),
-                        image: _selectedImage != null
-                            ? DecorationImage(
-                                image: FileImage(_selectedImage!),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
-                      ),
-                      child: _selectedImage == null
-                          ? Center(
+                            builder: (context) => Container(
+                              padding: const EdgeInsets.all(20),
                               child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.add_a_photo_outlined, size: 40, color: colorScheme.outlineVariant),
-                                  const SizedBox(height: 8),
                                   Text(
-                                    l10n.addItemImage,
-                                    style: TextStyle(color: colorScheme.primary, fontSize: 14),
+                                    l10n.selectCategory,
+                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  if (_existingCategories.isEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 20),
+                                      child: Center(
+                                        child: Text(l10n.noCategoriesHint),
+                                      ),
+                                    )
+                                  else
+                                    ..._existingCategories.map((cat) => ListTile(
+                                      title: Text(cat),
+                                      onTap: () => Navigator.pop(context, cat),
+                                    )),
+                                  const Divider(),
+                                  ListTile(
+                                    leading: Icon(Icons.add, color: colorScheme.primary),
+                                    title: Text(l10n.addNewCategory),
+                                    onTap: () async {
+                                      Navigator.pop(context);
+                                      final newCat = await showDialog<String>(
+                                        context: context,
+                                        builder: (context) {
+                                          final controller = TextEditingController();
+                                          return AlertDialog(
+                                            title: Text(l10n.newCategory),
+                                            content: TextField(
+                                              controller: controller,
+                                              autofocus: true,
+                                              decoration: InputDecoration(
+                                                hintText: l10n.categoryHint,
+                                                border: const OutlineInputBorder(),
+                                              ),
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context),
+                                                child: Text(l10n.cancel),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () => Navigator.pop(context, controller.text),
+                                                child: Text(l10n.addLabel),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      );
+                                      if (newCat != null && newCat.isNotEmpty) {
+                                        setState(() => _categoryController.text = newCat);
+                                      }
+                                    },
                                   ),
                                 ],
                               ),
-                            )
-                          : null,
+                            ),
+                          );
+                          if (result != null) {
+                            setState(() => _categoryController.text = result);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: colorScheme.outlineVariant),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _categoryController.text.isEmpty ? l10n.selectCategory : _categoryController.text,
+                                style: TextStyle(
+                                  color: _categoryController.text.isEmpty ? colorScheme.onSurfaceVariant : colorScheme.onSurface,
+                                ),
+                              ),
+                              Icon(Icons.arrow_forward_ios, size: 16, color: colorScheme.onSurfaceVariant),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Stock and Unit
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(l10n.initialStock, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _stockController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    hintText: '০',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(l10n.unit, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _unitController,
+                                  decoration: InputDecoration(
+                                    hintText: 'pcs',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Prices
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(l10n.sellingPriceRequired, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _sellingPriceController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    hintText: '০',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(l10n.purchasePriceLabel, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _purchasePriceController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    hintText: '০',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Item Code
+                      Text(l10n.itemCode, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _itemCodeController,
+                        decoration: InputDecoration(
+                          hintText: l10n.itemCodeHint,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Description
+                      Text(l10n.description, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _descriptionController,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          hintText: l10n.descriptionHint,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Image Upload
+                      InkWell(
+                        onTap: _pickImage,
+                        child: Container(
+                          height: 120,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: colorScheme.outlineVariant),
+                            borderRadius: BorderRadius.circular(8),
+                            image: _selectedImage != null
+                                ? DecorationImage(
+                                    image: FileImage(_selectedImage!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: _selectedImage == null
+                              ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.add_a_photo_outlined, size: 40, color: colorScheme.outlineVariant),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        l10n.addItemImage,
+                                        style: TextStyle(color: colorScheme.primary, fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
+                ),
+
+                // Save Button
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    boxShadow: [
+                      BoxShadow(
+                        color: colorScheme.shadow.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, -2),
+                      ),
+                    ],
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _saveProduct,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade700,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: Text(l10n.save, style: const TextStyle(fontSize: 16, color: Colors.white)),
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-
-          // Save Button
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: colorScheme.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.shadow.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, -2),
                 ),
               ],
             ),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _saveProduct,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade700,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: Text(l10n.save, style: const TextStyle(fontSize: 16, color: Colors.white)),
-              ),
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
