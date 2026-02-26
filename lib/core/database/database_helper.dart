@@ -600,15 +600,20 @@ class DatabaseHelper {
 
   Future<void> clearAllTables() async {
     Database db = await database;
-    await db.transaction((txn) async {
-      var tables = await txn.query('sqlite_master', where: 'type = ?', whereArgs: ['table']);
-      for (var table in tables) {
-        String tableName = table['name'] as String;
-        if (tableName != 'android_metadata' && tableName != 'sqlite_sequence') {
-          await txn.delete(tableName);
+    await db.execute('PRAGMA foreign_keys = OFF');
+    try {
+      await db.transaction((txn) async {
+        var tables = await txn.query('sqlite_master', where: 'type = ?', whereArgs: ['table']);
+        for (var table in tables) {
+          String tableName = table['name'] as String;
+          if (tableName != 'android_metadata' && tableName != 'sqlite_sequence') {
+            await txn.delete(tableName);
+          }
         }
-      }
-    });
+      });
+    } finally {
+      await db.execute('PRAGMA foreign_keys = ON');
+    }
   }
 
   Future<void> vacuum() async {

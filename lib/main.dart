@@ -61,6 +61,7 @@ void main() async {
     reportRepository: reportRepository,
     connectivityService: connectivityService,
     dbHelper: dbHelper,
+    driveService: driveService,
   ));
 }
 
@@ -74,9 +75,10 @@ class MyApp extends StatelessWidget {
   final ReportRepository reportRepository;
   final ConnectivityService connectivityService;
   final DatabaseHelper dbHelper;
+  final GoogleDriveService driveService;
 
   const MyApp({
-    super.key, 
+    super.key,
     required this.authRepository,
     required this.syncService,
     required this.dashboardRepository,
@@ -86,6 +88,7 @@ class MyApp extends StatelessWidget {
     required this.reportRepository,
     required this.connectivityService,
     required this.dbHelper,
+    required this.driveService,
   });
 
   @override
@@ -101,6 +104,7 @@ class MyApp extends StatelessWidget {
         RepositoryProvider.value(value: reportRepository),
         RepositoryProvider.value(value: connectivityService),
         RepositoryProvider.value(value: dbHelper),
+        RepositoryProvider.value(value: driveService),
       ],
       child: MultiBlocProvider(
         providers: [

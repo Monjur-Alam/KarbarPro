@@ -706,7 +706,7 @@ class _ExpenseViewState extends State<ExpenseView> with SingleTickerProviderStat
         <td>${DateFormat('dd/MM/yy').format(t.transactionDate)}</td>
         <td>$escapedCategory</td>
         <td>$escapedDesc</td>
-        <td>${isIncome ? 'জমা' : 'খরচ'}</td>
+        <td>${isIncome ? context.l10n.income : context.l10n.expenseLabel}</td>
         <td class="text-right ${isIncome ? 'text-green' : 'text-red'}">${isIncome ? '+' : '-'}৳ ${t.amount.toStringAsFixed(0)}</td>
       </tr>
 ''');

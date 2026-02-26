@@ -3,7 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/screens/profile_screen.dart';
 import '../constants/app_colors.dart';
+import '../database/database_helper.dart';
 import '../l10n/app_localizations.dart';
+import '../services/google_drive_service.dart';
 import '../settings/app_settings_cubit.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -79,6 +81,14 @@ class AppDrawer extends StatelessWidget {
                     Navigator.pop(context);
                     // TODO: Navigate to About
                   },
+                  isDark: isDark,
+                ),
+                _buildMenuItem(
+                  context: context,
+                  icon: Icons.delete_forever_outlined,
+                  label: l10n.resetData,
+                  color: theme.colorScheme.error,
+                  onTap: () => _showResetDataDialog(context, l10n),
                   isDark: isDark,
                 ),
                 _buildMenuItem(
@@ -352,6 +362,96 @@ class AppDrawer extends StatelessWidget {
       ),
       onTap: onTap,
     );
+  }
+
+  void _showResetDataDialog(BuildContext context, AppLocalizations l10n) {
+    final theme = Theme.of(context);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: theme.colorScheme.error),
+            const SizedBox(width: 8),
+            Text(l10n.resetDataConfirmTitle),
+          ],
+        ),
+        content: Text(l10n.resetDataConfirmMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _performResetData(context, l10n);
+            },
+            child: Text(
+              l10n.resetDataButton,
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performResetData(BuildContext context, AppLocalizations l10n) async {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // Clear all SQLite tables
+      final dbHelper = context.read<DatabaseHelper>();
+      await dbHelper.clearAllTables();
+
+      // Try to delete all Google Drive backups
+      try {
+        final driveService = context.read<GoogleDriveService>();
+        final folderId = await driveService.getOrCreateBackupFolder();
+        final backups = await driveService.listBackups(folderId);
+        for (final file in backups) {
+          if (file.id != null) {
+            await driveService.deleteFile(file.id!);
+          }
+        }
+      } catch (_) {
+        // Ignore drive errors (user may be offline)
+      }
+
+      // Dismiss loading dialog
+      if (context.mounted) Navigator.pop(context);
+
+      // Close the drawer
+      if (context.mounted) Navigator.pop(context);
+
+      // Show success snackbar
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.resetDataSuccess)),
+        );
+      }
+
+      // Logout the user
+      if (context.mounted) {
+        context.read<AuthBloc>().add(AuthLogoutRequested());
+      }
+    } catch (e) {
+      // Dismiss loading dialog
+      if (context.mounted) Navigator.pop(context);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${l10n.errorPrefix}$e')),
+        );
+      }
+    }
   }
 
   void _showLogoutDialog(BuildContext context, AppLocalizations l10n) {

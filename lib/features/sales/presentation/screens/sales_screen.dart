@@ -762,7 +762,7 @@ class _SalesViewState extends State<SalesView> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Text(context.l10n.sortBy, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            child: Text(context.l10n.sortBy, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurface)),
           ),
           _buildSortItem(context, context.l10n.sortNewestFirst, 'date_desc', state.sortBy == 'date_desc'),
           _buildSortItem(context, context.l10n.sortOldestFirst, 'date_asc', state.sortBy == 'date_asc'),
@@ -775,9 +775,10 @@ class _SalesViewState extends State<SalesView> {
   }
 
   Widget _buildSortItem(BuildContext context, String title, String value, bool isSelected) {
+    final theme = Theme.of(context);
     return ListTile(
-      title: Text(title, style: TextStyle(color: isSelected ? Colors.blue : Colors.black87, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-      trailing: isSelected ? const Icon(Icons.check, color: Colors.blue) : null,
+      title: Text(title, style: TextStyle(color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+      trailing: isSelected ? Icon(Icons.check, color: theme.colorScheme.primary) : null,
       onTap: () {
         context.read<SalesBloc>().add(UpdateSalesFilters(sortBy: value));
         Navigator.pop(context);

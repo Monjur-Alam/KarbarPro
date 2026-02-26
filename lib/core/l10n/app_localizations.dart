@@ -28,6 +28,13 @@ class AppLocalizations {
       isBangla ? 'আপনি কি নিশ্চিতভাবে লগআউট করতে চান?' : 'Are you sure you want to logout?';
   String get no => isBangla ? 'না' : 'No';
   String get yes => isBangla ? 'হ্যাঁ' : 'Yes';
+  String get resetData => isBangla ? 'ডাটা রিসেট' : 'Reset Data';
+  String get resetDataConfirmTitle => isBangla ? 'ডাটা রিসেট করুন' : 'Reset Data';
+  String get resetDataConfirmMessage => isBangla
+      ? 'এটি আপনার সমস্ত ডাটা (বিক্রয়, পণ্য, গ্রাহক, খরচ) এবং গুগল ড্রাইভের সকল ব্যাকআপ স্থায়ীভাবে মুছে ফেলবে। এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না!'
+      : 'This will permanently delete all your data (sales, products, customers, expenses) and all Google Drive backups. This action cannot be undone!';
+  String get resetDataSuccess => isBangla ? 'সমস্ত ডাটা সফলভাবে রিসেট করা হয়েছে' : 'All data has been reset successfully';
+  String get resetDataButton => isBangla ? 'রিসেট করুন' : 'Reset';
 
   // ——— Filter periods (internal value is Bangla in code; this returns display label) ———
   String get periodDaily => isBangla ? 'দৈনিক' : 'Daily';
