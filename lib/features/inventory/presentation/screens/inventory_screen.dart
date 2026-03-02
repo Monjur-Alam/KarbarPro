@@ -532,9 +532,19 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
   final ImagePicker _picker = ImagePicker();
 
   @override
+  bool get _isFormValid {
+    final name = _nameController.text.trim();
+    final sellingPrice = double.tryParse(_sellingPriceController.text) ?? 0.0;
+    return name.isNotEmpty && sellingPrice > 0;
+  }
+
+  @override
   void initState() {
     super.initState();
     _loadExistingCategories();
+
+    _nameController.addListener(() => setState(() {}));
+    _sellingPriceController.addListener(() => setState(() {}));
 
     if (widget.product != null) {
       _nameController.text = widget.product!.name;
@@ -1146,7 +1156,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                   ),
                 ),
 
-                // Save Button
+                // Action Buttons
                 Padding(
                   padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
                   child: Container(
@@ -1161,17 +1171,34 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                         ),
                       ],
                     ),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _saveProduct,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green.shade700,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: Text(l10n.cancel),
+                          ),
                         ),
-                        child: Text(l10n.save, style: const TextStyle(fontSize: 16, color: Colors.white)),
-                      ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton(
+                            onPressed: _isFormValid ? _saveProduct : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green.shade700,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 2,
+                            ),
+                            child: Text(l10n.save, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
