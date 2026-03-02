@@ -13,6 +13,11 @@ class DashboardSummary {
   final double totalCollected;
   final double totalPayable;
   final double totalPaid;
+  final double totalExpense;
+  final double totalSalesCash;
+  final double totalSalesCredit;
+  final double paidToSupplierInPeriod;
+  final double dueCollectionInPeriod;
 
   DashboardSummary({
     required this.totalSalesToday,
@@ -25,6 +30,11 @@ class DashboardSummary {
     required this.totalCollected,
     required this.totalPayable,
     required this.totalPaid,
+    required this.totalExpense,
+    required this.totalSalesCash,
+    required this.totalSalesCredit,
+    required this.paidToSupplierInPeriod,
+    required this.dueCollectionInPeriod,
   });
 }
 
@@ -33,36 +43,48 @@ class DashboardRepository {
 
   DashboardRepository(this._dbHelper);
 
-  Future<DashboardSummary> getDashboardSummary() async {
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  Future<DashboardSummary> getDashboardSummary({DateTime? date}) async {
+    final targetDate = date ?? DateTime.now();
+    final startOfMonth = DateTime(targetDate.year, targetDate.month, 1);
+    final endOfMonth = DateTime(targetDate.year, targetDate.month + 1, 0, 23, 59, 59);
+    
+    final startDateStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(startOfMonth);
+    final endDateStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(endOfMonth);
+    
     final db = await _dbHelper.database;
 
-    // 1. Total Sales and Profit Today
+    // 1. Total Sales and Profit in Period
     final salesResult = await db.rawQuery('''
-      SELECT COUNT(*) as count, SUM(${DatabaseConstants.colTotalAmount}) as total_amount, 
-             SUM(${DatabaseConstants.colTotalProfit}) as total_profit
+      SELECT 
+        COUNT(*) as count, 
+        SUM(${DatabaseConstants.colTotalAmount}) as total_amount, 
+        SUM(${DatabaseConstants.colTotalProfit}) as total_profit,
+        SUM(CASE WHEN ${DatabaseConstants.colPaymentType} = 'cash' THEN ${DatabaseConstants.colTotalAmount} ELSE 0 END) as cash_sales,
+        SUM(CASE WHEN ${DatabaseConstants.colPaymentType} = 'credit' THEN ${DatabaseConstants.colTotalAmount} ELSE 0 END) as credit_sales
       FROM ${DatabaseConstants.tableSales}
-      WHERE date(${DatabaseConstants.colSaleDate}) = date(?)
-    ''', [today]);
+      WHERE ${DatabaseConstants.colSaleDate} BETWEEN ? AND ?
+    ''', [startDateStr, endDateStr]);
 
-    final totalSalesToday = (salesResult.first['count'] as num?)?.toInt() ?? 0;
-    final totalAmountToday = (salesResult.first['total_amount'] as num?)?.toDouble() ?? 0.0;
-    final totalProfitToday = (salesResult.first['total_profit'] as num?)?.toDouble() ?? 0.0;
+    final totalSalesInPeriod = (salesResult.first['count'] as num?)?.toInt() ?? 0;
+    final totalAmountInPeriod = (salesResult.first['total_amount'] as num?)?.toDouble() ?? 0.0;
+    final totalProfitInPeriod = (salesResult.first['total_profit'] as num?)?.toDouble() ?? 0.0;
+    final totalSalesCash = (salesResult.first['cash_sales'] as num?)?.toDouble() ?? 0.0;
+    final totalSalesCredit = (salesResult.first['credit_sales'] as num?)?.toDouble() ?? 0.0;
 
-    // 2. Recent 5 Sales
+    // 2. Recent 10 Sales (Global)
     final recentSales = await db.query(
       DatabaseConstants.tableSales,
       orderBy: '${DatabaseConstants.colSaleDate} DESC',
-      limit: 5,
+      limit: 10,
     );
 
-    // 3. Low Stock Alerts
+    // 3. Low Stock Alerts (Global)
     final lowStockResult = await db.query(
       DatabaseConstants.tableProducts,
       where: '${DatabaseConstants.colCurrentStock} <= ${DatabaseConstants.colMinStockAlert} AND ${DatabaseConstants.colIsActive} = 1',
     );
 
-    // 4. Shop Main Balance
+    // 4. Shop Main Balance (Global)
     final balanceResult = await db.rawQuery('''
       SELECT ${DatabaseConstants.colBalanceAfter} 
       FROM ${DatabaseConstants.tableShopTransactions} 
@@ -72,9 +94,8 @@ class DashboardRepository {
         ? (balanceResult.first[DatabaseConstants.colBalanceAfter] as num).toDouble() 
         : 0.0;
 
-    // 5. Bakir Khata Summary
-    // Total Receivable (Customers)
-    final receivableResult = await db.rawQuery('''
+    // 5. Bakir Khata Summary (Global totals)
+    final receivableTotalResult = await db.rawQuery('''
       SELECT 
         SUM(${DatabaseConstants.colCurrentCreditBalance}) as totalReceivable,
         SUM(${DatabaseConstants.colTotalPaid}) as totalCollected
@@ -82,8 +103,7 @@ class DashboardRepository {
       WHERE ${DatabaseConstants.colCustomerType} = 'customer' AND ${DatabaseConstants.colDeletedAt} IS NULL
     ''');
 
-    // Total Payable (Suppliers)
-    final payableResult = await db.rawQuery('''
+    final payableTotalResult = await db.rawQuery('''
       SELECT 
         SUM(ABS(${DatabaseConstants.colCurrentCreditBalance})) as totalPayable,
         SUM(${DatabaseConstants.colTotalPaid}) as totalPaid
@@ -91,17 +111,49 @@ class DashboardRepository {
       WHERE ${DatabaseConstants.colCustomerType} = 'supplier' AND ${DatabaseConstants.colDeletedAt} IS NULL
     ''');
 
+    // 6. Period-based Payment Tracking (Collections & Supplier Payments)
+    final dueCollectionResult = await db.rawQuery('''
+      SELECT SUM(${DatabaseConstants.colAmount}) as amount
+      FROM ${DatabaseConstants.tableCustomerTransactions}
+      WHERE ${DatabaseConstants.colTransactionType} = 'payment' 
+      AND ${DatabaseConstants.colTransactionDate} BETWEEN ? AND ?
+      AND ${DatabaseConstants.colCustomerId} IN (SELECT ${DatabaseConstants.colId} FROM ${DatabaseConstants.tableCustomers} WHERE ${DatabaseConstants.colCustomerType} = 'customer')
+    ''', [startDateStr, endDateStr]);
+    final dueCollectionInPeriod = (dueCollectionResult.first['amount'] as num?)?.toDouble() ?? 0.0;
+
+    final supplierPaidResult = await db.rawQuery('''
+      SELECT SUM(${DatabaseConstants.colAmount}) as amount
+      FROM ${DatabaseConstants.tableCustomerTransactions}
+      WHERE ${DatabaseConstants.colTransactionType} = 'payment' 
+      AND ${DatabaseConstants.colTransactionDate} BETWEEN ? AND ?
+      AND ${DatabaseConstants.colCustomerId} IN (SELECT ${DatabaseConstants.colId} FROM ${DatabaseConstants.tableCustomers} WHERE ${DatabaseConstants.colCustomerType} = 'supplier')
+    ''', [startDateStr, endDateStr]);
+    final paidToSupplierInPeriod = (supplierPaidResult.first['amount'] as num?)?.toDouble() ?? 0.0;
+
+    // 7. Total Overhead Expenses in Period
+    final expenseResult = await db.rawQuery('''
+      SELECT SUM(${DatabaseConstants.colAmount}) as total_expense
+      FROM ${DatabaseConstants.tableExpenses}
+      WHERE ${DatabaseConstants.colExpenseDate} BETWEEN ? AND ?
+    ''', [startDateStr, endDateStr]);
+    final totalExpenseInPeriod = (expenseResult.first['total_expense'] as num?)?.toDouble() ?? 0.0;
+
     return DashboardSummary(
-      totalSalesToday: totalSalesToday,
-      totalAmountToday: totalAmountToday,
-      totalProfitToday: totalProfitToday,
+      totalSalesToday: totalSalesInPeriod,
+      totalAmountToday: totalAmountInPeriod,
+      totalProfitToday: totalProfitInPeriod,
       recentSales: recentSales,
       lowStockProducts: lowStockResult,
       mainBalance: mainBalance,
-      totalReceivable: (receivableResult.first['totalReceivable'] as num?)?.toDouble() ?? 0.0,
-      totalCollected: (receivableResult.first['totalCollected'] as num?)?.toDouble() ?? 0.0,
-      totalPayable: (payableResult.first['totalPayable'] as num?)?.toDouble() ?? 0.0,
-      totalPaid: (payableResult.first['totalPaid'] as num?)?.toDouble() ?? 0.0,
+      totalReceivable: (receivableTotalResult.first['totalReceivable'] as num?)?.toDouble() ?? 0.0,
+      totalCollected: (receivableTotalResult.first['totalCollected'] as num?)?.toDouble() ?? 0.0,
+      totalPayable: (payableTotalResult.first['totalPayable'] as num?)?.toDouble() ?? 0.0,
+      totalPaid: (payableTotalResult.first['totalPaid'] as num?)?.toDouble() ?? 0.0,
+      totalExpense: totalExpenseInPeriod,
+      totalSalesCash: totalSalesCash,
+      totalSalesCredit: totalSalesCredit,
+      paidToSupplierInPeriod: paidToSupplierInPeriod,
+      dueCollectionInPeriod: dueCollectionInPeriod,
     );
   }
 }

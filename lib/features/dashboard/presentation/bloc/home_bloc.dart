@@ -10,8 +10,20 @@ abstract class HomeEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class LoadDashboard extends HomeEvent {}
-class RefreshDashboard extends HomeEvent {}
+class LoadDashboard extends HomeEvent {
+  final DateTime? date;
+  LoadDashboard({this.date});
+  @override
+  List<Object?> get props => [date];
+}
+
+class RefreshDashboard extends HomeEvent {
+  final DateTime? date;
+  RefreshDashboard({this.date});
+  @override
+  List<Object?> get props => [date];
+}
+
 class SyncStatusChanged extends HomeEvent {
   final SyncStatus status;
   SyncStatusChanged(this.status);
@@ -30,11 +42,16 @@ class HomeLoading extends HomeState {}
 class HomeLoaded extends HomeState {
   final DashboardSummary summary;
   final SyncStatus syncStatus;
+  final DateTime selectedDate;
 
-  HomeLoaded({required this.summary, required this.syncStatus});
+  HomeLoaded({
+    required this.summary, 
+    required this.syncStatus,
+    required this.selectedDate,
+  });
 
   @override
-  List<Object?> get props => [summary, syncStatus];
+  List<Object?> get props => [summary, syncStatus, selectedDate];
 }
 class HomeError extends HomeState {
   final String message;
@@ -68,10 +85,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   Future<void> _onLoadDashboard(LoadDashboard event, Emitter<HomeState> emit) async {
     emit(HomeLoading());
     try {
-      final summary = await _repository.getDashboardSummary();
+      final summary = await _repository.getDashboardSummary(date: event.date);
       emit(HomeLoaded(
         summary: summary,
         syncStatus: _syncService.currentStatus,
+        selectedDate: event.date ?? DateTime.now(),
       ));
     } catch (e) {
       emit(HomeError(e.toString()));
@@ -80,10 +98,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   Future<void> _onRefreshDashboard(RefreshDashboard event, Emitter<HomeState> emit) async {
     try {
-      final summary = await _repository.getDashboardSummary();
+      final summary = await _repository.getDashboardSummary(date: event.date);
       emit(HomeLoaded(
         summary: summary,
         syncStatus: _syncService.currentStatus,
+        selectedDate: event.date ?? DateTime.now(),
       ));
     } catch (e) {
       // Keep previous state but maybe show a snackbar (handled in UI)
@@ -96,6 +115,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       emit(HomeLoaded(
         summary: currentState.summary,
         syncStatus: event.status,
+        selectedDate: currentState.selectedDate,
       ));
     }
   }

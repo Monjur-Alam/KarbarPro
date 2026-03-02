@@ -237,7 +237,7 @@ class AppLocalizations {
   String get filterAll => isBangla ? 'সব' : 'All';
   String get addNew => isBangla ? 'নতুন যোগ' : 'Add New';
   String get income => isBangla ? 'জমা' : 'Income';
-  String get expenseLabel => isBangla ? 'খরচ' : 'Expense';
+  String get expenseLabel => isBangla ? 'ব্যয়' : 'Expense';
   String get totalReceive => isBangla ? 'মোট পাবো' : 'Total to receive';
   String get totalPay => isBangla ? 'মোট দিবো' : 'Total to pay';
   String get collectedLabel => isBangla ? 'আদায় হয়েছে' : 'Collected';
@@ -325,6 +325,24 @@ class AppLocalizations {
   String get amountColon => isBangla ? 'পরিমাণ:' : 'Amount:';
   String get categoryColon => isBangla ? 'খাত:' : 'Category:';
   String get deleteConfirmAction => isBangla ? 'মুছে ফেলুন' : 'Delete';
+  String get selectMonthTitle => isBangla ? 'মাস নির্বাচন করুন' : 'Select Month';
+  String get showCurrentMonth => isBangla ? 'বর্তমান মাস দেখুন' : 'Show Current Month';
+  String get goodMorning => isBangla ? 'শুভ সকাল' : 'Good Morning';
+  String get goodAfternoon => isBangla ? 'শুভ দুপুর' : 'Good Afternoon';
+  String get goodEvening => isBangla ? 'শুভ সন্ধ্যা' : 'Good Evening';
+  String get goodNight => isBangla ? 'শুভ রাত্রি' : 'Good Night';
+  String get incomeLabel => isBangla ? 'আয়' : 'Income';
+  String get totalBalanceLabel => isBangla ? 'মোট ব্যালেন্স' : 'Total Balance';
+  String get totalPeriodLabel => isBangla ? 'মোট' : 'Total';
+  String get cashInHand => isBangla ? 'হাতে নগদ' : 'Cash In hand';
+  String get cashIn => isBangla ? 'ক্যাশ ইন' : 'Cash In';
+  String get cashOut => isBangla ? 'ক্যাশ আউট' : 'Cash Out';
+  String get totalSalesCash => isBangla ? 'নগদ বিক্রি' : 'Total Sales in Cash';
+  String get totalSalesCredit => isBangla ? 'বাকি বিক্রি' : 'Total Sales in Credit';
+  String get paidToSupplierLabel => isBangla ? 'সাপ্লায়ারকে পরিশোধ' : 'Paid to Supplier';
+  String get dueCollectionLabel => isBangla ? 'বাকি আদায়' : 'Due Collection';
+  String get totalReceivableLabel => isBangla ? 'মোট পাওনা' : 'Total Receivable';
+  String get totalPayableLabel => isBangla ? 'মোট দেনা' : 'Total Payable';
 
   /// Format number for display (Bengali digits when locale is bn).
   String formatAmount(num value) {

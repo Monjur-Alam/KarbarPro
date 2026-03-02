@@ -216,34 +216,36 @@ class DashboardScreenState extends State<DashboardScreen> {
       foregroundColor: colorScheme.onSurface,
       elevation: 0,
       centerTitle: false,
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20, color: colorScheme.onSurface),
+      title: _selectedIndex == 0 
+        ? _buildHomeTitle(context)
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20, color: colorScheme.onSurface),
+              ),
+              if (labelText.isNotEmpty)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 10,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      labelText,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+            ],
           ),
-          if (labelText.isNotEmpty)
-            Row(
-              children: [
-                Icon(
-                  Icons.calendar_today,
-                  size: 10,
-                  color: colorScheme.primary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  labelText,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-        ],
-      ),
       actions: [
         BlocBuilder<HomeBloc, HomeState>(
           builder: (context, state) {
@@ -261,6 +263,78 @@ class DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildHomeTitle(BuildContext context) {
+    return BlocBuilder<HomeBloc, HomeState>(
+      builder: (context, state) {
+        final l10n = context.l10n;
+        final hour = DateTime.now().hour;
+        String greeting;
+        if (hour >= 5 && hour < 12) {
+          greeting = l10n.goodMorning;
+        } else if (hour >= 12 && hour < 17) {
+          greeting = l10n.goodAfternoon;
+        } else if (hour >= 17 && hour < 21) {
+          greeting = l10n.goodEvening;
+        } else {
+          greeting = l10n.goodNight;
+        }
+
+        DateTime selectedDate = DateTime.now();
+        if (state is HomeLoaded) {
+          selectedDate = state.selectedDate;
+        }
+
+        final monthYear = DateFormat('MMMM yyyy', l10n.isBangla ? 'bn_BD' : 'en_US').format(selectedDate);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              greeting,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
+            ),
+            InkWell(
+              onTap: () => _showMonthPickerGlobal(context, selectedDate),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.calendar_today, size: 12, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 4),
+                  Text(
+                    monthYear,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  Icon(Icons.keyboard_arrow_down, size: 16, color: Theme.of(context).colorScheme.primary),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showMonthPickerGlobal(BuildContext context, DateTime initialDate) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return MonthYearPickerSheet(
+          initialDate: initialDate,
+          onDateSelected: (date) {
+            context.read<HomeBloc>().add(LoadDashboard(date: date));
+          },
+        );
+      },
     );
   }
 
@@ -364,6 +438,8 @@ class DashboardHome extends StatelessWidget {
       },
       child: BlocBuilder<HomeBloc, HomeState>(
         builder: (context, state) {
+          final l10n = context.l10n;
+
           if (state is HomeLoading) {
             return const Center(child: CircularProgressIndicator());
           } else if (state is HomeLoaded) {
@@ -373,9 +449,45 @@ class DashboardHome extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                   _buildSummaryCard(context, state),
+                   _buildCashFlowCard(context, state),
                    const SizedBox(height: 16),
-                   _buildBakirKhataSummaryCard(context, state),
+                   Row(
+                     children: [
+                       Expanded(child: _buildBalanceItemCard(
+                         context, 
+                         l10n.totalReceivableLabel, 
+                         state.summary.totalReceivable,
+                         Colors.orange,
+                         Icons.handshake_outlined,
+                       )),
+                       const SizedBox(width: 12),
+                       Expanded(child: _buildBalanceItemCard(
+                         context, 
+                         l10n.totalPayableLabel, 
+                         state.summary.totalPayable,
+                         Colors.red,
+                         Icons.payments_outlined,
+                       )),
+                     ],
+                   ),
+                   const SizedBox(height: 16),
+                   _buildTotalSalesCard(context, state),
+                   const SizedBox(height: 16),
+                   _buildSimpleSummaryRow(
+                     context, 
+                     l10n.paidToSupplierLabel, 
+                     state.summary.paidToSupplierInPeriod,
+                     Colors.blue,
+                     Icons.outbox,
+                   ),
+                   const SizedBox(height: 12),
+                   _buildSimpleSummaryRow(
+                     context, 
+                     l10n.dueCollectionLabel, 
+                     state.summary.dueCollectionInPeriod,
+                     Colors.green,
+                     Icons.assignment_turned_in_outlined,
+                   ),
                    const SizedBox(height: 24),
                    _buildReportOptions(context),
                    const SizedBox(height: 24),
@@ -401,60 +513,117 @@ class DashboardHome extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryCard(BuildContext context, HomeLoaded state) {
+  Widget _buildCashFlowCard(BuildContext context, HomeLoaded state) {
     final l10n = context.l10n;
-    final locale = Localizations.localeOf(context);
-    final dateFormat = locale.languageCode == 'bn' ? 'd MMMM, yyyy' : 'MMM d, yyyy';
-    final today = l10n.formatDigits(DateFormat(dateFormat, locale.languageCode == 'bn' ? 'bn_BD' : 'en_US').format(DateTime.now()));
+    final cashIn = state.summary.totalSalesCash + state.summary.dueCollectionInPeriod;
+    final cashOut = state.summary.totalExpense + state.summary.paidToSupplierInPeriod;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.teal.shade700, Colors.teal.shade400],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: isDark ? const Color(0xFF6366F1).withOpacity(0.05) : const Color(0xFF6366F1).withOpacity(0.08),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.teal.withValues(alpha: 0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+        border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.12)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(l10n.cashInHand, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
+                Text('৳${l10n.formatAmount(state.summary.mainBalance)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF6366F1))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildCashHalf(
+                  context, 
+                  l10n.cashIn, 
+                  cashIn, 
+                  const Color(0xFF10B981), // Emerald/Green
+                  Icons.arrow_downward
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildCashHalf(
+                  context, 
+                  l10n.cashOut, 
+                  cashOut, 
+                  const Color(0xFFEF4444), // Red
+                  Icons.arrow_upward
+                ),
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCashHalf(BuildContext context, String label, double amount, Color color, IconData icon) {
+    final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(today, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-              Badge(label: Text(l10n.live), backgroundColor: Colors.red),
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+                child: Icon(icon, size: 12, color: color),
+              ),
+              const SizedBox(width: 8),
+              Text('৳${l10n.formatAmount(amount)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
             ],
           ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(l10n.shopMainBalance, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-              Text('৳${l10n.formatAmount(state.summary.mainBalance)}', 
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            ],
-          ),
+          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBalanceItemCard(BuildContext context, String label, double amount, Color iconColor, IconData icon) {
+    final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 36, color: iconColor),
           const SizedBox(height: 12),
-          const Divider(color: Colors.white24, height: 1),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildSummaryItem(l10n.totalSalesToday, l10n.formatDigits(state.summary.totalSalesToday.toString())),
-              _buildSummaryItem(l10n.totalAmountToday, '৳${l10n.formatAmount(state.summary.totalAmountToday)}'),
-              _buildSummaryItem(l10n.profitToday, '৳${l10n.formatAmount(state.summary.totalProfitToday)}'),
-            ],
-          ),
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey), textAlign: TextAlign.center),
+          const SizedBox(height: 4),
+          Text('৳${l10n.formatAmount(amount)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: iconColor)),
         ],
       ),
     );
@@ -552,102 +721,96 @@ class DashboardHome extends StatelessWidget {
     );
   }
 
-  Widget _buildBakirKhataSummaryCard(BuildContext context, HomeLoaded state) {
-    return InkWell(
-      onTap: () {
-        final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
-        dashboardState?.setState(() => dashboardState._selectedIndex = 2);
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                   Text(context.l10n.dueSummaryTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                   TextButton.icon(
-                     onPressed: () {
-                        final dashboardState = context.findAncestorStateOfType<DashboardScreenState>();
-                        dashboardState?.setState(() => dashboardState._selectedIndex = 2);
-                     },
-                     icon: const Icon(Icons.visibility, size: 16, color: Colors.blue),
-                     label: Text(context.l10n.details, style: const TextStyle(color: Colors.blue, fontSize: 13)),
-                     style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
-                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  // Receivables
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(context.l10n.iWillReceive, style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 14)),
-                        const SizedBox(height: 8),
-                        _buildBakirMiniRow(context, context.l10n.totalDue, '৳${context.l10n.formatAmount(state.summary.totalReceivable)}'),
-                        _buildBakirMiniRow(context, context.l10n.collected, '৳${context.l10n.formatAmount(state.summary.totalCollected)}'),
-                        const Divider(height: 16),
-                        _buildBakirMiniRow(context, context.l10n.remainingDue, '৳${context.l10n.formatAmount(state.summary.totalReceivable - state.summary.totalCollected)}', 
-                          valueStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-                      ],
-                    ),
-                  ),
-                  Container(height: 80, width: 1, color: Theme.of(context).colorScheme.outlineVariant, margin: const EdgeInsets.symmetric(horizontal: 16)),
-                  // Payables
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(context.l10n.iWillPay, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 14)),
-                        const SizedBox(height: 8),
-                        _buildBakirMiniRow(context, context.l10n.totalDue, '৳${context.l10n.formatAmount(state.summary.totalPayable)}'),
-                        _buildBakirMiniRow(context, context.l10n.paid, '৳${context.l10n.formatAmount(state.summary.totalPaid)}'),
-                        const Divider(height: 16),
-                        _buildBakirMiniRow(context, context.l10n.remainingToPay, '৳${context.l10n.formatAmount(state.summary.totalPayable - state.summary.totalPaid)}', 
-                          valueStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+  Widget _buildTotalSalesCard(BuildContext context, HomeLoaded state) {
+    final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? Colors.teal.withOpacity(0.05) : const Color(0xFFF0FDFA),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.teal.withOpacity(0.12)),
       ),
-    );
-  }
-
-  Widget _buildBakirMiniRow(BuildContext context, String label, String value, {TextStyle? valueStyle}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
-          Text(label, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-          Text(value, style: valueStyle ?? const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.receipt_long_outlined, color: Colors.teal, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(l10n.salesTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
+                  ],
+                ),
+                Text('৳${l10n.formatAmount(state.summary.totalAmountToday)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isDark ? Colors.white : Colors.black87)),
+              ],
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Expanded(child: _buildSalesBreakdownItem(context, l10n.totalSalesCash, state.summary.totalSalesCash, const Color(0xFF6366F1), Icons.account_balance_wallet)),
+                Container(height: 50, width: 1, color: Colors.grey.withOpacity(0.1), margin: const EdgeInsets.symmetric(horizontal: 16)),
+                Expanded(child: _buildSalesBreakdownItem(context, l10n.totalSalesCredit, state.summary.totalSalesCredit, Colors.orange, Icons.timer)),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSummaryItem(String label, String value) {
+  Widget _buildSalesBreakdownItem(BuildContext context, String label, double amount, Color color, IconData icon) {
+    final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+        Icon(icon, size: 32, color: color),
+        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey), textAlign: TextAlign.center),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        Text('৳${l10n.formatAmount(amount)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: color)),
       ],
+    );
+  }
+
+  Widget _buildSimpleSummaryRow(BuildContext context, String label, double amount, Color color, IconData icon) {
+    final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 26, color: color),
+              const SizedBox(width: 14),
+              Text(label, style: TextStyle(fontSize: 15, color: isDark ? Colors.white : Colors.black87)),
+            ],
+          ),
+          Text('৳${l10n.formatAmount(amount)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: color)),
+        ],
+      ),
     );
   }
 
@@ -728,6 +891,126 @@ class DashboardHome extends StatelessWidget {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+class MonthYearPickerSheet extends StatefulWidget {
+  final DateTime initialDate;
+  final Function(DateTime) onDateSelected;
+
+  const MonthYearPickerSheet({
+    super.key,
+    required this.initialDate,
+    required this.onDateSelected,
+  });
+
+  @override
+  State<MonthYearPickerSheet> createState() => _MonthYearPickerSheetState();
+}
+
+class _MonthYearPickerSheetState extends State<MonthYearPickerSheet> {
+  late DateTime _selectedDate;
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = DateTime(widget.initialDate.year, widget.initialDate.month);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final now = DateTime.now();
+    // Generate months for the last 2 years and next 1 month
+    final List<DateTime> months = [];
+    final startDate = DateTime(now.year - 2, now.month);
+    final endDate = DateTime(now.year, now.month);
+
+    DateTime current = endDate;
+    while (current.isAfter(startDate) || (current.year == startDate.year && current.month == startDate.month)) {
+      months.add(DateTime(current.year, current.month));
+      current = DateTime(current.year, current.month - 1);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      height: MediaQuery.of(context).size.height * 0.6,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  l10n.selectMonthTitle,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              itemCount: months.length,
+              itemBuilder: (context, index) {
+                final date = months[index];
+                final isSelected = date.year == _selectedDate.year && date.month == _selectedDate.month;
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                  child: ListTile(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    tileColor: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
+                    leading: Icon(
+                      Icons.calendar_month,
+                      color: isSelected ? Theme.of(context).primaryColor : Colors.grey,
+                    ),
+                    title: Text(
+                      DateFormat('MMMM yyyy', l10n.isBangla ? 'bn_BD' : 'en_US').format(date),
+                      style: TextStyle(
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? Theme.of(context).primaryColor : (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87),
+                      ),
+                    ),
+                    trailing: isSelected ? Icon(Icons.check_circle, color: Theme.of(context).primaryColor) : null,
+                    onTap: () {
+                      widget.onDateSelected(date);
+                      Navigator.pop(context);
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.today),
+                label: Text(l10n.showCurrentMonth),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  final currentMonth = DateTime(now.year, now.month);
+                  widget.onDateSelected(currentMonth);
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
