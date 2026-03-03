@@ -11,17 +11,19 @@ abstract class HomeEvent extends Equatable {
 }
 
 class LoadDashboard extends HomeEvent {
-  final DateTime? date;
-  LoadDashboard({this.date});
+  final DateTime? startDate;
+  final DateTime? endDate;
+  LoadDashboard({this.startDate, this.endDate});
   @override
-  List<Object?> get props => [date];
+  List<Object?> get props => [startDate, endDate];
 }
 
 class RefreshDashboard extends HomeEvent {
-  final DateTime? date;
-  RefreshDashboard({this.date});
+  final DateTime? startDate;
+  final DateTime? endDate;
+  RefreshDashboard({this.startDate, this.endDate});
   @override
-  List<Object?> get props => [date];
+  List<Object?> get props => [startDate, endDate];
 }
 
 class SyncStatusChanged extends HomeEvent {
@@ -42,16 +44,18 @@ class HomeLoading extends HomeState {}
 class HomeLoaded extends HomeState {
   final DashboardSummary summary;
   final SyncStatus syncStatus;
-  final DateTime selectedDate;
+  final DateTime startDate;
+  final DateTime endDate;
 
   HomeLoaded({
     required this.summary, 
     required this.syncStatus,
-    required this.selectedDate,
+    required this.startDate,
+    required this.endDate,
   });
 
   @override
-  List<Object?> get props => [summary, syncStatus, selectedDate];
+  List<Object?> get props => [summary, syncStatus, startDate, endDate];
 }
 class HomeError extends HomeState {
   final String message;
@@ -85,11 +89,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   Future<void> _onLoadDashboard(LoadDashboard event, Emitter<HomeState> emit) async {
     emit(HomeLoading());
     try {
-      final summary = await _repository.getDashboardSummary(date: event.date);
+      final summary = await _repository.getDashboardSummary(
+        startDate: event.startDate, 
+        endDate: event.endDate
+      );
       emit(HomeLoaded(
         summary: summary,
         syncStatus: _syncService.currentStatus,
-        selectedDate: event.date ?? DateTime.now(),
+        startDate: event.startDate ?? DateTime.now(),
+        endDate: event.endDate ?? DateTime.now(),
       ));
     } catch (e) {
       emit(HomeError(e.toString()));
@@ -98,14 +106,18 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   Future<void> _onRefreshDashboard(RefreshDashboard event, Emitter<HomeState> emit) async {
     try {
-      final summary = await _repository.getDashboardSummary(date: event.date);
+      final summary = await _repository.getDashboardSummary(
+        startDate: event.startDate, 
+        endDate: event.endDate
+      );
       emit(HomeLoaded(
         summary: summary,
         syncStatus: _syncService.currentStatus,
-        selectedDate: event.date ?? DateTime.now(),
+        startDate: event.startDate ?? DateTime.now(),
+        endDate: event.endDate ?? DateTime.now(),
       ));
     } catch (e) {
-      // Keep previous state but maybe show a snackbar (handled in UI)
+      // Keep previous state
     }
   }
 
@@ -115,7 +127,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       emit(HomeLoaded(
         summary: currentState.summary,
         syncStatus: event.status,
-        selectedDate: currentState.selectedDate,
+        startDate: currentState.startDate,
+        endDate: currentState.endDate,
       ));
     }
   }

@@ -43,13 +43,16 @@ class DashboardRepository {
 
   DashboardRepository(this._dbHelper);
 
-  Future<DashboardSummary> getDashboardSummary({DateTime? date}) async {
-    final targetDate = date ?? DateTime.now();
-    final startOfMonth = DateTime(targetDate.year, targetDate.month, 1);
-    final endOfMonth = DateTime(targetDate.year, targetDate.month + 1, 0, 23, 59, 59);
+  Future<DashboardSummary> getDashboardSummary({DateTime? startDate, DateTime? endDate}) async {
+    final start = startDate ?? DateTime.now();
+    final end = endDate ?? DateTime.now();
     
-    final startDateStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(startOfMonth);
-    final endDateStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(endOfMonth);
+    final startDateStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(
+      DateTime(start.year, start.month, start.day, 0, 0, 0)
+    );
+    final endDateStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(
+      DateTime(end.year, end.month, end.day, 23, 59, 59)
+    );
     
     final db = await _dbHelper.database;
 

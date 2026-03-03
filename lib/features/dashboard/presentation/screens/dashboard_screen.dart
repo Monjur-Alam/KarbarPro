@@ -106,8 +106,12 @@ class DashboardScreenState extends State<DashboardScreen> {
     context.read<HomeBloc>().add(LoadDashboard());
     // Auto-refresh summary every 30 seconds
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (mounted) {
-        context.read<HomeBloc>().add(RefreshDashboard());
+      if (mounted && context.read<HomeBloc>().state is HomeLoaded) {
+        final state = context.read<HomeBloc>().state as HomeLoaded;
+        context.read<HomeBloc>().add(RefreshDashboard(
+          startDate: state.startDate,
+          endDate: state.endDate,
+        ));
       }
     });
   }
@@ -282,12 +286,19 @@ class DashboardScreenState extends State<DashboardScreen> {
           greeting = l10n.goodNight;
         }
 
-        DateTime selectedDate = DateTime.now();
+        DateTime startDate = DateTime.now();
+        DateTime endDate = DateTime.now();
         if (state is HomeLoaded) {
-          selectedDate = state.selectedDate;
+          startDate = state.startDate;
+          endDate = state.endDate;
         }
 
-        final monthYear = DateFormat('MMMM yyyy', l10n.isBangla ? 'bn_BD' : 'en_US').format(selectedDate);
+        final monthYear = DateFormat('MMMM yyyy', l10n.isBangla ? 'bn_BD' : 'en_US').format(startDate);
+        final dateLabel = startDate == endDate 
+            ? DateFormat('dd MMM yyyy', l10n.isBangla ? 'bn_BD' : 'en_US').format(startDate)
+            : '${DateFormat('dd MMM', l10n.isBangla ? 'bn_BD' : 'en_US').format(startDate)} - ${DateFormat('dd MMM yyyy', l10n.isBangla ? 'bn_BD' : 'en_US').format(endDate)}';
+
+        final isFullMonth = startDate.day == 1 && endDate.day == DateTime(endDate.year, endDate.month + 1, 0).day;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,14 +308,14 @@ class DashboardScreenState extends State<DashboardScreen> {
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
             ),
             InkWell(
-              onTap: () => _showMonthPickerGlobal(context, selectedDate),
+              onTap: () => _showUnifiedFilter(context, startDate, endDate),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.calendar_today, size: 12, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(width: 4),
                   Text(
-                    monthYear,
+                    isFullMonth ? monthYear : dateLabel,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
@@ -321,20 +332,18 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  void _showMonthPickerGlobal(BuildContext context, DateTime initialDate) {
+  void _showUnifiedFilter(BuildContext context, DateTime startDate, DateTime endDate) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => UnifiedDashboardFilterSheet(
+        initialStartDate: startDate,
+        initialEndDate: endDate,
+        onRangeSelected: (start, end) {
+          context.read<HomeBloc>().add(LoadDashboard(startDate: start, endDate: end));
+        },
       ),
-      builder: (context) {
-        return MonthYearPickerSheet(
-          initialDate: initialDate,
-          onDateSelected: (date) {
-            context.read<HomeBloc>().add(LoadDashboard(date: date));
-          },
-        );
-      },
     );
   }
 
@@ -901,133 +910,205 @@ class DashboardHome extends StatelessWidget {
   }
 }
 
-class MonthYearPickerSheet extends StatefulWidget {
-  final DateTime initialDate;
-  final Function(DateTime) onDateSelected;
+class UnifiedDashboardFilterSheet extends StatefulWidget {
+  final DateTime initialStartDate;
+  final DateTime initialEndDate;
+  final Function(DateTime startDate, DateTime endDate) onRangeSelected;
 
-  const MonthYearPickerSheet({
+  const UnifiedDashboardFilterSheet({
     super.key,
-    required this.initialDate,
-    required this.onDateSelected,
+    required this.initialStartDate,
+    required this.initialEndDate,
+    required this.onRangeSelected,
   });
 
   @override
-  State<MonthYearPickerSheet> createState() => _MonthYearPickerSheetState();
+  State<UnifiedDashboardFilterSheet> createState() => _UnifiedDashboardFilterSheetState();
 }
 
-class _MonthYearPickerSheetState extends State<MonthYearPickerSheet> {
-  late DateTime _selectedDate;
-  final ScrollController _scrollController = ScrollController();
+class _UnifiedDashboardFilterSheetState extends State<UnifiedDashboardFilterSheet> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  late DateTime _currentStartDate;
+  late DateTime _currentEndDate;
 
   @override
   void initState() {
     super.initState();
-    _selectedDate = DateTime(widget.initialDate.year, widget.initialDate.month);
+    _tabController = TabController(length: 2, vsync: this);
+    _currentStartDate = widget.initialStartDate;
+    _currentEndDate = widget.initialEndDate;
+
+    final isFullMonth = _currentStartDate.day == 1 && 
+                       _currentEndDate.day == DateTime(_currentEndDate.year, _currentEndDate.month + 1, 0).day;
+    if (!isFullMonth) {
+      _tabController.index = 1;
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final now = DateTime.now();
-    // Generate months for the last 2 years and next 1 month
-    final List<DateTime> months = [];
-    final startDate = DateTime(now.year - 2, now.month);
-    final endDate = DateTime(now.year, now.month);
     final colorScheme = Theme.of(context).colorScheme;
 
-    DateTime current = endDate;
-    while (current.isAfter(startDate) || (current.year == startDate.year && current.month == startDate.month)) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colorScheme.onSurfaceVariant.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TabBar(
+                controller: _tabController,
+                tabs: [
+                  Tab(text: l10n.isBangla ? 'মাস' : 'Month'),
+                  Tab(text: l10n.isBangla ? 'তারিখ' : 'Date'),
+                ],
+                labelColor: colorScheme.primary,
+                unselectedLabelColor: colorScheme.onSurfaceVariant,
+                indicatorColor: colorScheme.primary,
+              ),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildMonthTab(scrollController),
+                    _buildDateTab(scrollController),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMonthTab(ScrollController scrollController) {
+    final l10n = context.l10n;
+    final now = DateTime.now();
+    final List<DateTime> months = [];
+    final startDateLimit = DateTime(now.year - 2, now.month);
+    final endDateLimit = DateTime(now.year, now.month);
+
+    DateTime current = endDateLimit;
+    while (current.isAfter(startDateLimit) || (current.year == startDateLimit.year && current.month == startDateLimit.month)) {
       months.add(DateTime(current.year, current.month));
       current = DateTime(current.year, current.month - 1);
     }
 
-    return Material(
-      color: Theme.of(context).colorScheme.surface,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        height: MediaQuery.of(context).size.height * 0.6,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    l10n.selectMonthTitle,
-                    style: TextStyle(
-                      fontSize: 20, 
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).textTheme.titleLarge?.color,
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close, color: Theme.of(context).iconTheme.color),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(),
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                itemCount: months.length,
-                itemBuilder: (context, index) {
-                  final date = months[index];
-                  final isSelected = date.year == _selectedDate.year && date.month == _selectedDate.month;
+    return ListView.builder(
+      controller: scrollController,
+      itemCount: months.length,
+      itemBuilder: (context, index) {
+        final date = months[index];
+        final isSelected = date.year == _currentStartDate.year && date.month == _currentStartDate.month &&
+                          _currentStartDate.day == 1 && 
+                          _currentEndDate.day == DateTime(_currentEndDate.year, _currentEndDate.month + 1, 0).day;
 
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                    child: ListTile(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      tileColor: null,
-                      leading: Icon(
-                        Icons.calendar_month,
-                        color: isSelected ? colorScheme.primary : Colors.grey,
-                      ),
-                      title: Text(
-                        DateFormat('MMMM yyyy', l10n.isBangla ? 'bn_BD' : 'en_US').format(date),
-                        style: TextStyle(
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          color: isSelected 
-                              ? colorScheme.primary
-                              : (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87),
-                        ),
-                      ),
-                      trailing: isSelected ? Icon(Icons.check_circle, color: colorScheme.primary) : null,
-                      onTap: () {
-                        widget.onDateSelected(date);
-                        Navigator.pop(context);
-                      },
-                    ),
-                  );
-                },
-              ),
+        return ListTile(
+          leading: Icon(Icons.calendar_month, color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey),
+          title: Text(
+            DateFormat('MMMM yyyy', l10n.isBangla ? 'bn_BD' : 'en_US').format(date),
+            style: TextStyle(
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? Theme.of(context).colorScheme.primary : null,
             ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.today),
-                  label: Text(l10n.showCurrentMonth),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () {
-                    final currentMonth = DateTime(now.year, now.month);
-                    widget.onDateSelected(currentMonth);
-                    Navigator.pop(context);
-                  },
-                ),
-              ),
-            ),
-          ],
+          ),
+          trailing: isSelected ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary) : null,
+          onTap: () {
+            final startOfMonth = DateTime(date.year, date.month, 1);
+            final endOfMonth = DateTime(date.year, date.month + 1, 0);
+            widget.onRangeSelected(startOfMonth, endOfMonth);
+            Navigator.pop(context);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDateTab(ScrollController scrollController) {
+    final l10n = context.l10n;
+    return ListView(
+      controller: scrollController,
+      padding: const EdgeInsets.all(16),
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(l10n.isBangla ? 'একটি নির্দিষ্ট তারিখ' : 'Single Date'),
+          subtitle: Text(DateFormat('dd MMM yyyy', l10n.isBangla ? 'bn_BD' : 'en_US').format(_currentStartDate)),
+          trailing: const Icon(Icons.calendar_today),
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: _currentStartDate.isAfter(DateTime.now()) ? DateTime.now() : _currentStartDate,
+              firstDate: DateTime(2020),
+              lastDate: DateTime.now(),
+            );
+            if (picked != null) {
+              widget.onRangeSelected(picked, picked);
+              Navigator.pop(context);
+            }
+          },
         ),
-      ),
+        const Divider(),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(l10n.isBangla ? 'তারিখের পরিসর' : 'Date Range'),
+          subtitle: Text(
+            '${DateFormat('dd MMM', l10n.isBangla ? 'bn_BD' : 'en_US').format(_currentStartDate)} - ${DateFormat('dd MMM yyyy', l10n.isBangla ? 'bn_BD' : 'en_US').format(_currentEndDate)}'
+          ),
+          trailing: const Icon(Icons.date_range),
+          onTap: () async {
+            final picked = await showDateRangePicker(
+              context: context,
+              firstDate: DateTime(2020),
+              lastDate: DateTime.now(),
+              initialDateRange: DateTimeRange(start: _currentStartDate, end: _currentEndDate),
+            );
+            if (picked != null) {
+              widget.onRangeSelected(picked.start, picked.end);
+              Navigator.pop(context);
+            }
+          },
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () {
+              final today = DateTime.now();
+              widget.onRangeSelected(today, today);
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text(l10n.isBangla ? 'আজকের ড্যাশবোর্ড' : 'Today\'s Dashboard'),
+          ),
+        ),
+      ],
     );
   }
 }
