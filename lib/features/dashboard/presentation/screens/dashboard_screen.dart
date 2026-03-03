@@ -523,9 +523,12 @@ class DashboardHome extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF6366F1).withOpacity(0.05) : const Color(0xFF6366F1).withOpacity(0.08),
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.12)),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4)),
+        ],
       ),
       child: Column(
         children: [
@@ -726,9 +729,12 @@ class DashboardHome extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? Colors.teal.withOpacity(0.05) : const Color(0xFFF0FDFA),
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.teal.withOpacity(0.12)),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4)),
+        ],
       ),
       child: Column(
         children: [
@@ -927,6 +933,7 @@ class _MonthYearPickerSheetState extends State<MonthYearPickerSheet> {
     final List<DateTime> months = [];
     final startDate = DateTime(now.year - 2, now.month);
     final endDate = DateTime(now.year, now.month);
+    final colorScheme = Theme.of(context).colorScheme;
 
     DateTime current = endDate;
     while (current.isAfter(startDate) || (current.year == startDate.year && current.month == startDate.month)) {
@@ -934,82 +941,92 @@ class _MonthYearPickerSheetState extends State<MonthYearPickerSheet> {
       current = DateTime(current.year, current.month - 1);
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      height: MediaQuery.of(context).size.height * 0.6,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  l10n.selectMonthTitle,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-          ),
-          const Divider(),
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              itemCount: months.length,
-              itemBuilder: (context, index) {
-                final date = months[index];
-                final isSelected = date.year == _selectedDate.year && date.month == _selectedDate.month;
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                  child: ListTile(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    tileColor: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
-                    leading: Icon(
-                      Icons.calendar_month,
-                      color: isSelected ? Theme.of(context).primaryColor : Colors.grey,
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        height: MediaQuery.of(context).size.height * 0.6,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    l10n.selectMonthTitle,
+                    style: TextStyle(
+                      fontSize: 20, 
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).textTheme.titleLarge?.color,
                     ),
-                    title: Text(
-                      DateFormat('MMMM yyyy', l10n.isBangla ? 'bn_BD' : 'en_US').format(date),
-                      style: TextStyle(
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected ? Theme.of(context).primaryColor : (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87),
-                      ),
-                    ),
-                    trailing: isSelected ? Icon(Icons.check_circle, color: Theme.of(context).primaryColor) : null,
-                    onTap: () {
-                      widget.onDateSelected(date);
-                      Navigator.pop(context);
-                    },
                   ),
-                );
-              },
+                  IconButton(
+                    icon: Icon(Icons.close, color: Theme.of(context).iconTheme.color),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.today),
-                label: Text(l10n.showCurrentMonth),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () {
-                  final currentMonth = DateTime(now.year, now.month);
-                  widget.onDateSelected(currentMonth);
-                  Navigator.pop(context);
+            const Divider(),
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                itemCount: months.length,
+                itemBuilder: (context, index) {
+                  final date = months[index];
+                  final isSelected = date.year == _selectedDate.year && date.month == _selectedDate.month;
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      tileColor: null,
+                      leading: Icon(
+                        Icons.calendar_month,
+                        color: isSelected ? colorScheme.primary : Colors.grey,
+                      ),
+                      title: Text(
+                        DateFormat('MMMM yyyy', l10n.isBangla ? 'bn_BD' : 'en_US').format(date),
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected 
+                              ? colorScheme.primary
+                              : (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87),
+                        ),
+                      ),
+                      trailing: isSelected ? Icon(Icons.check_circle, color: colorScheme.primary) : null,
+                      onTap: () {
+                        widget.onDateSelected(date);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  );
                 },
               ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.today),
+                  label: Text(l10n.showCurrentMonth),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    final currentMonth = DateTime(now.year, now.month);
+                    widget.onDateSelected(currentMonth);
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

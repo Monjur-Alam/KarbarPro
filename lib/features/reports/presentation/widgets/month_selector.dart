@@ -6,23 +6,24 @@ class MonthSelector extends StatelessWidget {
   final VoidCallback onTap;
 
   const MonthSelector({
-    Key? key,
+    super.key,
     required this.month,
     required this.isSelected,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           border: isSelected
-              ? const Border(
+              ? Border(
                   bottom: BorderSide(
-                    color: Color(0xFF2196F3),
+                    color: colorScheme.primary,
                     width: 3,
                   ),
                 )
@@ -33,7 +34,7 @@ class MonthSelector extends StatelessWidget {
           style: TextStyle(
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-            color: isSelected ? const Color(0xFF2196F3) : const Color(0xFF757575),
+            color: isSelected ? colorScheme.primary : Theme.of(context).hintColor,
           ),
         ),
       ),
