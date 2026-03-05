@@ -18,6 +18,8 @@ class DashboardSummary {
   final double totalSalesCredit;
   final double paidToSupplierInPeriod;
   final double dueCollectionInPeriod;
+  final double totalManualIncomeInPeriod;
+  final double totalManualExpenseInPeriod;
 
   DashboardSummary({
     required this.totalSalesToday,
@@ -35,6 +37,8 @@ class DashboardSummary {
     required this.totalSalesCredit,
     required this.paidToSupplierInPeriod,
     required this.dueCollectionInPeriod,
+    required this.totalManualIncomeInPeriod,
+    required this.totalManualExpenseInPeriod,
   });
 }
 
@@ -118,7 +122,7 @@ class DashboardRepository {
     final dueCollectionResult = await db.rawQuery('''
       SELECT SUM(${DatabaseConstants.colAmount}) as amount
       FROM ${DatabaseConstants.tableCustomerTransactions}
-      WHERE ${DatabaseConstants.colTransactionType} = 'payment' 
+      WHERE ${DatabaseConstants.colTransactionType} IN ('payment', 'payment_received')
       AND ${DatabaseConstants.colTransactionDate} BETWEEN ? AND ?
       AND ${DatabaseConstants.colCustomerId} IN (SELECT ${DatabaseConstants.colId} FROM ${DatabaseConstants.tableCustomers} WHERE ${DatabaseConstants.colCustomerType} = 'customer')
     ''', [startDateStr, endDateStr]);
@@ -127,13 +131,27 @@ class DashboardRepository {
     final supplierPaidResult = await db.rawQuery('''
       SELECT SUM(${DatabaseConstants.colAmount}) as amount
       FROM ${DatabaseConstants.tableCustomerTransactions}
-      WHERE ${DatabaseConstants.colTransactionType} = 'payment' 
+      WHERE ${DatabaseConstants.colTransactionType} IN ('payment', 'payment_received')
       AND ${DatabaseConstants.colTransactionDate} BETWEEN ? AND ?
       AND ${DatabaseConstants.colCustomerId} IN (SELECT ${DatabaseConstants.colId} FROM ${DatabaseConstants.tableCustomers} WHERE ${DatabaseConstants.colCustomerType} = 'supplier')
     ''', [startDateStr, endDateStr]);
     final paidToSupplierInPeriod = (supplierPaidResult.first['amount'] as num?)?.toDouble() ?? 0.0;
 
-    // 7. Total Overhead Expenses in Period
+    // 7. Manual Income and Expense in Period from Shop Transactions
+    final manualSummaryResult = await db.rawQuery('''
+      SELECT 
+        SUM(CASE WHEN ${DatabaseConstants.colTransactionType} = 'income' THEN ${DatabaseConstants.colAmount} ELSE 0 END) as total_income,
+        SUM(CASE WHEN ${DatabaseConstants.colTransactionType} = 'expense' THEN ${DatabaseConstants.colAmount} ELSE 0 END) as total_expense
+      FROM ${DatabaseConstants.tableShopTransactions}
+      WHERE ${DatabaseConstants.colTransactionSource} = 'manual_khoroch'
+      AND ${DatabaseConstants.colDeletedAt} IS NULL
+      AND ${DatabaseConstants.colTransactionDate} BETWEEN ? AND ?
+    ''', [startDateStr, endDateStr]);
+    
+    final totalManualIncomeInPeriod = (manualSummaryResult.first['total_income'] as num?)?.toDouble() ?? 0.0;
+    final totalManualExpenseInPeriod = (manualSummaryResult.first['total_expense'] as num?)?.toDouble() ?? 0.0;
+
+    // 8. Total Overhead Expenses in Period (Legacy/Overlap - keeping for backward compatibility if needed)
     final expenseResult = await db.rawQuery('''
       SELECT SUM(${DatabaseConstants.colAmount}) as total_expense
       FROM ${DatabaseConstants.tableExpenses}
@@ -152,11 +170,13 @@ class DashboardRepository {
       totalCollected: (receivableTotalResult.first['totalCollected'] as num?)?.toDouble() ?? 0.0,
       totalPayable: (payableTotalResult.first['totalPayable'] as num?)?.toDouble() ?? 0.0,
       totalPaid: (payableTotalResult.first['totalPaid'] as num?)?.toDouble() ?? 0.0,
-      totalExpense: totalExpenseInPeriod,
+      totalExpense: totalExpenseInPeriod > 0 ? totalExpenseInPeriod : totalManualExpenseInPeriod,
       totalSalesCash: totalSalesCash,
       totalSalesCredit: totalSalesCredit,
       paidToSupplierInPeriod: paidToSupplierInPeriod,
       dueCollectionInPeriod: dueCollectionInPeriod,
+      totalManualIncomeInPeriod: totalManualIncomeInPeriod,
+      totalManualExpenseInPeriod: totalManualExpenseInPeriod,
     );
   }
 }

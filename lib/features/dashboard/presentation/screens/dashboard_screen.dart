@@ -215,8 +215,11 @@ class DashboardScreenState extends State<DashboardScreen> {
 
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final backgroundColor = isDark ? const Color(0xFF0F0F12) : const Color(0xFFF8F9FA);
+
     return AppBar(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: backgroundColor,
       foregroundColor: colorScheme.onSurface,
       elevation: 0,
       centerTitle: false,
@@ -262,7 +265,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         ),
         Builder(
           builder: (context) => IconButton(
-            icon: Icon(Icons.menu, color: colorScheme.onSurface),
+            icon: Icon(Icons.settings, color: colorScheme.onSurface),
             onPressed: () => Scaffold.of(context).openEndDrawer(),
           ),
         ),
@@ -458,21 +461,21 @@ class DashboardHome extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                   _buildCashFlowCard(context, state),
+                   _buildTotalSalesCard(context, state),
                    const SizedBox(height: 16),
                    Row(
                      children: [
                        Expanded(child: _buildBalanceItemCard(
-                         context, 
-                         l10n.totalReceivableLabel, 
+                         context,
+                         l10n.totalReceivableLabel,
                          state.summary.totalReceivable,
                          Colors.orange,
                          Icons.handshake_outlined,
                        )),
                        const SizedBox(width: 12),
                        Expanded(child: _buildBalanceItemCard(
-                         context, 
-                         l10n.totalPayableLabel, 
+                         context,
+                         l10n.totalPayableLabel,
                          state.summary.totalPayable,
                          Colors.red,
                          Icons.payments_outlined,
@@ -480,10 +483,10 @@ class DashboardHome extends StatelessWidget {
                      ],
                    ),
                    const SizedBox(height: 16),
-                   _buildTotalSalesCard(context, state),
+                   _buildCashFlowCard(context, state),
                    const SizedBox(height: 16),
                    _buildSimpleSummaryRow(
-                     context, 
+                     context,
                      l10n.paidToSupplierLabel, 
                      state.summary.paidToSupplierInPeriod,
                      Colors.blue,
@@ -522,19 +525,119 @@ class DashboardHome extends StatelessWidget {
     );
   }
 
+  Widget _buildTotalSalesCard(BuildContext context, HomeLoaded state) {
+    final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB);
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.receipt_long_outlined, color: Colors.teal, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(l10n.totalSales, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
+                  ],
+                ),
+                Text('৳${l10n.formatAmount(state.summary.totalAmountToday)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isDark ? Colors.white : Colors.black87)),
+              ],
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E2E) : Colors.white70,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor.withOpacity(0.5)),
+            ),
+            child: Row(
+              children: [
+                Expanded(child: _buildSalesBreakdownItem(context, l10n.cash, state.summary.totalSalesCash, const Color(0xFF10B981), Icons.payments_outlined)),
+                Container(height: 50, width: 1, color: Colors.grey.withOpacity(0.1), margin: const EdgeInsets.symmetric(horizontal: 16)),
+                Expanded(child: _buildSalesBreakdownItem(context, l10n.due, state.summary.totalSalesCredit, Colors.orange, Icons.timer_outlined)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSalesBreakdownItem(BuildContext context, String label, double amount, Color color, IconData icon) {
+    final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      children: [
+        Icon(icon, size: 32, color: color),
+        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey), textAlign: TextAlign.center),
+        const SizedBox(height: 4),
+        Text('৳${l10n.formatAmount(amount)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: color)),
+      ],
+    );
+  }
+
+  Widget _buildBalanceItemCard(BuildContext context, String label, double amount, Color iconColor, IconData icon) {
+    final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 36, color: iconColor),
+          const SizedBox(height: 12),
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey), textAlign: TextAlign.center),
+          const SizedBox(height: 4),
+          Text('৳${l10n.formatAmount(amount)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: iconColor)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCashFlowCard(BuildContext context, HomeLoaded state) {
     final l10n = context.l10n;
-    final cashIn = state.summary.totalSalesCash + state.summary.dueCollectionInPeriod;
-    final cashOut = state.summary.totalExpense + state.summary.paidToSupplierInPeriod;
+    final cashIn = state.summary.totalManualIncomeInPeriod;
+    final cashOut = state.summary.totalManualExpenseInPeriod;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+    final cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        border: Border.all(color: cardColor),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4)),
         ],
@@ -544,8 +647,9 @@ class DashboardHome extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+              color: cardColor,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor),
               boxShadow: [
                 BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
               ],
@@ -563,21 +667,21 @@ class DashboardHome extends StatelessWidget {
             children: [
               Expanded(
                 child: _buildCashHalf(
-                  context, 
-                  l10n.cashIn, 
-                  cashIn, 
-                  const Color(0xFF10B981), // Emerald/Green
-                  Icons.arrow_downward
+                    context,
+                    l10n.cashIn,
+                    cashIn,
+                    const Color(0xFF10B981), // Emerald/Green
+                    Icons.add_circle_outline
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _buildCashHalf(
-                  context, 
-                  l10n.cashOut, 
-                  cashOut, 
-                  const Color(0xFFEF4444), // Red
-                  Icons.arrow_upward
+                    context,
+                    l10n.cashOut,
+                    cashOut,
+                    const Color(0xFFEF4444), // Red
+                    Icons.remove_circle_outline
                 ),
               ),
             ],
@@ -590,11 +694,15 @@ class DashboardHome extends StatelessWidget {
   Widget _buildCashHalf(BuildContext context, String label, double amount, Color color, IconData icon) {
     final l10n = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB);
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
       ),
       child: Column(
         children: [
@@ -612,30 +720,6 @@ class DashboardHome extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBalanceItemCard(BuildContext context, String label, double amount, Color iconColor, IconData icon) {
-    final l10n = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Column(
-        children: [
-          Icon(icon, size: 36, color: iconColor),
-          const SizedBox(height: 12),
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey), textAlign: TextAlign.center),
-          const SizedBox(height: 4),
-          Text('৳${l10n.formatAmount(amount)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: iconColor)),
         ],
       ),
     );
@@ -733,74 +817,6 @@ class DashboardHome extends StatelessWidget {
     );
   }
 
-  Widget _buildTotalSalesCard(BuildContext context, HomeLoaded state) {
-    final l10n = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.receipt_long_outlined, color: Colors.teal, size: 20),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(l10n.salesTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
-                  ],
-                ),
-                Text('৳${l10n.formatAmount(state.summary.totalAmountToday)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isDark ? Colors.white : Colors.black87)),
-              ],
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Expanded(child: _buildSalesBreakdownItem(context, l10n.totalSalesCash, state.summary.totalSalesCash, const Color(0xFF6366F1), Icons.account_balance_wallet)),
-                Container(height: 50, width: 1, color: Colors.grey.withOpacity(0.1), margin: const EdgeInsets.symmetric(horizontal: 16)),
-                Expanded(child: _buildSalesBreakdownItem(context, l10n.totalSalesCredit, state.summary.totalSalesCredit, Colors.orange, Icons.timer)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSalesBreakdownItem(BuildContext context, String label, double amount, Color color, IconData icon) {
-    final l10n = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      children: [
-        Icon(icon, size: 32, color: color),
-        const SizedBox(height: 8),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey), textAlign: TextAlign.center),
-        const SizedBox(height: 4),
-        Text('৳${l10n.formatAmount(amount)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: color)),
-      ],
-    );
-  }
-
   Widget _buildSimpleSummaryRow(BuildContext context, String label, double amount, Color color, IconData icon) {
     final l10n = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -885,12 +901,16 @@ class DashboardHome extends StatelessWidget {
       children: sales.map((sale) {
         final date = DateTime.parse(sale['sale_date']);
         final timeStr = context.l10n.formatDigits(DateFormat('hh:mm a').format(date));
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+        final borderColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB);
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           elevation: 0,
+          color: cardColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+            side: BorderSide(color: borderColor),
           ),
           child: ListTile(
             leading: CircleAvatar(
