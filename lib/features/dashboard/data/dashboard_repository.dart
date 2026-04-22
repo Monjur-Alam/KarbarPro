@@ -51,12 +51,8 @@ class DashboardRepository {
     final start = startDate ?? DateTime.now();
     final end = endDate ?? DateTime.now();
     
-    final startDateStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(
-      DateTime(start.year, start.month, start.day, 0, 0, 0)
-    );
-    final endDateStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(
-      DateTime(end.year, end.month, end.day, 23, 59, 59)
-    );
+    final startDateStr = DateTime(start.year, start.month, start.day, 0, 0, 0).toIso8601String();
+    final endDateStr = DateTime(end.year, end.month, end.day, 23, 59, 59, 999).toIso8601String();
     
     final db = await _dbHelper.database;
 

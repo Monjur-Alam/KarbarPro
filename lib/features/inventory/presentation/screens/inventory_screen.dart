@@ -19,6 +19,7 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen> {
   final TextEditingController _searchController = TextEditingController();
+  bool _isGridView = false;
 
   @override
   void dispose() {
@@ -30,6 +31,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.translucent,
       child: Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
         body: BlocBuilder<InventoryBloc, InventoryState>(
@@ -64,10 +66,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildSearchAndSort(BuildContext context, InventoryLoaded state) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(16),
-      color: colorScheme.surface,
       child: Row(
         children: [
           Expanded(
@@ -83,7 +83,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               },
               decoration: InputDecoration(
                 hintText: context.l10n.searchProducts,
-                prefixIcon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
+                prefixIcon: Icon(Icons.search),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.close, size: 20),
@@ -99,12 +99,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: colorScheme.surfaceContainerHighest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
               ),
             ),
           ),
@@ -136,7 +135,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     };
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       child: Row(
         children: [
           // Category Filter
@@ -196,9 +195,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 builder: (ctx) {
                   final cs = Theme.of(ctx).colorScheme;
                   return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest,
+                      // color: cs.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: cs.outlineVariant),
                     ),
@@ -223,21 +222,21 @@ class _InventoryScreenState extends State<InventoryScreen> {
           const SizedBox(width: 10),
           // Stock Filter
           Expanded(
-            child: PopupMenuButton<String?>(
+            child: PopupMenuButton<String>(
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               onSelected: (value) {
                 context.read<InventoryBloc>().add(LoadProducts(
                   searchQuery: state.searchQuery,
                   category: state.category,
-                  stockFilter: value,
+                  stockFilter: value == '__all__' ? null : value,
                   sortBy: state.sortBy,
                 ));
               },
               itemBuilder: (context) {
                 final cs = Theme.of(context).colorScheme;
                 return [
-                  PopupMenuItem(value: null, child: Text(context.l10n.allStock, style: TextStyle(fontSize: 14, color: cs.onSurface))),
+                  PopupMenuItem(value: '__all__', child: Text(context.l10n.allStock, style: TextStyle(fontSize: 14, color: cs.onSurface))),
                   PopupMenuItem(value: 'in_stock', child: Text(context.l10n.inStock, style: TextStyle(fontSize: 14, color: cs.onSurface))),
                   PopupMenuItem(value: 'low', child: Text(context.l10n.lowStock, style: TextStyle(fontSize: 14, color: cs.onSurface))),
                   PopupMenuItem(value: 'out', child: Text(context.l10n.outOfStock, style: TextStyle(fontSize: 14, color: cs.onSurface))),
@@ -247,9 +246,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 builder: (ctx) {
                   final cs = Theme.of(ctx).colorScheme;
                   return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest,
+                      // color: cs.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: cs.outlineVariant),
                     ),
@@ -271,6 +270,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ),
             ),
           ),
+          const SizedBox(width: 10),
+          // View Toggle Button
+          _buildFilterButton(
+            _isGridView ? Icons.view_list_outlined : Icons.grid_view_outlined,
+            () => setState(() => _isGridView = !_isGridView),
+          ),
         ],
       ),
     );
@@ -281,14 +286,23 @@ class _InventoryScreenState extends State<InventoryScreen> {
       onRefresh: () async {
         context.read<InventoryBloc>().add(LoadProducts());
       },
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: products.length,
-        itemBuilder: (context, index) {
-          final product = products[index];
-          return _buildProductCard(context, product);
-        },
-      ),
+      child: _isGridView
+          ? GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.78,
+              ),
+              itemCount: products.length,
+              itemBuilder: (context, index) => _buildProductGridCard(context, products[index]),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: products.length,
+              itemBuilder: (context, index) => _buildProductCard(context, products[index]),
+            ),
     );
   }
 
@@ -382,6 +396,119 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductGridCard(BuildContext context, Product product) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final stockColor = product.currentStock <= 0
+        ? Colors.red
+        : product.currentStock <= product.minStockAlert
+            ? Colors.orange
+            : Colors.green;
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () => _showAddEditProductDialog(context, product: product),
+        borderRadius: BorderRadius.circular(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Image / Avatar
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                child: product.imagePath != null &&
+                        product.imagePath!.isNotEmpty &&
+                        File(product.imagePath!).existsSync()
+                    ? Image.file(File(product.imagePath!), fit: BoxFit.cover)
+                    : Container(
+                        color: colorScheme.primaryContainer,
+                        alignment: Alignment.center,
+                        child: Text(
+                          product.name[0].toUpperCase(),
+                          style: TextStyle(
+                            color: colorScheme.onPrimaryContainer,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 32,
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+            // Info
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: colorScheme.onSurface,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '৳${context.l10n.formatAmount(product.sellingPrice)}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: stockColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          context.l10n.formatDigits(product.currentStock.toString()),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: stockColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (product.category != null && product.category!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: colorScheme.tertiaryContainer,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        product.category!,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: colorScheme.onTertiaryContainer,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

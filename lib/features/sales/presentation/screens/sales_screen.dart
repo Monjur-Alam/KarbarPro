@@ -496,8 +496,7 @@ class _SalesViewState extends State<SalesView> {
                       )
                     : null,
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                fillColor: colorScheme.surfaceContainerHighest,
+                contentPadding: const EdgeInsets.all(0),
                 filled: true,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorScheme.outlineVariant)),
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorScheme.outlineVariant)),

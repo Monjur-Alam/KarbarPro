@@ -578,7 +578,6 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                   : null,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                 filled: true,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),

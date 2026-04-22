@@ -53,35 +53,39 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
 
   Future<void> _showAddCategoryDialog() async {
     final controller = TextEditingController();
-    
+
     final result = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: const Text('নতুন ক্যাটাগরি যোগ করুন'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'ক্যাটাগরির নাম *',
-            border: OutlineInputBorder(),
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return AlertDialog(
+          backgroundColor: colorScheme.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: Text('নতুন ক্যাটাগরি যোগ করুন', style: TextStyle(color: colorScheme.onSurface)),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'ক্যাটাগরির নাম *',
+              border: OutlineInputBorder(),
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('বাতিল'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                Navigator.pop(context, controller.text);
-              }
-            },
-            child: const Text('যোগ করুন'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('বাতিল'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (controller.text.isNotEmpty) {
+                  Navigator.pop(context, controller.text);
+                }
+              },
+              child: const Text('যোগ করুন'),
+            ),
+          ],
+        );
+      },
     );
 
     if (result != null && result.isNotEmpty) {
@@ -115,35 +119,39 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
 
   Future<void> _showEditCategoryDialog(String oldCategory) async {
     final controller = TextEditingController(text: oldCategory);
-    
+
     final result = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: const Text('ক্যাটাগরি সম্পাদনা করুন'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'ক্যাটাগরির নাম *',
-            border: OutlineInputBorder(),
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return AlertDialog(
+          backgroundColor: colorScheme.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: Text('ক্যাটাগরি সম্পাদনা করুন', style: TextStyle(color: colorScheme.onSurface)),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'ক্যাটাগরির নাম *',
+              border: OutlineInputBorder(),
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('বাতিল'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                Navigator.pop(context, controller.text);
-              }
-            },
-            child: const Text('সংরক্ষণ'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('বাতিল'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (controller.text.isNotEmpty) {
+                  Navigator.pop(context, controller.text);
+                }
+              },
+              child: const Text('সংরক্ষণ'),
+            ),
+          ],
+        );
+      },
     );
 
     if (result != null && result.isNotEmpty && result != oldCategory) {
@@ -173,25 +181,30 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
   Future<void> _deleteCategory(String category, int productCount) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: const Text('ক্যাটাগরি মুছে ফেলুন'),
-        content: Text(
-          'আপনি কি নিশ্চিত যে "$category" ক্যাটাগরি মুছে ফেলতে চান?\n\n'
-          'এই ক্যাটাগরিতে $productCount টি পণ্য আছে। পণ্যগুলি মুছে যাবে না, শুধুমাত্র তাদের ক্যাটাগরি খালি হয়ে যাবে।'
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('বাতিল'),
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return AlertDialog(
+          backgroundColor: colorScheme.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: Text('ক্যাটাগরি মুছে ফেলুন', style: TextStyle(color: colorScheme.onSurface)),
+          content: Text(
+            'আপনি কি নিশ্চিত যে "$category" ক্যাটাগরি মুছে ফেলতে চান?\n\n'
+            'এই ক্যাটাগরিতে $productCount টি পণ্য আছে। পণ্যগুলি মুছে যাবে না, শুধুমাত্র তাদের ক্যাটাগরি খালি হয়ে যাবে।',
+            style: TextStyle(color: colorScheme.onSurfaceVariant),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('মুছে ফেলুন'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('বাতিল'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('মুছে ফেলুন'),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirm == true) {
@@ -221,35 +234,36 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final filteredCategories = _categories.where((cat) {
       final query = _searchController.text.toLowerCase();
       return cat['category'].toString().toLowerCase().contains(query);
     }).toList();
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: colorScheme.surfaceContainerLowest,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: const Text(
+        backgroundColor: colorScheme.surface,
+        title: Text(
           'পণ্যের ক্যাটাগরি ম্যানেজ করুন',
-          style: TextStyle(fontWeight: FontWeight.normal, fontSize: 18, color: Colors.black),
+          style: TextStyle(fontWeight: FontWeight.normal, fontSize: 18, color: colorScheme.onSurface),
         ),
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: IconThemeData(color: colorScheme.onSurface),
       ),
       body: Column(
         children: [
           // Search Bar
           Container(
             padding: const EdgeInsets.all(16),
-            color: Colors.white,
+            color: colorScheme.surface,
             child: TextField(
               controller: _searchController,
               onChanged: (value) => setState(() {}),
               decoration: InputDecoration(
                 hintText: 'পণ্য ক্যাটাগরি অনুসন্ধান করুন...',
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                prefixIcon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
                 filled: true,
-                fillColor: Colors.grey.shade100,
+                fillColor: colorScheme.surfaceContainerHighest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -258,7 +272,7 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
               ),
             ),
           ),
-          
+
           // Category List
           Expanded(
             child: _isLoading
@@ -268,11 +282,11 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.category_outlined, size: 80, color: Colors.grey.shade300),
+                            Icon(Icons.category_outlined, size: 80, color: colorScheme.outlineVariant),
                             const SizedBox(height: 16),
                             Text(
                               'কোনো ক্যাটাগরি পাওয়া যায়নি',
-                              style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+                              style: TextStyle(fontSize: 18, color: colorScheme.onSurfaceVariant),
                             ),
                           ],
                         ),
@@ -288,22 +302,23 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),
                             elevation: 1,
+                            color: colorScheme.surface,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             child: ListTile(
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               title: Text(
                                 categoryName,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorScheme.onSurface),
                               ),
                               subtitle: Text(
                                 '${context.l10n.formatDigits(productCount.toString())} আইটেম',
-                                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                                style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
                               ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                                    icon: Icon(Icons.edit_outlined, color: colorScheme.primary),
                                     onPressed: () => _showEditCategoryDialog(categoryName),
                                   ),
                                   IconButton(

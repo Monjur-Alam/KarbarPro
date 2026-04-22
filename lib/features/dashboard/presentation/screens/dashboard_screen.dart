@@ -165,17 +165,22 @@ class DashboardScreenState extends State<DashboardScreen> {
       l10n.inventoryTitle,
       l10n.expenseTitle,
     ];
-    return Scaffold(
-      appBar: _buildAppBar(titles[_selectedIndex], context),
-      endDrawer: const AppDrawer(),
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (index) {
-          setState(() => _selectedIndex = index);
-        },
-        children: screens,
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.translucent,
+      child: Scaffold(
+        appBar: _buildAppBar(titles[_selectedIndex], context),
+        endDrawer: const AppDrawer(),
+        body: PageView(
+          controller: _pageController,
+          onPageChanged: (index) {
+            FocusScope.of(context).unfocus();
+            setState(() => _selectedIndex = index);
+          },
+          children: screens,
+        ),
+        bottomNavigationBar: _buildBottomNav(),
       ),
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
@@ -529,15 +534,12 @@ class DashboardHome extends StatelessWidget {
     final l10n = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB);
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4)),
-        ],
+        border: Border.all(color: colorScheme.surfaceContainerHighest, width: 1),
       ),
       child: Column(
         children: [
@@ -550,11 +552,21 @@ class DashboardHome extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                      decoration: BoxDecoration(
+                          color: Colors.teal.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8)
+                      ),
                       child: const Icon(Icons.receipt_long_outlined, color: Colors.teal, size: 20),
                     ),
                     const SizedBox(width: 10),
-                    Text(l10n.totalSales, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
+                    Text(
+                        l10n.totalSales,
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: isDark ? Colors.white : Colors.black87
+                        )
+                    ),
                   ],
                 ),
                 Text('৳${l10n.formatAmount(state.summary.totalAmountToday)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isDark ? Colors.white : Colors.black87)),
@@ -565,14 +577,14 @@ class DashboardHome extends StatelessWidget {
             margin: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E1E2E) : Colors.white70,
+              color: isDark ? const Color(0xFF25252B) : Colors.white70,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: borderColor.withOpacity(0.5)),
+              border: Border.all(color: colorScheme.surfaceContainer, width: 1),
             ),
             child: Row(
               children: [
                 Expanded(child: _buildSalesBreakdownItem(context, l10n.cash, state.summary.totalSalesCash, const Color(0xFF10B981), Icons.payments_outlined)),
-                Container(height: 50, width: 1, color: Colors.grey.withOpacity(0.1), margin: const EdgeInsets.symmetric(horizontal: 16)),
+                Container(height: 50, width: 1, color: colorScheme.surfaceContainer, margin: const EdgeInsets.symmetric(horizontal: 16)),
                 Expanded(child: _buildSalesBreakdownItem(context, l10n.due, state.summary.totalSalesCredit, Colors.orange, Icons.timer_outlined)),
               ],
             ),
@@ -584,7 +596,6 @@ class DashboardHome extends StatelessWidget {
 
   Widget _buildSalesBreakdownItem(BuildContext context, String label, double amount, Color color, IconData icon) {
     final l10n = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         Icon(icon, size: 32, color: color),
@@ -600,16 +611,13 @@ class DashboardHome extends StatelessWidget {
     final l10n = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB);
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4)),
-        ],
+        border: Border.all(color: colorScheme.surfaceContainer, width: 1),
       ),
       child: Column(
         children: [
@@ -629,7 +637,7 @@ class DashboardHome extends StatelessWidget {
     final cashOut = state.summary.totalManualExpenseInPeriod;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       width: double.infinity,
@@ -637,22 +645,16 @@ class DashboardHome extends StatelessWidget {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cardColor),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4)),
-        ],
+        border: Border.all(color: colorScheme.surfaceContainer, width: 1),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: cardColor,
+              color: isDark ? const Color(0xFF25252B) : Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: borderColor),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
-              ],
+              border: Border.all(color: colorScheme.surfaceContainer),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -694,15 +696,14 @@ class DashboardHome extends StatelessWidget {
   Widget _buildCashHalf(BuildContext context, String label, double amount, Color color, IconData icon) {
     final l10n = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        color: cardColor,
+        color: isDark ? const Color(0xFF25252B) : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
+        border: Border.all(color: colorScheme.surfaceContainer),
       ),
       child: Column(
         children: [
@@ -820,14 +821,14 @@ class DashboardHome extends StatelessWidget {
   Widget _buildSimpleSummaryRow(BuildContext context, String label, double amount, Color color, IconData icon) {
     final l10n = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2)),
-        ],
+        border: Border.all(color: colorScheme.surfaceContainer),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
