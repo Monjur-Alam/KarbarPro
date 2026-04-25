@@ -11,6 +11,7 @@ class Product extends Equatable {
   final int minStockAlert;
   final String unit;
   final String? barcode;
+  final String? size;
   final String? imagePath;
   final bool isActive;
   final DateTime? createdAt;
@@ -29,6 +30,7 @@ class Product extends Equatable {
     this.minStockAlert = 5,
     this.unit = 'pcs',
     this.barcode,
+    this.size,
     this.imagePath,
     this.isActive = true,
     this.createdAt,
@@ -48,6 +50,7 @@ class Product extends Equatable {
     int? minStockAlert,
     String? unit,
     String? barcode,
+    String? size,
     String? imagePath,
     bool? isActive,
     DateTime? createdAt,
@@ -66,6 +69,7 @@ class Product extends Equatable {
       minStockAlert: minStockAlert ?? this.minStockAlert,
       unit: unit ?? this.unit,
       barcode: barcode ?? this.barcode,
+      size: size ?? this.size,
       imagePath: imagePath ?? this.imagePath,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
@@ -87,6 +91,7 @@ class Product extends Equatable {
         minStockAlert,
         unit,
         barcode,
+        size,
         imagePath,
         isActive,
         createdAt,

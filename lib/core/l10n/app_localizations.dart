@@ -179,8 +179,12 @@ class AppLocalizations {
   String get addLabel => isBangla ? 'যোগ করুন' : 'Add';
   String get initialStock => isBangla ? 'প্রাথমিক স্টক' : 'Initial Stock';
   String get unit => isBangla ? 'একক' : 'Unit';
-  String get itemCode => isBangla ? 'আইটেম কোড' : 'Item Code';
-  String get itemCodeHint => isBangla ? 'আইটেম কোড লিখুন' : 'Enter item code';
+  String get itemCode => isBangla ? 'আইটেম কোড (বারকোড)' : 'Item Code (Barcode)';
+  String get itemCodeHint => isBangla ? 'স্বয়ংক্রিয়ভাবে তৈরি হবে' : 'Auto-generated';
+  String get productSize => isBangla ? 'সাইজ' : 'Size';
+  String get sizeHint => isBangla ? 'সাইজ লিখুন (যেমন: S, M, L, ৩৮)' : 'Enter size (e.g., S, M, L, 38)';
+  String get printBarcode => isBangla ? 'বারকোড প্রিন্ট' : 'Print Barcode';
+  String get barcodePreview => isBangla ? 'বারকোড প্রিভিউ' : 'Barcode Preview';
   String get description => isBangla ? 'বিবরণ' : 'Description';
   String get descriptionHint => isBangla ? 'বিবরণ লিখুন' : 'Enter description';
   String get addItemImage => isBangla ? 'আইটেমের ছবি যোগ করুন' : 'Add item image';

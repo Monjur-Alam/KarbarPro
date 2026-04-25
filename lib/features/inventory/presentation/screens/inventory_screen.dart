@@ -1,4 +1,6 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/inventory_bloc.dart';
 import '../../domain/product.dart';
@@ -6,9 +8,13 @@ import 'manage_category_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../../../core/constants/database_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/settings/app_settings_cubit.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -363,23 +369,36 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             fontSize: 16,
                           ),
                         ),
-                        if (product.category != null && product.category!.isNotEmpty)
-                          Container(
-                            margin: const EdgeInsets.only(top: 4),
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: colorScheme.tertiaryContainer,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              product.category!,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: colorScheme.onTertiaryContainer,
-                                fontWeight: FontWeight.w500,
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            if (product.category != null && product.category!.isNotEmpty)
+                              Container(
+                                margin: const EdgeInsets.only(right: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.tertiaryContainer,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  product.category!,
+                                  style: TextStyle(fontSize: 11, color: colorScheme.onTertiaryContainer, fontWeight: FontWeight.w500),
+                                ),
                               ),
-                            ),
-                          ),
+                            if (product.size != null && product.size!.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.secondaryContainer,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  product.size!,
+                                  style: TextStyle(fontSize: 11, color: colorScheme.onSecondaryContainer, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -485,24 +504,26 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       ),
                     ],
                   ),
-                  if (product.category != null && product.category!.isNotEmpty) ...[
+                  if (product.category != null && product.category!.isNotEmpty || product.size != null && product.size!.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: colorScheme.tertiaryContainer,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        product.category!,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: colorScheme.onTertiaryContainer,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    Row(
+                      children: [
+                        if (product.category != null && product.category!.isNotEmpty)
+                          Flexible(
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(color: colorScheme.tertiaryContainer, borderRadius: BorderRadius.circular(4)),
+                              child: Text(product.category!, style: TextStyle(fontSize: 10, color: colorScheme.onTertiaryContainer, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ),
+                          ),
+                        if (product.size != null && product.size!.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: colorScheme.secondaryContainer, borderRadius: BorderRadius.circular(4)),
+                            child: Text(product.size!, style: TextStyle(fontSize: 10, color: colorScheme.onSecondaryContainer, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ),
+                      ],
                     ),
                   ],
                 ],
@@ -644,12 +665,14 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
   List<String> _existingCategories = [];
   final _stockController = TextEditingController();
   final _unitController = TextEditingController();
+  final _sizeController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _itemCodeController = TextEditingController();
 
   final _nameFocus = FocusNode();
   final _stockFocus = FocusNode();
   final _unitFocus = FocusNode();
+  final _sizeFocus = FocusNode();
   final _sellingPriceFocus = FocusNode();
   final _purchasePriceFocus = FocusNode();
   final _itemCodeFocus = FocusNode();
@@ -658,7 +681,6 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
 
-  @override
   bool get _isFormValid {
     final name = _nameController.text.trim();
     final sellingPrice = double.tryParse(_sellingPriceController.text) ?? 0.0;
@@ -680,12 +702,14 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
       _purchasePriceController.text = widget.product!.purchasePrice.toString();
       _stockController.text = widget.product!.currentStock.toString();
       _unitController.text = widget.product!.unit;
-      _itemCodeController.text = widget.product!.barcode ?? '';
+      _sizeController.text = widget.product!.size ?? '';
+      _itemCodeController.text = widget.product!.barcode ?? _generateItemCode();
       if (widget.product!.imagePath != null && widget.product!.imagePath!.isNotEmpty) {
         _selectedImage = File(widget.product!.imagePath!);
       }
     } else {
       _unitController.text = 'pcs';
+      _itemCodeController.text = _generateItemCode();
     }
   }
 
@@ -716,11 +740,13 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
     _purchasePriceController.dispose();
     _stockController.dispose();
     _unitController.dispose();
+    _sizeController.dispose();
     _descriptionController.dispose();
     _itemCodeController.dispose();
     _nameFocus.dispose();
     _stockFocus.dispose();
     _unitFocus.dispose();
+    _sizeFocus.dispose();
     _sellingPriceFocus.dispose();
     _purchasePriceFocus.dispose();
     _itemCodeFocus.dispose();
@@ -800,6 +826,10 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
     }
   }
 
+  String _generateItemCode() {
+    return 'P${DateTime.now().millisecondsSinceEpoch}';
+  }
+
   void _saveProduct() {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
@@ -809,6 +839,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
     final stock = int.tryParse(_stockController.text) ?? 0;
     final unit = _unitController.text.trim().isEmpty ? 'pcs' : _unitController.text.trim();
     final category = _categoryController.text.trim();
+    final size = _sizeController.text.trim();
     final itemCode = _itemCodeController.text.trim();
     final imagePath = _selectedImage?.path;
 
@@ -833,6 +864,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
       purchasePrice: purchasePrice,
       currentStock: stock,
       unit: unit,
+      size: size.isEmpty ? null : size,
       category: category.isEmpty ? null : category,
       barcode: itemCode.isEmpty ? null : itemCode,
       imagePath: imagePath,
@@ -847,6 +879,168 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
       context.read<InventoryBloc>().add(UpdateProduct(newProduct));
     }
     Navigator.pop(context);
+  }
+
+  Future<void> _printBarcodes() async {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final barcodeTitle = l10n.barcodePreview;
+
+    final name = _nameController.text.trim();
+    final itemCode = _itemCodeController.text.trim();
+    final price = _sellingPriceController.text.trim();
+    final size = _sizeController.text.trim();
+    final stock = int.tryParse(_stockController.text) ?? 1;
+    final labelCount = stock.clamp(1, 200);
+
+    if (itemCode.isEmpty) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.itemCodeHint), backgroundColor: colorScheme.error),
+      );
+      return;
+    }
+
+    // Show loading while generating PDF
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final pdfBytes = await _generateBarcodePdf(
+        name: name,
+        itemCode: itemCode,
+        price: price,
+        size: size,
+        labelCount: labelCount,
+      );
+
+      if (!mounted) return;
+      navigator.pop(); // close loading dialog
+
+      await navigator.push(
+        MaterialPageRoute(
+          builder: (_) => _BarcodePrintPreviewPage(
+            pdfBytes: pdfBytes,
+            title: barcodeTitle,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      navigator.pop(); // close loading dialog
+      messenger.showSnackBar(
+        SnackBar(content: Text('Barcode error: $e'), backgroundColor: colorScheme.error),
+      );
+    }
+  }
+
+  Future<Uint8List> _generateBarcodePdf({
+    required String name,
+    required String itemCode,
+    required String price,
+    required String size,
+    required int labelCount,
+  }) async {
+    // Load Bengali-supporting font from app assets
+    final regularData = await rootBundle.load('assets/fonts/HindSiliguri-Regular.ttf');
+    final boldData = await rootBundle.load('assets/fonts/HindSiliguri-Bold.ttf');
+    final font = pw.Font.ttf(regularData);
+    final boldFont = pw.Font.ttf(boldData);
+
+    const labelW = 58.0 * PdfPageFormat.mm;
+    const labelH = 30.0 * PdfPageFormat.mm;
+    const gap = 2.0;
+
+    final pageUsableW = PdfPageFormat.a4.availableWidth - 16;
+    final pageUsableH = PdfPageFormat.a4.availableHeight - 16;
+    final cols = ((pageUsableW + gap) / (labelW + gap)).floor().clamp(1, 10);
+    final rows = ((pageUsableH + gap) / (labelH + gap)).floor().clamp(1, 20);
+    final perPage = cols * rows;
+
+    final displayName = name.isEmpty ? '-' : name;
+
+    pw.Widget buildLabel() => pw.Container(
+          width: labelW,
+          height: labelH,
+          margin: pw.EdgeInsets.all(gap / 2),
+          padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+          decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
+          child: pw.Column(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              pw.Text(
+                displayName,
+                style: pw.TextStyle(font: boldFont, fontSize: 8),
+                textAlign: pw.TextAlign.center,
+                maxLines: 1,
+              ),
+              if (size.isNotEmpty)
+                pw.Text(
+                  'Size: $size',
+                  style: pw.TextStyle(font: font, fontSize: 7),
+                  textAlign: pw.TextAlign.center,
+                ),
+              pw.Text(
+                'Tk $price',
+                style: pw.TextStyle(font: boldFont, fontSize: 9),
+              ),
+              pw.BarcodeWidget(
+                barcode: pw.Barcode.code128(),
+                data: itemCode,
+                height: 11 * PdfPageFormat.mm,
+                width: labelW - 10,
+                drawText: false, // use pw.Text below to avoid font issues
+              ),
+              pw.Text(
+                itemCode,
+                style: pw.TextStyle(font: font, fontSize: 5),
+                textAlign: pw.TextAlign.center,
+              ),
+            ],
+          ),
+        );
+
+    final pdf = pw.Document();
+    int pageStart = 0;
+
+    while (pageStart < labelCount) {
+      final thisPageCount = (labelCount - pageStart).clamp(0, perPage);
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(8),
+          build: (ctx) {
+            final colWidgets = <pw.Widget>[];
+            int idx = 0;
+            for (int r = 0; r < rows && idx < thisPageCount; r++) {
+              final rowItems = <pw.Widget>[];
+              for (int c = 0; c < cols && idx < thisPageCount; c++, idx++) {
+                rowItems.add(buildLabel());
+              }
+              colWidgets.add(pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: rowItems,
+              ));
+            }
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: colWidgets,
+            );
+          },
+        ),
+      );
+
+      pageStart += thisPageCount;
+    }
+
+    return await pdf.save();
   }
 
   void _showInstructions() {
@@ -1150,7 +1344,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                                   controller: _unitController,
                                   focusNode: _unitFocus,
                                   textInputAction: TextInputAction.next,
-                                  onSubmitted: (_) => _sellingPriceFocus.requestFocus(),
+                                  onSubmitted: (_) => _sizeFocus.requestFocus(),
                                   decoration: InputDecoration(
                                     hintText: 'pcs',
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -1161,6 +1355,22 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Size
+                      Text(l10n.productSize, style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _sizeController,
+                        focusNode: _sizeFocus,
+                        textInputAction: TextInputAction.next,
+                        onSubmitted: (_) => _sellingPriceFocus.requestFocus(),
+                        decoration: InputDecoration(
+                          hintText: l10n.sizeHint,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
                       ),
                       const SizedBox(height: 16),
 
@@ -1226,6 +1436,11 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                           hintText: l10n.itemCodeHint,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          suffixIcon: IconButton(
+                            icon: Icon(Icons.refresh, size: 20, color: colorScheme.primary),
+                            tooltip: 'Regenerate',
+                            onPressed: () => setState(() => _itemCodeController.text = _generateItemCode()),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -1310,9 +1525,20 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                             child: Text(l10n.cancel),
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: _printBarcodes,
+                          icon: const Icon(Icons.barcode_reader, size: 18),
+                          label: Text(l10n.printBarcode, style: const TextStyle(fontSize: 13)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            foregroundColor: Colors.deepPurple,
+                            side: const BorderSide(color: Colors.deepPurple),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Expanded(
-                          flex: 2,
                           child: ElevatedButton(
                             onPressed: _isFormValid ? _saveProduct : null,
                             style: ElevatedButton.styleFrom(
@@ -1334,6 +1560,73 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
           );
         },
       ),
+    );
+  }
+}
+
+// ─── Barcode Print Preview Page ─────────────────────────────────────────────
+
+class _BarcodePrintPreviewPage extends StatelessWidget {
+  final Uint8List pdfBytes;
+  final String title;
+
+  const _BarcodePrintPreviewPage({
+    required this.pdfBytes,
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AppSettingsCubit, AppSettingsState>(
+      builder: (context, settings) {
+        final colorScheme = Theme.of(context).colorScheme;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+
+        return Scaffold(
+          backgroundColor: colorScheme.surfaceContainerLowest,
+          appBar: AppBar(
+            title: Text(title),
+            backgroundColor: colorScheme.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+          ),
+          body: PdfPreview(
+            build: (_) async => pdfBytes,
+            allowPrinting: true,
+            allowSharing: true,
+            canChangePageFormat: false,
+            canDebug: false,
+            scrollViewDecoration: BoxDecoration(
+              color: isDark
+                  ? colorScheme.surfaceContainerLow
+                  : Colors.grey.shade300,
+            ),
+            pdfPreviewPageDecoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: isDark ? Colors.black45 : Colors.black26,
+                  blurRadius: 4,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            loadingWidget: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: colorScheme.primary),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Loading preview...',
+                    style: TextStyle(color: colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

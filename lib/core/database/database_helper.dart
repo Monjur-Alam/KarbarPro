@@ -79,6 +79,11 @@ class DatabaseHelper {
       await _upgradeToVersion11(db);
       print('DB_LOG: Upgrade to Version 11 Complete.');
     }
+    if (oldVersion < 12) {
+      print('DB_LOG: Upgrading to Version 12...');
+      await _upgradeToVersion12(db);
+      print('DB_LOG: Upgrade to Version 12 Complete.');
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -95,6 +100,7 @@ class DatabaseHelper {
         ${DatabaseConstants.colMinStockAlert} INTEGER DEFAULT 5,
         ${DatabaseConstants.colUnit} TEXT,
         ${DatabaseConstants.colBarcode} TEXT UNIQUE,
+        ${DatabaseConstants.colSize} TEXT,
         ${DatabaseConstants.colImagePath} TEXT,
         ${DatabaseConstants.colIsActive} INTEGER DEFAULT 1,
         ${DatabaseConstants.colCreatedAt} TEXT,
@@ -445,6 +451,15 @@ class DatabaseHelper {
     await db.rawUpdate("UPDATE ${DatabaseConstants.tableCustomerTransactions} SET ${DatabaseConstants.colTransactionSource} = 'product_sale' WHERE ${DatabaseConstants.colTransactionSource} IS NULL");
     
     print('DB_LOG: Version 11 Migration - Complete.');
+  }
+
+  Future<void> _upgradeToVersion12(Database db) async {
+    try {
+      await db.execute('ALTER TABLE ${DatabaseConstants.tableProducts} ADD COLUMN ${DatabaseConstants.colSize} TEXT');
+    } catch (e) {
+      print('DB_LOG: size column might already exist: $e');
+    }
+    print('DB_LOG: Version 12 Migration - size column added to products.');
   }
 
   Future<void> _createKhorochCategoryTable(Database db) async {

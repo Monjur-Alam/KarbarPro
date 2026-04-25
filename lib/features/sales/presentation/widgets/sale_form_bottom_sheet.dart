@@ -213,9 +213,21 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
                     children: [
                       Text(item.product.name, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14, color: colorScheme.onSurface)),
                       const SizedBox(height: 2),
-                      Text(
-                        '৳${context.l10n.formatAmount(item.product.sellingPrice)} / ${item.product.unit}',
-                        style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
+                      Row(
+                        children: [
+                          Text(
+                            '৳${context.l10n.formatAmount(item.product.sellingPrice)} / ${item.product.unit}',
+                            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
+                          ),
+                          if (item.product.size != null && item.product.size!.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(color: colorScheme.secondaryContainer, borderRadius: BorderRadius.circular(4)),
+                              child: Text(item.product.size!, style: TextStyle(fontSize: 11, color: colorScheme.onSecondaryContainer, fontWeight: FontWeight.w500)),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
@@ -482,7 +494,19 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(product.name, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                                        Row(
+                                          children: [
+                                            Flexible(child: Text(product.name, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14), overflow: TextOverflow.ellipsis)),
+                                            if (product.size != null && product.size!.isNotEmpty) ...[
+                                              const SizedBox(width: 6),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                                decoration: BoxDecoration(color: colorScheme.secondaryContainer, borderRadius: BorderRadius.circular(4)),
+                                                child: Text(product.size!, style: TextStyle(fontSize: 11, color: colorScheme.onSecondaryContainer, fontWeight: FontWeight.w500)),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
                                         const SizedBox(height: 2),
                                         Text(
                                           l10n.stockInfo(l10n.formatDigits(product.currentStock.toString()), product.unit),
