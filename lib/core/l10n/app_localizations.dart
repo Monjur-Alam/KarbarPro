@@ -219,6 +219,10 @@ class AppLocalizations {
   String get searchCustomer => isBangla ? 'গ্রাহক খুঁজুন...' : 'Search customer...';
   String get searchProduct => isBangla ? 'পণ্য খুঁজুন...' : 'Search product...';
   String get noDataFound => isBangla ? 'কোনো তথ্য পাওয়া যায়নি' : 'No data found';
+  String get scanBarcode => isBangla ? 'বারকোড স্ক্যান করুন' : 'Scan barcode';
+  String get productNotFound => isBangla ? 'পণ্য পাওয়া যায়নি' : 'Product not found';
+  String get cameraPermissionRequired => isBangla ? 'ক্যামেরার অনুমতি প্রয়োজন' : 'Camera permission required';
+  String get grantPermission => isBangla ? 'অনুমতি দিন' : 'Grant Permission';
   String cartListCount(String count) => isBangla ? 'কার্ট তালিকা (${count}টি)' : 'Cart ($count items)';
   String stockInfo(String stock, String unit) => isBangla ? 'স্টক: $stock $unit' : 'Stock: $stock $unit';
 

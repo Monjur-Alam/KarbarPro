@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../customers/domain/customer.dart';
 import '../../../customers/presentation/bloc/customer_bloc.dart';
 import '../../../inventory/domain/product.dart';
@@ -28,11 +31,25 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
 
   bool _isPartialPayment = false;
 
+  late final MobileScannerController _scannerController;
+  bool _cameraPermissionGranted = false;
+  String? _scanFeedback; // null = hidden; product name = success; '' = not found
+  bool _scanSuccess = false;
+  Timer? _feedbackTimer;
+  final Map<String, DateTime> _lastScanTime = {};
+
   @override
   void initState() {
     super.initState();
     // Clear cart when opening for a new sale
     context.read<SalesBloc>().add(ClearCart());
+    _scannerController = MobileScannerController(detectionSpeed: DetectionSpeed.normal);
+    _requestCameraPermission();
+  }
+
+  Future<void> _requestCameraPermission() async {
+    final status = await Permission.camera.request();
+    if (mounted) setState(() => _cameraPermissionGranted = status.isGranted);
   }
 
   @override
@@ -43,7 +60,46 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     _discountFocus.dispose();
     _paidAmountFocus.dispose();
     _notesFocus.dispose();
+    _scannerController.dispose();
+    _feedbackTimer?.cancel();
     super.dispose();
+  }
+
+  void _onBarcodeScanned(BarcodeCapture capture, List<Product> products) {
+    final code = capture.barcodes.firstOrNull?.rawValue?.trim();
+    if (code == null || code.isEmpty) return;
+
+    // Per-code cooldown: ignore if same code scanned within 1.5 seconds
+    final now = DateTime.now();
+    final last = _lastScanTime[code];
+    if (last != null && now.difference(last) < const Duration(milliseconds: 1500)) return;
+    _lastScanTime[code] = now;
+
+    final product = products.where((p) => p.barcode?.trim() == code).firstOrNull;
+
+    if (product == null) {
+      HapticFeedback.heavyImpact();
+      _showScanFeedback('', false);
+    } else if (product.currentStock <= 0) {
+      HapticFeedback.heavyImpact();
+      _showScanFeedback(product.name, false);
+    } else {
+      context.read<SalesBloc>().add(AddToCart(product));
+      SystemSound.play(SystemSoundType.click);
+      HapticFeedback.mediumImpact();
+      _showScanFeedback(product.name, true);
+    }
+  }
+
+  void _showScanFeedback(String productName, bool success) {
+    _feedbackTimer?.cancel();
+    setState(() {
+      _scanFeedback = productName;
+      _scanSuccess = success;
+    });
+    _feedbackTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _scanFeedback = null);
+    });
   }
 
   @override
@@ -104,6 +160,8 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
                   _buildSectionHeader('📦 ${l10n.selectProduct}', colorScheme.primary),
                   const SizedBox(height: 12),
                   _buildProductSelector(),
+                  const SizedBox(height: 12),
+                  _buildScannerBox(),
 
                   // Cart Summary Section
                   if (state.cart.isNotEmpty) ...[
@@ -402,6 +460,119 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorScheme.primary, width: 2)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
+    );
+  }
+
+  Widget _buildScannerBox() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
+    return BlocBuilder<InventoryBloc, InventoryState>(
+      builder: (context, inventoryState) {
+        final products = inventoryState is InventoryLoaded
+            ? inventoryState.products
+            : <Product>[];
+        return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: colorScheme.outlineVariant),
+        ),
+        child: _cameraPermissionGranted
+            ? Stack(
+                children: [
+                  MobileScanner(
+                    controller: _scannerController,
+                    onDetect: (capture) => _onBarcodeScanned(capture, products),
+                  ),
+                  // Scan frame guide
+                  Center(
+                    child: Container(
+                      width: 200,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.5),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  // Label overlay
+                  Positioned(
+                    top: 10,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.qr_code_scanner, color: Colors.white70, size: 14),
+                            const SizedBox(width: 6),
+                            Text(l10n.scanBarcode, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Feedback banner
+                  if (_scanFeedback != null)
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+                        color: (_scanSuccess ? Colors.green.shade600 : Colors.red.shade600).withValues(alpha: 0.9),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _scanSuccess ? Icons.check_circle_outline : Icons.error_outline,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _scanSuccess ? _scanFeedback! : l10n.productNotFound,
+                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              )
+            : Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.camera_alt_outlined, color: Colors.white38, size: 40),
+                    const SizedBox(height: 10),
+                    Text(
+                      l10n.cameraPermissionRequired,
+                      style: const TextStyle(color: Colors.white54, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 10),
+                    TextButton(
+                      onPressed: openAppSettings,
+                      child: Text(l10n.grantPermission, style: TextStyle(color: colorScheme.primary)),
+                    ),
+                  ],
+                ),
+              ),
+        ),
+      );
+      },
     );
   }
 
