@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../../../core/constants/database_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
@@ -881,7 +882,251 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
     Navigator.pop(context);
   }
 
-  Future<void> _printBarcodes() async {
+  Future<void> _scanBarcode() async {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // Check current status first to avoid unnecessary dialog
+    var status = await Permission.camera.status;
+
+    if (status.isPermanentlyDenied) {
+      if (!mounted) return;
+      _showCameraPermissionDeniedDialog(l10n, colorScheme);
+      return;
+    }
+
+    if (!status.isGranted) {
+      status = await Permission.camera.request();
+    }
+
+    if (!mounted) return;
+
+    if (status.isGranted) {
+      final result = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(builder: (_) => const _BarcodeScannerPage()),
+      );
+      if (result != null && result.isNotEmpty && mounted) {
+        setState(() => _itemCodeController.text = result);
+      }
+    } else if (status.isPermanentlyDenied) {
+      _showCameraPermissionDeniedDialog(l10n, colorScheme);
+    } else {
+      // Denied (not permanent) — show a brief message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.cameraPermissionMessage),
+          backgroundColor: colorScheme.error,
+          action: SnackBarAction(
+            label: l10n.openSettings,
+            textColor: Colors.white,
+            onPressed: () => openAppSettings(),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showCameraPermissionDeniedDialog(AppLocalizations l10n, ColorScheme colorScheme) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.camera_alt_outlined, color: colorScheme.error),
+            const SizedBox(width: 8),
+            Text(l10n.permissionRequired),
+          ],
+        ),
+        content: Text(l10n.cameraPermissionMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              openAppSettings();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: colorScheme.primary, foregroundColor: Colors.white),
+            child: Text(l10n.openSettings),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBarcodePrintDialog() {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final itemCode = _itemCodeController.text.trim();
+
+    if (itemCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.itemCodeHint), backgroundColor: colorScheme.error),
+      );
+      return;
+    }
+
+    final defaultQty = (int.tryParse(_stockController.text) ?? 1).clamp(1, 9999);
+    int qty = defaultQty;
+    int selectedSizeIdx = 1; // default 50×30mm
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final scheme = Theme.of(ctx).colorScheme;
+          return Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  Row(
+                    children: [
+                      Icon(Icons.print, color: Colors.deepPurple, size: 22),
+                      const SizedBox(width: 8),
+                      Text(
+                        l10n.printBarcode,
+                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Quantity row
+                  Text(
+                    l10n.quantity,
+                    style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: scheme.outlineVariant),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        // minus
+                        IconButton(
+                          icon: Icon(Icons.remove, color: qty <= 1 ? scheme.outlineVariant : scheme.error),
+                          onPressed: qty <= 1 ? null : () => setDialogState(() => qty--),
+                        ),
+                        Expanded(
+                          child: Text(
+                            qty.toString(),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        // plus
+                        IconButton(
+                          icon: Icon(Icons.add, color: scheme.primary),
+                          onPressed: qty >= 9999 ? null : () => setDialogState(() => qty++),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Default: ${l10n.initialStock} ($defaultQty)',
+                    style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Label size selector
+                  Text(
+                    'স্টিকার সাইজ',
+                    style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: List.generate(_stickerSizes.length, (i) {
+                      final s = _stickerSizes[i];
+                      final isSelected = i == selectedSizeIdx;
+                      return GestureDetector(
+                        onTap: () => setDialogState(() => selectedSizeIdx = i),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.deepPurple : Colors.transparent,
+                            border: Border.all(
+                              color: isSelected ? Colors.deepPurple : scheme.outlineVariant,
+                              width: isSelected ? 1.5 : 1,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            s.label,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected ? Colors.white : scheme.onSurface,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: Text(l10n.cancel),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _printBarcodes(
+                              labelCount: qty,
+                              stickerSize: _stickerSizes[selectedSizeIdx],
+                            );
+                          },
+                          icon: const Icon(Icons.print, size: 18),
+                          label: Text(l10n.printBarcode),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.deepPurple,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _printBarcodes({required int labelCount, required _StickerSize stickerSize}) async {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -893,15 +1138,6 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
     final itemCode = _itemCodeController.text.trim();
     final price = _sellingPriceController.text.trim();
     final size = _sizeController.text.trim();
-    final stock = int.tryParse(_stockController.text) ?? 1;
-    final labelCount = stock.clamp(1, 200);
-
-    if (itemCode.isEmpty) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(l10n.itemCodeHint), backgroundColor: colorScheme.error),
-      );
-      return;
-    }
 
     // Show loading while generating PDF
     showDialog(
@@ -917,6 +1153,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
         price: price,
         size: size,
         labelCount: labelCount,
+        stickerSize: stickerSize,
       );
 
       if (!mounted) return;
@@ -945,6 +1182,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
     required String price,
     required String size,
     required int labelCount,
+    required _StickerSize stickerSize,
   }) async {
     // Load Bengali-supporting font from app assets
     final regularData = await rootBundle.load('assets/fonts/HindSiliguri-Regular.ttf');
@@ -952,92 +1190,73 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
     final font = pw.Font.ttf(regularData);
     final boldFont = pw.Font.ttf(boldData);
 
-    const labelW = 58.0 * PdfPageFormat.mm;
-    const labelH = 30.0 * PdfPageFormat.mm;
-    const gap = 2.0;
+    // Page = exact sticker size, 1 label per page (sticker printer format)
+    final labelWpt = stickerSize.w * PdfPageFormat.mm;
+    final labelHpt = stickerSize.h * PdfPageFormat.mm;
+    final pageFormat = PdfPageFormat(labelWpt, labelHpt, marginAll: 1.5 * PdfPageFormat.mm);
 
-    final pageUsableW = PdfPageFormat.a4.availableWidth - 16;
-    final pageUsableH = PdfPageFormat.a4.availableHeight - 16;
-    final cols = ((pageUsableW + gap) / (labelW + gap)).floor().clamp(1, 10);
-    final rows = ((pageUsableH + gap) / (labelH + gap)).floor().clamp(1, 20);
-    final perPage = cols * rows;
+    // Scale font sizes proportional to label height
+    final scale = (stickerSize.h / 30.0).clamp(0.7, 2.0);
+    final nameFontSize = (7.5 * scale).clamp(5.0, 14.0);
+    final sizeFontSize = (6.5 * scale).clamp(4.5, 12.0);
+    final priceFontSize = (9.0 * scale).clamp(6.0, 16.0);
+    final codeFontSize = (5.0 * scale).clamp(3.5, 9.0);
+    final barcodeH = (stickerSize.h * 0.38) * PdfPageFormat.mm;
 
     final displayName = name.isEmpty ? '-' : name;
 
-    pw.Widget buildLabel() => pw.Container(
-          width: labelW,
-          height: labelH,
-          margin: pw.EdgeInsets.all(gap / 2),
-          padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-          decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
-          child: pw.Column(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
-            crossAxisAlignment: pw.CrossAxisAlignment.center,
-            children: [
-              pw.Text(
-                displayName,
-                style: pw.TextStyle(font: boldFont, fontSize: 8),
-                textAlign: pw.TextAlign.center,
-                maxLines: 1,
-              ),
-              if (size.isNotEmpty)
-                pw.Text(
-                  'Size: $size',
-                  style: pw.TextStyle(font: font, fontSize: 7),
-                  textAlign: pw.TextAlign.center,
-                ),
-              pw.Text(
-                'Tk $price',
-                style: pw.TextStyle(font: boldFont, fontSize: 9),
-              ),
-              pw.BarcodeWidget(
-                barcode: pw.Barcode.code128(),
-                data: itemCode,
-                height: 11 * PdfPageFormat.mm,
-                width: labelW - 10,
-                drawText: false, // use pw.Text below to avoid font issues
-              ),
-              pw.Text(
-                itemCode,
-                style: pw.TextStyle(font: font, fontSize: 5),
-                textAlign: pw.TextAlign.center,
-              ),
-            ],
-          ),
-        );
-
     final pdf = pw.Document();
-    int pageStart = 0;
 
-    while (pageStart < labelCount) {
-      final thisPageCount = (labelCount - pageStart).clamp(0, perPage);
-
+    for (int i = 0; i < labelCount; i++) {
       pdf.addPage(
         pw.Page(
-          pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(8),
-          build: (ctx) {
-            final colWidgets = <pw.Widget>[];
-            int idx = 0;
-            for (int r = 0; r < rows && idx < thisPageCount; r++) {
-              final rowItems = <pw.Widget>[];
-              for (int c = 0; c < cols && idx < thisPageCount; c++, idx++) {
-                rowItems.add(buildLabel());
-              }
-              colWidgets.add(pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: rowItems,
-              ));
-            }
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: colWidgets,
-            );
-          },
+          pageFormat: pageFormat,
+          build: (ctx) => pw.Container(
+            width: double.infinity,
+            height: double.infinity,
+            child: pw.Column(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                // Product name
+                pw.Text(
+                  displayName,
+                  style: pw.TextStyle(font: boldFont, fontSize: nameFontSize),
+                  textAlign: pw.TextAlign.center,
+                  maxLines: 1,
+                ),
+                // Size (if set)
+                if (size.isNotEmpty)
+                  pw.Text(
+                    'Size: $size',
+                    style: pw.TextStyle(font: font, fontSize: sizeFontSize),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                // Price (bold, prominent)
+                pw.Text(
+                  'Tk $price',
+                  style: pw.TextStyle(font: boldFont, fontSize: priceFontSize),
+                  textAlign: pw.TextAlign.center,
+                ),
+                // Barcode
+                pw.BarcodeWidget(
+                  barcode: pw.Barcode.code128(),
+                  data: itemCode,
+                  height: barcodeH,
+                  width: labelWpt - (3 * PdfPageFormat.mm),
+                  drawText: false,
+                ),
+                // Item code text
+                pw.Text(
+                  itemCode,
+                  style: pw.TextStyle(font: font, fontSize: codeFontSize),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ],
+            ),
+          ),
         ),
       );
-
-      pageStart += thisPageCount;
     }
 
     return await pdf.save();
@@ -1436,10 +1655,20 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                           hintText: l10n.itemCodeHint,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          suffixIcon: IconButton(
-                            icon: Icon(Icons.refresh, size: 20, color: colorScheme.primary),
-                            tooltip: 'Regenerate',
-                            onPressed: () => setState(() => _itemCodeController.text = _generateItemCode()),
+                          suffixIcon: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.qr_code_scanner, size: 20, color: colorScheme.primary),
+                                tooltip: 'Scan barcode',
+                                onPressed: _scanBarcode,
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.refresh, size: 20, color: colorScheme.primary),
+                                tooltip: 'Regenerate',
+                                onPressed: () => setState(() => _itemCodeController.text = _generateItemCode()),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -1527,7 +1756,7 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
                         ),
                         const SizedBox(width: 8),
                         OutlinedButton.icon(
-                          onPressed: _printBarcodes,
+                          onPressed: _showBarcodePrintDialog,
                           icon: const Icon(Icons.barcode_reader, size: 18),
                           label: Text(l10n.printBarcode, style: const TextStyle(fontSize: 13)),
                           style: OutlinedButton.styleFrom(
@@ -1563,6 +1792,208 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
     );
   }
 }
+
+// ─── Barcode Scanner Page ────────────────────────────────────────────────────
+
+class _BarcodeScannerPage extends StatefulWidget {
+  const _BarcodeScannerPage();
+
+  @override
+  State<_BarcodeScannerPage> createState() => _BarcodeScannerPageState();
+}
+
+class _BarcodeScannerPageState extends State<_BarcodeScannerPage> {
+  late final MobileScannerController _controller;
+  bool _hasResult = false;
+  bool _torchOn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = MobileScannerController(
+      detectionSpeed: DetectionSpeed.noDuplicates,
+      facing: CameraFacing.back,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_hasResult) return;
+    final code = capture.barcodes.firstOrNull?.rawValue;
+    if (code != null && code.isNotEmpty) {
+      _hasResult = true;
+      Navigator.pop(context, code);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('বারকোড স্ক্যান'),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _torchOn ? Icons.flash_on : Icons.flash_off,
+              color: _torchOn ? Colors.yellow : Colors.white,
+            ),
+            onPressed: () {
+              _controller.toggleTorch();
+              setState(() => _torchOn = !_torchOn);
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.flip_camera_ios, color: Colors.white),
+            onPressed: () => _controller.switchCamera(),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          // Camera view
+          MobileScanner(
+            controller: _controller,
+            onDetect: _onDetect,
+          ),
+
+          // Scan overlay
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Scan frame
+                Container(
+                  width: 260,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: colorScheme.primary, width: 2.5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Stack(
+                    children: [
+                      // Corner accents
+                      for (final alignment in [
+                        Alignment.topLeft,
+                        Alignment.topRight,
+                        Alignment.bottomLeft,
+                        Alignment.bottomRight,
+                      ])
+                        Align(
+                          alignment: alignment,
+                          child: _CornerAccent(alignment: alignment, color: colorScheme.primary),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'ক্যামেরা বারকোডের উপর ধরুন',
+                    style: TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CornerAccent extends StatelessWidget {
+  final Alignment alignment;
+  final Color color;
+
+  const _CornerAccent({required this.alignment, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final isTop = alignment == Alignment.topLeft || alignment == Alignment.topRight;
+    final isLeft = alignment == Alignment.topLeft || alignment == Alignment.bottomLeft;
+    const size = 20.0;
+    const thickness = 3.0;
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _CornerPainter(
+          color: color,
+          isTop: isTop,
+          isLeft: isLeft,
+          thickness: thickness,
+        ),
+      ),
+    );
+  }
+}
+
+class _CornerPainter extends CustomPainter {
+  final Color color;
+  final bool isTop;
+  final bool isLeft;
+  final double thickness;
+
+  const _CornerPainter({
+    required this.color,
+    required this.isTop,
+    required this.isLeft,
+    required this.thickness,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = thickness
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    final x = isLeft ? 0.0 : size.width;
+    final y = isTop ? 0.0 : size.height;
+    final ex = isLeft ? size.width : 0.0;
+    final ey = isTop ? size.height : 0.0;
+
+    canvas.drawLine(Offset(x, y), Offset(ex, y), paint);
+    canvas.drawLine(Offset(x, y), Offset(x, ey), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ─── Sticker Size Model ──────────────────────────────────────────────────────
+
+class _StickerSize {
+  final String label;
+  final double w; // mm
+  final double h; // mm
+  const _StickerSize(this.label, this.w, this.h);
+}
+
+const _stickerSizes = [
+  _StickerSize('38×25mm', 38, 25),
+  _StickerSize('50×30mm', 50, 30),
+  _StickerSize('57×32mm', 57, 32),
+  _StickerSize('60×40mm', 60, 40),
+  _StickerSize('80×50mm', 80, 50),
+];
 
 // ─── Barcode Print Preview Page ─────────────────────────────────────────────
 
