@@ -4,7 +4,8 @@
       "Bash(flutter run:*)",
       "Bash(pip3 install:*)",
       "Bash(python3:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

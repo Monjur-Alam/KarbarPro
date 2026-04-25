@@ -18,19 +18,14 @@ class SaleFormBottomSheet extends StatefulWidget {
 }
 
 class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
-  final TextEditingController _quantityController = TextEditingController(text: '1');
-  final TextEditingController _priceController = TextEditingController();
   final TextEditingController _discountController = TextEditingController(text: '0');
   final TextEditingController _paidAmountController = TextEditingController(text: '0');
   final TextEditingController _notesController = TextEditingController();
 
-  final FocusNode _quantityFocus = FocusNode();
-  final FocusNode _priceFocus = FocusNode();
   final FocusNode _discountFocus = FocusNode();
   final FocusNode _paidAmountFocus = FocusNode();
   final FocusNode _notesFocus = FocusNode();
 
-  Product? _selectedProduct;
   bool _isPartialPayment = false;
 
   @override
@@ -42,47 +37,13 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
 
   @override
   void dispose() {
-    _quantityController.dispose();
-    _priceController.dispose();
     _discountController.dispose();
     _paidAmountController.dispose();
     _notesController.dispose();
-    _quantityFocus.dispose();
-    _priceFocus.dispose();
     _discountFocus.dispose();
     _paidAmountFocus.dispose();
     _notesFocus.dispose();
     super.dispose();
-  }
-
-  void _onProductSelected(Product product) {
-    HapticFeedback.mediumImpact();
-    setState(() {
-      _selectedProduct = product;
-      _priceController.text = product.sellingPrice.toStringAsFixed(0);
-      _quantityController.text = '1';
-    });
-  }
-
-  void _addItemToCart() {
-    if (_selectedProduct == null) return;
-
-    final qty = int.tryParse(_quantityController.text) ?? 0;
-    if (qty <= 0) return;
-
-    final price = double.tryParse(_priceController.text) ?? _selectedProduct!.sellingPrice;
-
-    // Create a temporary product with the modified price if needed
-    final productToAdd = _selectedProduct!.copyWith(sellingPrice: price);
-
-    context.read<SalesBloc>().add(AddToCart(productToAdd, quantity: qty));
-
-    HapticFeedback.lightImpact();
-    setState(() {
-      _selectedProduct = null;
-      _quantityController.text = '1';
-      _priceController.clear();
-    });
   }
 
   @override
@@ -143,63 +104,6 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
                   _buildSectionHeader('📦 ${l10n.selectProduct}', colorScheme.primary),
                   const SizedBox(height: 12),
                   _buildProductSelector(),
-
-                  if (_selectedProduct != null) ...[
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              _buildQtyBtn(Icons.remove, () {
-                                int current = int.tryParse(_quantityController.text) ?? 1;
-                                if (current > 1) {
-                                  setState(() => _quantityController.text = (current - 1).toString());
-                                }
-                              }),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildTextField(
-                                  _quantityController,
-                                  l10n.quantityRequired,
-                                  suffix: _selectedProduct!.unit,
-                                  isNumber: true,
-                                  textAlign: TextAlign.center,
-                                  onChanged: (_) => setState(() {}),
-                                  focusNode: _quantityFocus,
-                                  textInputAction: TextInputAction.next,
-                                  nextFocus: _priceFocus,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              _buildQtyBtn(Icons.add, () {
-                                int current = int.tryParse(_quantityController.text) ?? 0;
-                                setState(() => _quantityController.text = (current + 1).toString());
-                              }),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(child: _buildTextField(_priceController, l10n.unitPriceRequired, prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}), focusNode: _priceFocus)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: _addItemToCart,
-                        icon: const Icon(Icons.add_shopping_cart, size: 18),
-                        label: Text(l10n.addToCart),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.onPrimary,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                      ),
-                    ),
-                  ],
 
                   // Cart Summary Section
                   if (state.cart.isNotEmpty) ...[
@@ -299,26 +203,52 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
         separatorBuilder: (context, index) => const Divider(height: 1, indent: 16, endIndent: 16),
         itemBuilder: (context, index) {
           final item = state.cart[index];
-          return ListTile(
-            contentPadding: const EdgeInsets.only(left: 16, right: 8, top: 4, bottom: 4),
-            title: Text(item.product.name, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14, color: colorScheme.onSurface)),
-            subtitle: Text(
-              '${context.l10n.formatDigits(item.quantity.toString())} ${item.product.unit} × ৳${context.l10n.formatAmount(item.product.sellingPrice)}',
-              style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
               children: [
-                Text(
-                  '৳${context.l10n.formatAmount(item.subTotal)}',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: colorScheme.onSurfaceVariant),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(item.product.name, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14, color: colorScheme.onSurface)),
+                      const SizedBox(height: 2),
+                      Text(
+                        '৳${context.l10n.formatAmount(item.product.sellingPrice)} / ${item.product.unit}',
+                        style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
+                      ),
+                    ],
+                  ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.remove_circle_outline, color: colorScheme.error, size: 20),
-                  onPressed: () {
-                    context.read<SalesBloc>().add(RemoveFromCart(item.product.id!));
-                    HapticFeedback.lightImpact();
-                  },
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildSmallQtyBtn(Icons.remove, () {
+                      if (item.quantity <= 1) {
+                        context.read<SalesBloc>().add(RemoveFromCart(item.product.id!));
+                      } else {
+                        context.read<SalesBloc>().add(UpdateCartQuantity(item.product.id!, item.quantity - 1));
+                      }
+                      HapticFeedback.lightImpact();
+                    }, color: item.quantity <= 1 ? colorScheme.error : null),
+                    Container(
+                      width: 32,
+                      alignment: Alignment.center,
+                      child: Text(
+                        context.l10n.formatDigits(item.quantity.toString()),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: colorScheme.onSurface),
+                      ),
+                    ),
+                    _buildSmallQtyBtn(Icons.add, () {
+                      context.read<SalesBloc>().add(UpdateCartQuantity(item.product.id!, item.quantity + 1));
+                      HapticFeedback.lightImpact();
+                    }),
+                    const SizedBox(width: 10),
+                    Text(
+                      '৳${context.l10n.formatAmount(item.subTotal)}',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: colorScheme.primary),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -403,18 +333,18 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     );
   }
 
-  Widget _buildQtyBtn(IconData icon, VoidCallback onTap) {
+  Widget _buildSmallQtyBtn(IconData icon, VoidCallback onTap, {Color? color}) {
     final colorScheme = Theme.of(context).colorScheme;
+    final iconColor = color ?? colorScheme.onPrimaryContainer;
     return Container(
-      width: 36,
-      height: 36,
+      width: 30,
+      height: 30,
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colorScheme.primaryContainer),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: IconButton(
-        icon: Icon(icon, size: 18, color: colorScheme.onPrimaryContainer),
+        icon: Icon(icon, size: 16, color: iconColor),
         padding: EdgeInsets.zero,
         onPressed: onTap,
       ),
@@ -467,35 +397,141 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     return BlocBuilder<InventoryBloc, InventoryState>(
-      builder: (context, state) {
+      builder: (context, inventoryState) {
         List<Product> products = [];
-        if (state is InventoryLoaded) products = state.products.where((p) => p.currentStock > 0).toList();
+        if (inventoryState is InventoryLoaded) products = inventoryState.products.where((p) => p.currentStock > 0).toList();
 
         return InkWell(
-          onTap: () => _showSearchablePicker<Product>(
-            title: l10n.selectProduct,
-            items: products,
-            itemLabel: (p) => p.name,
-            itemSublabel: (p) => l10n.stockInfo(l10n.formatDigits(p.currentStock.toString()), p.unit),
-            onSelected: _onProductSelected,
-            hintText: l10n.searchProduct,
-          ),
+          onTap: () => _showProductSearchPicker(products),
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _selectedProduct != null ? colorScheme.primaryContainer.withOpacity(0.3) : colorScheme.surfaceContainerHighest.withOpacity(0.3),
-              border: Border.all(color: _selectedProduct != null ? colorScheme.primary : colorScheme.outlineVariant),
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              border: Border.all(color: colorScheme.outlineVariant),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
-                Icon(Icons.shopping_bag_outlined, color: _selectedProduct != null ? colorScheme.primary : colorScheme.onSurfaceVariant),
+                Icon(Icons.shopping_bag_outlined, color: colorScheme.onSurfaceVariant),
                 const SizedBox(width: 12),
-                Expanded(child: Text(_selectedProduct?.name ?? l10n.selectProductHint, style: TextStyle(color: _selectedProduct != null ? colorScheme.primary : colorScheme.onSurfaceVariant, fontWeight: _selectedProduct != null ? FontWeight.bold : FontWeight.normal))),
+                Expanded(child: Text(l10n.selectProductHint, style: TextStyle(color: colorScheme.onSurfaceVariant))),
                 Icon(Icons.arrow_drop_down, color: colorScheme.outline),
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  void _showProductSearchPicker(List<Product> products) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
+    final salesBloc = context.read<SalesBloc>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) {
+        String query = '';
+        final Map<int, int> itemQtys = {};
+
+        return StatefulBuilder(
+          builder: (context, setPickerState) {
+            final filtered = products.where((p) => p.name.toLowerCase().contains(query.toLowerCase())).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              padding: const EdgeInsets.only(top: 12, left: 20, right: 20, bottom: 20),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+              ),
+              child: Column(
+                children: [
+                  Container(width: 40, height: 4, decoration: BoxDecoration(color: colorScheme.outlineVariant, borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(height: 16),
+                  Text(l10n.selectProduct, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
+                  const SizedBox(height: 16),
+                  TextField(
+                    autofocus: true,
+                    onChanged: (v) => setPickerState(() => query = v),
+                    decoration: InputDecoration(
+                      hintText: l10n.searchProduct,
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorScheme.outlineVariant)),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: filtered.isEmpty
+                      ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.search_off, size: 48, color: colorScheme.outlineVariant), const SizedBox(height: 16), Text(l10n.noDataFound, style: TextStyle(color: colorScheme.onSurfaceVariant))]))
+                      : ListView.separated(
+                          itemCount: filtered.length,
+                          separatorBuilder: (context, index) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final product = filtered[index];
+                            final qty = itemQtys[product.id] ?? 1;
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(product.name, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          l10n.stockInfo(l10n.formatDigits(product.currentStock.toString()), product.unit),
+                                          style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  _buildSmallQtyBtn(Icons.remove, () {
+                                    setPickerState(() {
+                                      if (qty > 1) itemQtys[product.id!] = qty - 1;
+                                    });
+                                  }),
+                                  Container(
+                                    width: 32,
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      l10n.formatDigits(qty.toString()),
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: colorScheme.onSurface),
+                                    ),
+                                  ),
+                                  _buildSmallQtyBtn(Icons.add, () {
+                                    setPickerState(() {
+                                      if (qty < product.currentStock) itemQtys[product.id!] = qty + 1;
+                                    });
+                                  }),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    onPressed: () {
+                                      salesBloc.add(AddToCart(product, quantity: qty));
+                                      HapticFeedback.lightImpact();
+                                      Navigator.pop(modalContext);
+                                    },
+                                    icon: Icon(Icons.add_shopping_cart, color: colorScheme.primary, size: 22),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: colorScheme.primaryContainer,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
