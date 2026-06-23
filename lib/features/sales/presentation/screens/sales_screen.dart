@@ -7,7 +7,6 @@ import 'package:amar_dokan/core/l10n/app_localizations.dart';
 import 'package:amar_dokan/features/sales/presentation/bloc/sales_bloc.dart';
 import 'package:amar_dokan/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:amar_dokan/features/sales/domain/sale.dart';
-import 'package:amar_dokan/core/services/invoice_service.dart';
 import 'package:amar_dokan/features/reports/presentation/bloc/report_bloc.dart';
 import 'package:amar_dokan/features/reports/services/report_generator.dart';
 import 'package:amar_dokan/features/dashboard/presentation/bloc/home_bloc.dart';
@@ -807,68 +806,6 @@ class _SalesViewState extends State<SalesView> {
     );
   }
 
-  void _showSaleSuccessDialog(BuildContext context, Sale sale) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Center(
-          child: Column(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.green, size: 60),
-              const SizedBox(height: 10),
-              Text(context.l10n.saleSuccess, style: const TextStyle(fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildDataRow(context.l10n.invoiceColon, context.l10n.formatDigits(sale.invoiceId)),
-            _buildDataRow(context.l10n.totalAmountLabel, '৳${context.l10n.formatAmount(sale.totalAmount)}'),
-            _buildDataRow(context.l10n.payment, sale.paymentMethod == 'cash' ? context.l10n.cash : context.l10n.credit),
-            const Divider(),
-            const SizedBox(height: 10),
-            _buildActionTile(Icons.print, context.l10n.printReceipt, Colors.blue, () => InvoiceService.printReceipt(sale)),
-            _buildActionTile(Icons.share, context.l10n.shareReceipt, Colors.green, () => InvoiceService.shareReceipt(sale)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(context.l10n.close, style: const TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDataRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.grey)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionTile(IconData icon, String label, Color color, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      contentPadding: EdgeInsets.zero,
-      dense: true,
-    );
-  }
 }
 
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {

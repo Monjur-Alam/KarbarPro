@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'dart:typed_data';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
@@ -8,178 +8,286 @@ import 'package:share_plus/share_plus.dart';
 import '../../features/sales/domain/sale.dart';
 
 class InvoiceService {
-  static Future<Uint8List> generateSaleReceipt(Sale sale, {bool isBangla = true}) {
-    final html = _buildHtml(sale, isBangla: isBangla);
+  static Future<Uint8List> generateSaleReceipt(
+    Sale sale, {
+    bool isBangla = true,
+    int copies = 1,
+    String shopName = 'আমার দোকান',
+    String shopAddress = '',
+    String shopPhone = '',
+  }) async {
+    final html = _buildHtml(
+      sale,
+      isBangla: isBangla,
+      copies: copies,
+      shopName: shopName,
+      shopAddress: shopAddress,
+      shopPhone: shopPhone,
+    );
+    // convertHtml uses the device WebView which handles Bengali complex-script
+    // rendering correctly. pw widgets do not apply OpenType shaping for Bengali.
+    // ignore: deprecated_member_use
     return Printing.convertHtml(format: PdfPageFormat.roll80, html: html);
   }
 
-  static String _buildHtml(Sale sale, {required bool isBangla}) {
-    final L        = _lbl(isBangla);
-    final dateStr  = DateFormat('dd/MM/yyyy hh:mm a').format(sale.saleDate);
-    final isCash   = sale.paymentMethod == 'cash';
+  static String _buildHtml(
+    Sale sale, {
+    required bool isBangla,
+    int copies = 1,
+    String shopName = 'আমার দোকান',
+    String shopAddress = '',
+    String shopPhone = '',
+  }) {
+    final L = _lbl(isBangla);
+    final dateStr = DateFormat('dd/MM/yyyy').format(sale.saleDate);
+    final isCash = sale.paymentMethod == 'cash';
     final subtotal = sale.totalAmount + sale.discount;
 
-    // ── item rows ───────────────────────────────────────────────────
+    // ── Item rows ──────────────────────────────────────────────
     final rows = StringBuffer();
+    int idx = 1;
     for (final item in sale.items) {
-      rows.write('''<tr>
-        <td class="tn">${_e(item.productName)}</td>
-        <td class="tc">${item.quantity}</td>
-        <td class="tr">৳${item.unitPrice.toStringAsFixed(2)}</td>
-        <td class="tr b">৳${item.subTotal.toStringAsFixed(2)}</td>
-      </tr>''');
+      rows.write('''
+        <tr>
+          <td class="num">$idx</td>
+          <td class="name">${_e(item.productName)}</td>
+          <td class="money">৳${item.unitPrice.toStringAsFixed(2)}</td>
+          <td class="center">${item.quantity}</td>
+          <td class="money b">৳${item.subTotal.toStringAsFixed(2)}</td>
+        </tr>
+        <tr class="sep-row"><td colspan="5"><div class="dotted"></div></td></tr>''');
+      idx++;
     }
 
     final custRow = sale.customerName != null
-        ? '<tr><td class="lbl">${L['cust']}</td><td colspan="2" class="val">${_e(sale.customerName!)}</td></tr>'
-        : '';
-    final discRow = sale.discount > 0
-        ? '<tr><td class="lbl">${L['disc']}</td><td colspan="2" class="val red">−৳${sale.discount.toStringAsFixed(2)}</td></tr>'
-        : '';
-    final dueRow = sale.dueAmount > 0
-        ? '<tr><td class="lbl b red">${L['due']}</td><td colspan="2" class="val b red">৳${sale.dueAmount.toStringAsFixed(2)}</td></tr>'
+        ? '<tr class="meta-row"><td class="ml">${L['cust']}</td>'
+          '<td class="mv">${_e(sale.customerName!)}</td></tr>'
+          '<tr><td colspan="2"><div class="dotted"></div></td></tr>'
         : '';
 
-    final payClass = isCash ? 'bcash' : 'bcred';
+    final dueSection = sale.dueAmount > 0
+        ? '<div class="dotted"></div>'
+          '<div class="sum-row"><span class="sl red b">${L['due']}</span>'
+          '<span class="sv red b">৳${sale.dueAmount.toStringAsFixed(2)}</span></div>'
+        : '';
+
+    final noteSection = (sale.notes != null && sale.notes!.isNotEmpty)
+        ? '<div class="dotted" style="margin-top:8px"></div>'
+          '<div class="sum-row" style="align-items:flex-start">'
+          '<span class="sl">${L['note']}</span>'
+          '<span class="sv" style="text-align:right;max-width:55%">${_e(sale.notes!)}</span></div>'
+        : '';
+
+    final addrLine = shopAddress.isNotEmpty ? '<div class="sub">${_e(shopAddress)}</div>' : '';
+    final phoneLine = shopPhone.isNotEmpty ? '<div class="sub">${_e(shopPhone)}</div>' : '';
     final payLabel = isCash ? L['cash']! : L['cred']!;
 
+    // SVG store icon (grey outline)
+    const storeIcon =
+        '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" '
+        'xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto 6px">'
+        '<path d="M3 9l1-5h16l1 5" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/>'
+        '<path d="M3 9v11a1 1 0 001 1h6v-5h4v5h6a1 1 0 001-1V9" stroke="#aaa" stroke-width="1.5"/>'
+        '<path d="M3 9c0 1.66 1.34 3 3 3s3-1.34 3-3" stroke="#aaa" stroke-width="1.5"/>'
+        '<path d="M9 9c0 1.66 1.34 3 3 3s3-1.34 3-3" stroke="#aaa" stroke-width="1.5"/>'
+        '<path d="M15 9c0 1.66 1.34 3 3 3s3-1.34 3-3" stroke="#aaa" stroke-width="1.5"/>'
+        '</svg>';
+
+    final block = '''
+<div class="receipt">
+  <div class="hdr">
+    $storeIcon
+    <div class="sn">${_e(shopName)}</div>
+    $addrLine
+    $phoneLine
+    <div class="title">${L['title']}</div>
+  </div>
+
+  <div class="dotted"></div>
+
+  <table class="mt">
+    <tr class="meta-row"><td class="ml">${L['inv']}</td><td class="mv">${_e(sale.invoiceId)}</td></tr>
+    <tr><td colspan="2"><div class="dotted"></div></td></tr>
+    <tr class="meta-row"><td class="ml">${L['date']}</td><td class="mv">$dateStr</td></tr>
+    <tr><td colspan="2"><div class="dotted"></div></td></tr>
+    $custRow
+  </table>
+
+  <table class="itable">
+    <thead>
+      <tr>
+        <th class="num">#</th>
+        <th class="left">${L['prod']}</th>
+        <th class="right">${L['rate']}</th>
+        <th class="center">${L['qty']}</th>
+        <th class="right">${L['amt']}</th>
+      </tr>
+      <tr><td colspan="5"><div class="dotted"></div></td></tr>
+    </thead>
+    <tbody>$rows</tbody>
+  </table>
+
+  <div class="sum-block">
+    <div class="sum-row">
+      <span class="sl">${L['priceAmt']}</span>
+      <span class="sv">৳${subtotal.toStringAsFixed(2)}</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="sum-row">
+      <span class="sl">${L['billAmt']}</span>
+      <span class="sv">৳${sale.totalAmount.toStringAsFixed(2)}</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="sum-row">
+      <span class="sl">${L['paid']}</span>
+      <span class="sv">৳${sale.paidAmount.toStringAsFixed(2)}</span>
+    </div>
+    <div class="dotted" style="margin:8px 0 0"></div>
+    <div class="sum-row" style="padding-top:6px">
+      <span class="sl">${L['payMethod']}</span>
+      <span class="sv">$payLabel</span>
+    </div>
+    $dueSection
+    $noteSection
+  </div>
+</div>''';
+
+    final allCopies = List.filled(copies, block).join('<div class="copy-sep"></div>');
+
+    // No base64 font embedding — system Bengali font (Noto Sans Bengali on Android,
+    // Kohinoor Bangla on iOS) handles complex-script shaping inside the WebView.
     return '''<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:sans-serif;font-size:11px;color:#111;max-width:80mm;background:#fff}
-  .hdr{text-align:center;padding:12px 6px 8px;border-bottom:2px solid #111}
-  .sn{font-size:20px;font-weight:700;margin-bottom:2px}
-  .tl{font-size:9px;color:#666}
-  .meta{padding:6px;border-bottom:1px dashed #bbb}
-  .meta table{width:100%}
-  .lbl{color:#777;font-size:9.5px;width:42%}
-  .val{font-weight:700;font-size:9.5px}
-  .badge{display:inline-block;padding:1px 7px;border-radius:3px;font-size:9px;font-weight:700}
-  .bcash{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7}
-  .bcred{background:#fff3e0;color:#e65100;border:1px solid #ffcc80}
-  .itbl{width:100%;border-collapse:collapse;border-bottom:1px dashed #bbb}
-  .itbl thead tr{background:#f5f5f5;border-top:1px solid #ddd;border-bottom:1px solid #ddd}
-  .itbl th{padding:4px 5px;font-size:9px;font-weight:700;color:#555;text-transform:uppercase}
-  .itbl td{padding:5px 5px;font-size:10.5px;vertical-align:top;border-bottom:1px dotted #ddd}
-  .itbl tr:last-child td{border-bottom:none}
-  .tn{max-width:32mm;word-break:break-word}
-  .tc{text-align:center}
-  .tr{text-align:right}
-  .sum{padding:6px;border-top:2px solid #111}
-  .sum table{width:100%}
-  .sum .lbl{color:#444;font-size:10.5px}
-  .sum .val{text-align:right;font-size:10.5px}
-  .tot td{font-size:13px!important;font-weight:700!important;padding:5px 0!important;
-          border-top:1px solid #333;border-bottom:1px solid #333}
-  .ftr{text-align:center;padding:8px 6px 12px;border-top:1px dashed #bbb}
-  .ty{font-size:11px;font-weight:700}
-  .pw{font-size:8px;color:#bbb;margin-top:3px}
-  .b{font-weight:700}
-  .red{color:#c62828}
-</style></head><body>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'Noto Sans Bengali','Hind Siliguri','Kohinoor Bangla',
+              'Noto Sans',Arial,sans-serif;
+  font-size:12px;color:#111;width:100%;background:#fff;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact
+}
 
-<div class="hdr">
-  <div class="sn">${L['shop']}</div>
-  <div class="tl">${L['tag']}</div>
-</div>
+.copy-sep{width:100%;border-top:2px dashed #999;margin:10px 0}
+.receipt{width:100%;padding:8px 5px}
 
-<div class="meta"><table>
-  <tr><td class="lbl">${L['inv']}</td><td class="val">${_e(sale.invoiceId)}</td></tr>
-  <tr><td class="lbl">${L['date']}</td><td class="val">$dateStr</td></tr>
-  $custRow
-  <tr><td class="lbl">${L['pay']}</td><td class="val"><span class="badge $payClass">$payLabel</span></td></tr>
-</table></div>
+.hdr{text-align:center;padding:8px 0 6px}
+.sn{font-size:22px;font-weight:700;margin-bottom:2px}
+.sub{font-size:12px;color:#444;margin-top:1px}
+.title{font-size:17px;font-weight:700;margin-top:6px;margin-bottom:4px}
 
-<table class="itbl">
-  <thead><tr>
-    <th style="text-align:left">${L['prod']}</th>
-    <th class="tc">${L['qty']}</th>
-    <th class="tr">${L['rate']}</th>
-    <th class="tr">${L['amt']}</th>
-  </tr></thead>
-  <tbody>$rows</tbody>
-</table>
+.dotted{border:none;border-top:1px dashed #aaa;margin:0}
 
-<div class="sum"><table>
-  <tr><td class="lbl">${L['sub']}</td><td class="val">৳${subtotal.toStringAsFixed(2)}</td></tr>
-  $discRow
-  <tr class="tot"><td class="lbl">${L['net']}</td><td class="val">৳${sale.totalAmount.toStringAsFixed(2)}</td></tr>
-  <tr><td class="lbl">${L['paid']}</td><td class="val">৳${sale.paidAmount.toStringAsFixed(2)}</td></tr>
-  $dueRow
-</table></div>
+.mt{width:100%;border-collapse:collapse}
+.meta-row td{padding:7px 0}
+.ml{font-size:12px;color:#333;width:44%}
+.mv{font-size:12px;font-weight:700;text-align:right}
 
-<div class="ftr">
-  <div class="ty">${L['ty']}</div>
-  <div class="pw">${L['pw']}</div>
-</div>
+.itable{width:100%;border-collapse:collapse;margin-top:4px}
+.itable thead th{font-size:10px;font-weight:700;color:#555;padding:5px 2px;text-transform:uppercase}
+.sep-row td{padding:0}
+.itable tbody td{font-size:12px;padding:7px 2px;vertical-align:top}
+.num{width:18px;text-align:center}
+.name{word-break:break-word}
+.money{text-align:right;white-space:nowrap;width:52px}
+.center{text-align:center;width:30px}
+.left{text-align:left}
+.right{text-align:right}
+.b{font-weight:700}
 
-</body></html>''';
+.sum-block{padding:4px 0}
+.sum-row{display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0 0}
+.sl{font-size:13px;color:#333;max-width:58%}
+.sv{font-size:13px;text-align:right}
+.spacer{height:4px}
+.red{color:#c62828}
+</style></head>
+<body>$allCopies</body></html>''';
   }
 
   static Map<String, String> _lbl(bool bn) => bn
       ? {
-          'shop': 'আমার দোকান',
-          'tag' : 'আপনার বিশ্বস্ত কেনাকাটার সঙ্গী',
-          'inv' : 'ইনভয়েস নং',
-          'date': 'তারিখ',
-          'cust': 'ক্রেতা',
-          'pay' : 'পেমেন্ট',
+          'title': 'বিক্রয় চালান',
+          'inv': 'ইনভয়েস নং:',
+          'date': 'তারিখ:',
+          'cust': 'ক্রেতার নাম:',
+          'prod': 'পণ্যের নাম',
+          'qty': 'পরিমাণ',
+          'rate': 'মূল্য',
+          'amt': 'মোট',
+          'priceAmt': 'মূল্য পরিমাণ',
+          'billAmt': 'বিল পরিমাণ (ছাড় ও অতিরিক্ত চার্জ সহ)',
+          'paid': 'পরিশোধিত',
+          'payMethod': 'পেমেন্ট পদ্ধতি',
           'cash': 'নগদ',
           'cred': 'বাকি',
-          'prod': 'পণ্য',
-          'qty' : 'পরিমাণ',
-          'rate': 'দর',
-          'amt' : 'মোট',
-          'sub' : 'উপমোট',
-          'disc': 'ছাড়',
-          'net' : 'সর্বমোট',
-          'paid': 'পরিশোধিত',
-          'due' : 'বাকি',
-          'ty'  : 'ধন্যবাদ! আবার আসবেন।',
-          'pw'  : 'Powered by আমার দোকান',
+          'due': 'বাকি পরিমাণ',
+          'note': 'নোট:',
         }
       : {
-          'shop': 'Amar Dokan',
-          'tag' : 'Your trusted shopping partner',
-          'inv' : 'Invoice No',
-          'date': 'Date',
-          'cust': 'Customer',
-          'pay' : 'Payment',
+          'title': 'Sales Invoice',
+          'inv': 'Invoice No:',
+          'date': 'Date:',
+          'cust': 'Customer Name:',
+          'prod': 'Item Name',
+          'qty': 'Qty',
+          'rate': 'Price',
+          'amt': 'Amount',
+          'priceAmt': 'Price Amount',
+          'billAmt': 'Bill Amount (discount\n& additional charged)',
+          'paid': 'Paid',
+          'payMethod': 'Payment Method',
           'cash': 'Cash',
           'cred': 'Credit',
-          'prod': 'Product',
-          'qty' : 'Qty',
-          'rate': 'Rate',
-          'amt' : 'Amount',
-          'sub' : 'Subtotal',
-          'disc': 'Discount',
-          'net' : 'Net Total',
-          'paid': 'Paid',
-          'due' : 'Due',
-          'ty'  : 'Thank you! Come again.',
-          'pw'  : 'Powered by Amar Dokan',
+          'due': 'Due Amount',
+          'note': 'Note:',
         };
 
   static String _e(String t) =>
       t.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 
-  static Future<void> printReceipt(Sale sale, {bool isBangla = true}) async {
-    final pdf = await generateSaleReceipt(sale, isBangla: isBangla);
+  static Future<void> printReceipt(
+    Sale sale, {
+    bool isBangla = true,
+    int copies = 1,
+    String shopName = 'আমার দোকান',
+    String shopAddress = '',
+    String shopPhone = '',
+  }) async {
+    final pdf = await generateSaleReceipt(
+      sale,
+      isBangla: isBangla,
+      copies: copies,
+      shopName: shopName,
+      shopAddress: shopAddress,
+      shopPhone: shopPhone,
+    );
     await Printing.layoutPdf(
       onLayout: (_) async => pdf,
       name: 'Receipt_${sale.invoiceId}',
     );
   }
 
-  static Future<void> shareReceipt(Sale sale, {bool isBangla = true}) async {
-    final pdf = await generateSaleReceipt(sale, isBangla: isBangla);
-    final dir  = await getTemporaryDirectory();
+  static Future<void> shareReceipt(
+    Sale sale, {
+    bool isBangla = true,
+    String shopName = 'আমার দোকান',
+    String shopAddress = '',
+    String shopPhone = '',
+  }) async {
+    final pdf = await generateSaleReceipt(
+      sale,
+      isBangla: isBangla,
+      copies: 1,
+      shopName: shopName,
+      shopAddress: shopAddress,
+      shopPhone: shopPhone,
+    );
+    final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/Receipt_${sale.invoiceId}.pdf');
     await file.writeAsBytes(pdf);
-    await Share.shareXFiles(
-      [XFile(file.path)],
+    await SharePlus.instance.share(ShareParams(
+      files: [XFile(file.path)],
       subject: isBangla ? 'ইনভয়েস: ${sale.invoiceId}' : 'Invoice: ${sale.invoiceId}',
-    );
+    ));
   }
 }

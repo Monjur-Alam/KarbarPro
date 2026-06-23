@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../../../core/l10n/app_localizations.dart';
-import '../../../../core/services/invoice_service.dart';
 import '../../data/sales_repository.dart';
 import '../../domain/sale.dart';
+import 'print_invoice_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class SaleDetailScreen extends StatelessWidget {
@@ -20,12 +20,11 @@ class SaleDetailScreen extends StatelessWidget {
         title: const Text('বিক্রির বিবরণ', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.share_outlined),
-            onPressed: () => InvoiceService.shareReceipt(sale, isBangla: context.l10n.isBangla),
-          ),
-          IconButton(
             icon: const Icon(Icons.print_outlined),
-            onPressed: () => InvoiceService.printReceipt(sale, isBangla: context.l10n.isBangla),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => PrintInvoiceScreen(sale: sale)),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.red),
@@ -204,7 +203,7 @@ class SaleDetailScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('বিক্রি ডিলিট নিশ্চিত করুন'),
-        content: const Text('এই বিক্রিটি ডিলিট করলে স্টক এবং কাস্টমার ব্যালেন্স আগের অবস্থায় ফিরে যাবে। আপনি কি নিশ্চিত?'),
+        content: const Text('এই বিক্রিটি ডিলিট করলে স্টক এবং কাস্টমার ব্যালেন্স আগের অবস্থায় ফিরে যাবে। আপনি কি নিশ্চিত?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('না')),
           TextButton(
@@ -212,8 +211,8 @@ class SaleDetailScreen extends StatelessWidget {
               final repository = SalesRepository(dbHelper: context.read<DatabaseHelper>());
               await repository.deleteSale(sale.id!);
               if (context.mounted) {
-                Navigator.pop(context); // Close dialog
-                Navigator.pop(context); // Go back from detail
+                Navigator.pop(context);
+                Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('বিক্রি ডিলিট করা হয়েছে')));
               }
             },

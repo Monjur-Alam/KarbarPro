@@ -13,12 +13,11 @@ import '../../../customers/domain/customer.dart';
 import '../../../customers/presentation/bloc/customer_bloc.dart';
 import '../../../inventory/domain/product.dart';
 import '../../../inventory/presentation/bloc/inventory_bloc.dart';
-import '../../domain/sale.dart';
 import '../bloc/sales_bloc.dart';
 import '../../../../core/constants/database_constants.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../../../core/l10n/app_localizations.dart';
-import '../../../../core/services/invoice_service.dart';
+import '../screens/print_invoice_screen.dart';
 
 class SaleFormBottomSheet extends StatefulWidget {
   const SaleFormBottomSheet({super.key});
@@ -45,7 +44,6 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
   Timer? _feedbackTimer;
   final Map<String, DateTime> _lastScanTime = {};
 
-  Sale? _completedSale;
   String? _beepFilePath;
 
   @override
@@ -190,7 +188,11 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
       listener: (context, state) {
         if (state is SalesSuccess) {
           HapticFeedback.heavyImpact();
-          setState(() => _completedSale = state.sale);
+          final sale = state.sale;
+          Navigator.of(context).pop(); // close bottom sheet
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => PrintInvoiceScreen(sale: sale)),
+          );
         } else if (state is SalesError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.message), backgroundColor: colorScheme.error),
@@ -235,11 +237,11 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              _completedSale != null ? '✅ ${l10n.saleSuccess}' : l10n.newSaleInvoice,
+                              l10n.newSaleInvoice,
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
-                                color: _completedSale != null ? Colors.green.shade700 : colorScheme.onSurface,
+                                color: colorScheme.onSurface,
                               ),
                             ),
                             IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
@@ -248,9 +250,6 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
                         const Divider(),
                         const SizedBox(height: 16),
 
-                        if (_completedSale != null) ...[
-                          _buildSuccessCard(_completedSale!),
-                        ] else ...[
                           // Product Selection Section
                           _buildSectionHeader('📦 ${l10n.selectProduct}', colorScheme.primary),
                           const SizedBox(height: 12),
@@ -286,7 +285,6 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
 
                           const SizedBox(height: 32),
                           _buildCheckoutSummary(state, finalTotal),
-                        ],
                         const SizedBox(height: 8),
                       ],
                     ),
@@ -301,63 +299,6 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
         ),
         );
       },
-    );
-  }
-
-  Widget _buildSuccessCard(Sale sale) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final cardBg     = isDark ? Colors.green.shade900.withValues(alpha: 0.25) : Colors.green.shade50;
-    final cardBorder = isDark ? Colors.green.shade700 : Colors.green.shade200;
-    final titleColor = isDark ? Colors.green.shade300 : Colors.green.shade800;
-    final hintColor  = isDark ? Colors.green.shade400 : Colors.green.shade600;
-    final dueColor   = isDark ? Colors.red.shade300   : Colors.red.shade700;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cardBorder),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.check_circle_rounded, color: titleColor, size: 56),
-          const SizedBox(height: 12),
-          Text(l10n.saleSuccess, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: titleColor)),
-          const SizedBox(height: 16),
-          Divider(color: colorScheme.outlineVariant),
-          const SizedBox(height: 8),
-          _infoRow(l10n.invoiceColon, l10n.formatDigits(sale.invoiceId), colorScheme),
-          _infoRow(l10n.totalAmountLabel, '৳${l10n.formatAmount(sale.totalAmount)}', colorScheme),
-          _infoRow(l10n.payment, sale.paymentMethod == 'cash' ? l10n.cash : l10n.credit, colorScheme),
-          if (sale.dueAmount > 0)
-            _infoRow(l10n.due, '৳${l10n.formatAmount(sale.dueAmount)}', colorScheme, valueColor: dueColor),
-          const SizedBox(height: 8),
-          Text(
-            l10n.isBangla
-                ? 'আবার বিক্রয় করতে বন্ধ করে নতুন বিক্রয় শুরু করুন'
-                : 'Close and start a new sale',
-            style: TextStyle(fontSize: 11, color: hintColor),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _infoRow(String label, String value, ColorScheme cs, {Color? valueColor}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
-          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: valueColor ?? cs.onSurface)),
-        ],
-      ),
     );
   }
 
@@ -378,9 +319,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
           BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, -3)),
         ],
       ),
-      child: _completedSale != null
-          ? _buildSuccessButtons(l10n)
-          : _buildCartButtons(state, finalTotal, l10n),
+      child: _buildCartButtons(state, finalTotal, l10n),
     );
   }
 
@@ -412,83 +351,6 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
             child: state.isSubmitting
                 ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                 : Text(l10n.completeSale, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ),
-        ),
-      ],
-    );
-  }
-
-  bool _isSharingReceipt  = false;
-  bool _isPrintingReceipt = false;
-
-  Widget _buildSuccessButtons(AppLocalizations l10n) {
-    return Row(
-      children: [
-        // ── Share ──────────────────────────────────────────────────
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: _isSharingReceipt
-                ? null
-                : () async {
-                    setState(() => _isSharingReceipt = true);
-                    try {
-                      await InvoiceService.shareReceipt(
-                        _completedSale!,
-                        isBangla: context.l10n.isBangla,
-                      );
-                    } catch (e) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('শেয়ার করা যায়নি: $e')),
-                      );
-                    } finally {
-                      if (mounted) setState(() => _isSharingReceipt = false);
-                    }
-                  },
-            icon: _isSharingReceipt
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.teal))
-                : const Icon(Icons.share_outlined, size: 18, color: Colors.teal),
-            label: Text(l10n.shareReceipt, style: const TextStyle(color: Colors.teal)),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              side: const BorderSide(color: Colors.teal),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        // ── Print ──────────────────────────────────────────────────
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: _isPrintingReceipt
-                ? null
-                : () async {
-                    setState(() => _isPrintingReceipt = true);
-                    try {
-                      await InvoiceService.printReceipt(
-                        _completedSale!,
-                        isBangla: context.l10n.isBangla,
-                      );
-                    } catch (e) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('প্রিন্ট করা যায়নি: $e')),
-                      );
-                    } finally {
-                      if (mounted) setState(() => _isPrintingReceipt = false);
-                    }
-                  },
-            icon: _isPrintingReceipt
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.print_outlined, size: 18),
-            label: Text(l10n.printReceipt),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              backgroundColor: Colors.blue.shade700,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 2,
-            ),
           ),
         ),
       ],
