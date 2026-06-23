@@ -164,8 +164,6 @@ class _SalesViewState extends State<SalesView> {
     return BlocConsumer<SalesBloc, SalesState>(
       listener: (context, state) {
         if (state is SalesSuccess) {
-          HapticFeedback.heavyImpact();
-          _showSaleSuccessDialog(context, state.sale);
           context.read<InventoryBloc>().add(LoadProducts());
           context.read<HomeBloc>().add(RefreshDashboard());
           context.read<ReportBloc>().add(RefreshReports());

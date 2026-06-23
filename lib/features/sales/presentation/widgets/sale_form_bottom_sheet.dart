@@ -1,17 +1,24 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../customers/domain/customer.dart';
 import '../../../customers/presentation/bloc/customer_bloc.dart';
 import '../../../inventory/domain/product.dart';
 import '../../../inventory/presentation/bloc/inventory_bloc.dart';
+import '../../domain/sale.dart';
 import '../bloc/sales_bloc.dart';
 import '../../../../core/constants/database_constants.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/services/invoice_service.dart';
 
 class SaleFormBottomSheet extends StatefulWidget {
   const SaleFormBottomSheet({super.key});
@@ -38,13 +45,16 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
   Timer? _feedbackTimer;
   final Map<String, DateTime> _lastScanTime = {};
 
+  Sale? _completedSale;
+  String? _beepFilePath;
+
   @override
   void initState() {
     super.initState();
-    // Clear cart when opening for a new sale
     context.read<SalesBloc>().add(ClearCart());
     _scannerController = MobileScannerController(detectionSpeed: DetectionSpeed.normal);
     _requestCameraPermission();
+    _initBeepFile();
   }
 
   Future<void> _requestCameraPermission() async {
@@ -85,7 +95,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
       _showScanFeedback(product.name, false);
     } else {
       context.read<SalesBloc>().add(AddToCart(product));
-      SystemSound.play(SystemSoundType.click);
+      _playBeep();
       HapticFeedback.mediumImpact();
       _showScanFeedback(product.name, true);
     }
@@ -102,6 +112,75 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     });
   }
 
+  Future<void> _initBeepFile() async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/scan_beep.wav');
+      if (!file.existsSync()) {
+        file.writeAsBytesSync(_generateBeepWav());
+      }
+      if (mounted) _beepFilePath = file.path;
+    } catch (_) {}
+  }
+
+  Future<void> _playBeep() async {
+    if (_beepFilePath == null) return;
+    try {
+      // Fresh player each time so rapid scans never interrupt each other
+      final player = AudioPlayer();
+      await player.play(DeviceFileSource(_beepFilePath!));
+      player.onPlayerComplete.listen((_) => player.dispose());
+    } catch (_) {}
+  }
+
+  Uint8List _generateBeepWav() {
+    const sampleRate = 22050;
+    const frequency = 880;
+    // 60ms silence lets Android audio output initialise before tone starts
+    const silenceSamples = sampleRate * 60 ~/ 1000;
+    // 220ms tone — long enough to hear clearly on all devices
+    const toneSamples = sampleRate * 220 ~/ 1000;
+    const numSamples = silenceSamples + toneSamples;
+    const amplitude = 0.65;
+
+    final pcm = Int16List(numSamples); // zeros = silence for first silenceSamples
+    for (int i = 0; i < toneSamples; i++) {
+      final t = i / sampleRate;
+      // Smooth attack (first 8%) and release (last 15%) to avoid clicks
+      double env = 1.0;
+      if (i < toneSamples * 0.08) {
+        env = i / (toneSamples * 0.08);
+      } else if (i > toneSamples * 0.85) {
+        env = (toneSamples - i) / (toneSamples * 0.15);
+      }
+      final sample = (sin(2 * pi * frequency * t) * amplitude * 32767 * env).round();
+      pcm[silenceSamples + i] = sample.clamp(-32768, 32767);
+    }
+
+    final dataSize = numSamples * 2;
+    final bd = ByteData(44 + dataSize);
+    // RIFF chunk
+    [0x52, 0x49, 0x46, 0x46].asMap().forEach((i, v) => bd.setUint8(i, v));
+    bd.setUint32(4, 36 + dataSize, Endian.little);
+    [0x57, 0x41, 0x56, 0x45].asMap().forEach((i, v) => bd.setUint8(8 + i, v));
+    // fmt chunk
+    [0x66, 0x6D, 0x74, 0x20].asMap().forEach((i, v) => bd.setUint8(12 + i, v));
+    bd.setUint32(16, 16, Endian.little);
+    bd.setUint16(20, 1, Endian.little); // PCM
+    bd.setUint16(22, 1, Endian.little); // mono
+    bd.setUint32(24, sampleRate, Endian.little);
+    bd.setUint32(28, sampleRate * 2, Endian.little);
+    bd.setUint16(32, 2, Endian.little);
+    bd.setUint16(34, 16, Endian.little);
+    // data chunk
+    [0x64, 0x61, 0x74, 0x61].asMap().forEach((i, v) => bd.setUint8(36 + i, v));
+    bd.setUint32(40, dataSize, Endian.little);
+    for (int i = 0; i < numSamples; i++) {
+      bd.setInt16(44 + i * 2, pcm[i], Endian.little);
+    }
+    return bd.buffer.asUint8List();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -110,7 +189,8 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     return BlocConsumer<SalesBloc, SalesState>(
       listener: (context, state) {
         if (state is SalesSuccess) {
-          Navigator.pop(context); // Close on success
+          HapticFeedback.heavyImpact();
+          setState(() => _completedSale = state.sale);
         } else if (state is SalesError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.message), backgroundColor: colorScheme.error),
@@ -134,97 +214,86 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
           expand: false,
           builder: (context, scrollController) {
             return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
                 color: colorScheme.surface,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
               ),
-              child: ListView(
-                controller: scrollController,
-                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+              child: Column(
                 children: [
-                  const SizedBox(height: 12),
-                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: colorScheme.outlineVariant, borderRadius: BorderRadius.circular(2)))),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(l10n.newSaleInvoice, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
-                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-                    ],
-                  ),
-                  const Divider(),
-                  const SizedBox(height: 16),
-
-                  // Product Selection Section
-                  _buildSectionHeader('📦 ${l10n.selectProduct}', colorScheme.primary),
-                  const SizedBox(height: 12),
-                  _buildProductSelector(),
-                  const SizedBox(height: 12),
-                  _buildScannerBox(),
-
-                  // Cart Summary Section
-                  if (state.cart.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    _buildSectionHeader('🛒 ${l10n.cartListCount(l10n.formatDigits(state.cart.length.toString()))}', colorScheme.tertiary),
-                    const SizedBox(height: 8),
-                    _buildCartList(state),
-                  ],
-
-                  // Payment Section
-                  const SizedBox(height: 24),
-                  _buildSectionHeader('💳 ${l10n.paymentInfo}', Colors.green),
-                  const SizedBox(height: 12),
-                  _buildPaymentTypeToggle(state),
-
-                  const SizedBox(height: 16),
-                  if (state.paymentType == PaymentType.credit) ...[
-                    _buildCustomerSelector(state.selectedCustomer),
-                    const SizedBox(height: 16),
-                    _buildPartialPaymentSection(finalTotal),
-                  ] else ...[
-                    _buildTextField(_discountController, l10n.discountTaka, prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}), focusNode: _discountFocus, textInputAction: TextInputAction.next, nextFocus: _notesFocus),
-                  ],
-
-                  const SizedBox(height: 16),
-                  _buildTextField(_notesController, '💬 ${l10n.additionalNotes}', maxLines: 2, focusNode: _notesFocus),
-
-                  const SizedBox(height: 32),
-                  _buildCheckoutSummary(state, finalTotal),
-
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: Text(l10n.cancel),
-                        ),
+                  // Scrollable content
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
+                      padding: EdgeInsets.fromLTRB(20, 0, 20, 16).copyWith(
+                        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 2,
-                        child: ElevatedButton(
-                          onPressed: state.isSubmitting || state.cart.isEmpty ? null : () => _handleCheckout(state, finalTotal),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            backgroundColor: Colors.green.shade700,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 2,
-                          ),
-                          child: state.isSubmitting
-                            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : Text(l10n.completeSale, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      children: [
+                        const SizedBox(height: 12),
+                        Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: colorScheme.outlineVariant, borderRadius: BorderRadius.circular(2)))),
+                        const SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _completedSale != null ? '✅ ${l10n.saleSuccess}' : l10n.newSaleInvoice,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: _completedSale != null ? Colors.green.shade700 : colorScheme.onSurface,
+                              ),
+                            ),
+                            IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                          ],
                         ),
-                      ),
-                    ],
+                        const Divider(),
+                        const SizedBox(height: 16),
+
+                        if (_completedSale != null) ...[
+                          _buildSuccessCard(_completedSale!),
+                        ] else ...[
+                          // Product Selection Section
+                          _buildSectionHeader('📦 ${l10n.selectProduct}', colorScheme.primary),
+                          const SizedBox(height: 12),
+                          _buildProductSelector(),
+                          const SizedBox(height: 12),
+                          _buildScannerBox(),
+
+                          // Cart Summary Section
+                          if (state.cart.isNotEmpty) ...[
+                            const SizedBox(height: 24),
+                            _buildSectionHeader('🛒 ${l10n.cartListCount(l10n.formatDigits(state.cart.length.toString()))}', colorScheme.tertiary),
+                            const SizedBox(height: 8),
+                            _buildCartList(state),
+                          ],
+
+                          // Payment Section
+                          const SizedBox(height: 24),
+                          _buildSectionHeader('💳 ${l10n.paymentInfo}', Colors.green),
+                          const SizedBox(height: 12),
+                          _buildPaymentTypeToggle(state),
+
+                          const SizedBox(height: 16),
+                          if (state.paymentType == PaymentType.credit) ...[
+                            _buildCustomerSelector(state.selectedCustomer),
+                            const SizedBox(height: 16),
+                            _buildPartialPaymentSection(finalTotal),
+                          ] else ...[
+                            _buildTextField(_discountController, l10n.discountTaka, prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}), focusNode: _discountFocus, textInputAction: TextInputAction.next, nextFocus: _notesFocus),
+                          ],
+
+                          const SizedBox(height: 16),
+                          _buildTextField(_notesController, '💬 ${l10n.additionalNotes}', maxLines: 2, focusNode: _notesFocus),
+
+                          const SizedBox(height: 32),
+                          _buildCheckoutSummary(state, finalTotal),
+                        ],
+                        const SizedBox(height: 8),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 40),
+
+                  // Sticky bottom buttons
+                  _buildStickyBottomBar(context, state, finalTotal, l10n, colorScheme),
                 ],
               ),
             );
@@ -232,6 +301,197 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
         ),
         );
       },
+    );
+  }
+
+  Widget _buildSuccessCard(Sale sale) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final cardBg     = isDark ? Colors.green.shade900.withValues(alpha: 0.25) : Colors.green.shade50;
+    final cardBorder = isDark ? Colors.green.shade700 : Colors.green.shade200;
+    final titleColor = isDark ? Colors.green.shade300 : Colors.green.shade800;
+    final hintColor  = isDark ? Colors.green.shade400 : Colors.green.shade600;
+    final dueColor   = isDark ? Colors.red.shade300   : Colors.red.shade700;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cardBorder),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.check_circle_rounded, color: titleColor, size: 56),
+          const SizedBox(height: 12),
+          Text(l10n.saleSuccess, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: titleColor)),
+          const SizedBox(height: 16),
+          Divider(color: colorScheme.outlineVariant),
+          const SizedBox(height: 8),
+          _infoRow(l10n.invoiceColon, l10n.formatDigits(sale.invoiceId), colorScheme),
+          _infoRow(l10n.totalAmountLabel, '৳${l10n.formatAmount(sale.totalAmount)}', colorScheme),
+          _infoRow(l10n.payment, sale.paymentMethod == 'cash' ? l10n.cash : l10n.credit, colorScheme),
+          if (sale.dueAmount > 0)
+            _infoRow(l10n.due, '৳${l10n.formatAmount(sale.dueAmount)}', colorScheme, valueColor: dueColor),
+          const SizedBox(height: 8),
+          Text(
+            l10n.isBangla
+                ? 'আবার বিক্রয় করতে বন্ধ করে নতুন বিক্রয় শুরু করুন'
+                : 'Close and start a new sale',
+            style: TextStyle(fontSize: 11, color: hintColor),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value, ColorScheme cs, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: valueColor ?? cs.onSurface)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStickyBottomBar(
+    BuildContext context,
+    SalesDataLoaded state,
+    double finalTotal,
+    AppLocalizations l10n,
+    ColorScheme colorScheme,
+  ) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, 12, 20, bottomPad + 16),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(top: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5))),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, -3)),
+        ],
+      ),
+      child: _completedSale != null
+          ? _buildSuccessButtons(l10n)
+          : _buildCartButtons(state, finalTotal, l10n),
+    );
+  }
+
+  Widget _buildCartButtons(SalesDataLoaded state, double finalTotal, AppLocalizations l10n) {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text(l10n.cancel),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: ElevatedButton(
+            onPressed: state.isSubmitting || state.cart.isEmpty ? null : () => _handleCheckout(state, finalTotal),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              backgroundColor: Colors.green.shade700,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 2,
+            ),
+            child: state.isSubmitting
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : Text(l10n.completeSale, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool _isSharingReceipt  = false;
+  bool _isPrintingReceipt = false;
+
+  Widget _buildSuccessButtons(AppLocalizations l10n) {
+    return Row(
+      children: [
+        // ── Share ──────────────────────────────────────────────────
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _isSharingReceipt
+                ? null
+                : () async {
+                    setState(() => _isSharingReceipt = true);
+                    try {
+                      await InvoiceService.shareReceipt(
+                        _completedSale!,
+                        isBangla: context.l10n.isBangla,
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('শেয়ার করা যায়নি: $e')),
+                      );
+                    } finally {
+                      if (mounted) setState(() => _isSharingReceipt = false);
+                    }
+                  },
+            icon: _isSharingReceipt
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.teal))
+                : const Icon(Icons.share_outlined, size: 18, color: Colors.teal),
+            label: Text(l10n.shareReceipt, style: const TextStyle(color: Colors.teal)),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: const BorderSide(color: Colors.teal),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // ── Print ──────────────────────────────────────────────────
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: _isPrintingReceipt
+                ? null
+                : () async {
+                    setState(() => _isPrintingReceipt = true);
+                    try {
+                      await InvoiceService.printReceipt(
+                        _completedSale!,
+                        isBangla: context.l10n.isBangla,
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('প্রিন্ট করা যায়নি: $e')),
+                      );
+                    } finally {
+                      if (mounted) setState(() => _isPrintingReceipt = false);
+                    }
+                  },
+            icon: _isPrintingReceipt
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.print_outlined, size: 18),
+            label: Text(l10n.printReceipt),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 2,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

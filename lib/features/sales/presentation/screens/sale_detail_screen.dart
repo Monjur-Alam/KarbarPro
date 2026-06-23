@@ -21,11 +21,11 @@ class SaleDetailScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.share_outlined),
-            onPressed: () => InvoiceService.shareReceipt(sale),
+            onPressed: () => InvoiceService.shareReceipt(sale, isBangla: context.l10n.isBangla),
           ),
           IconButton(
             icon: const Icon(Icons.print_outlined),
-            onPressed: () => InvoiceService.printReceipt(sale),
+            onPressed: () => InvoiceService.printReceipt(sale, isBangla: context.l10n.isBangla),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.red),
