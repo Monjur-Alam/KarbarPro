@@ -11,7 +11,11 @@
       "Bash(flutter build *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(dart analyze *)"
+      "Bash(dart analyze *)",
+      "Bash(adb shell *)",
+      "Bash(adb devices *)",
+      "Bash(adb *)",
+      "Bash(keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android)"
     ]
   }
 }

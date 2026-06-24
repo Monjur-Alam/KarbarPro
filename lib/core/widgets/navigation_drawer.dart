@@ -7,6 +7,8 @@ import '../database/database_helper.dart';
 import '../l10n/app_localizations.dart';
 import '../services/google_drive_service.dart';
 import '../settings/app_settings_cubit.dart';
+import '../../features/sales/presentation/screens/printer_settings_screen.dart';
+import '../../features/sales/presentation/screens/receipt_settings_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -49,6 +51,32 @@ class AppDrawer extends StatelessWidget {
                   onTap: () {
                     Navigator.pop(context);
                     // TODO: Navigate to Settings
+                  },
+                  isDark: isDark,
+                ),
+                _buildMenuItem(
+                  context: context,
+                  icon: Icons.print_outlined,
+                  label: 'Printer Settings',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()),
+                    );
+                  },
+                  isDark: isDark,
+                ),
+                _buildMenuItem(
+                  context: context,
+                  icon: Icons.receipt_long_outlined,
+                  label: 'Receipt Settings',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ReceiptSettingsScreen()),
+                    );
                   },
                   isDark: isDark,
                 ),
