@@ -81,6 +81,7 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
         title: Text(
           isBangla ? 'ইনভয়েস প্রিন্ট' : 'Print Invoice',

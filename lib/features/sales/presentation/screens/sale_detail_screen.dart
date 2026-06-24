@@ -18,6 +18,7 @@ class SaleDetailScreen extends StatelessWidget {
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
         title: const Text('বিক্রির বিবরণ', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [

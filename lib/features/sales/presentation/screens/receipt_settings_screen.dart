@@ -146,6 +146,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
       backgroundColor: _bg,
       appBar: AppBar(
         backgroundColor: _surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -450,12 +451,13 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         child: Column(
           children: [
             // Receipt preview area — POS machine style
-            GestureDetector(
-              onTap: () => _showFullScreenPreview(context, t),
-              child: Container(
-                color: Theme.of(context).colorScheme.surface,
-                padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
-                margin: const EdgeInsets.all(8),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => _showFullScreenPreview(context, t),
+                child: Container(
+                  color: Theme.of(context).colorScheme.surface,
+                  padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
+                  margin: const EdgeInsets.all(8),
                 child: FittedBox(
                   fit: BoxFit.contain,
                   alignment: Alignment.topCenter,
@@ -477,6 +479,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
                   ),
                 ),
               ),
+            ),
             ),
             // Selection row
             Padding(
@@ -520,6 +523,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
           children: [
             AppBar(
                 backgroundColor: Colors.transparent,
+                foregroundColor: Theme.of(context).colorScheme.onSurface,
                 elevation: 0,
                 title: Text(t.name, style: const TextStyle(fontSize: 16)),
                 leading: null,
@@ -807,10 +811,10 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
 
   TableRow _tRow(List<String> cells, {bool header = false, bool small = false}) =>
       TableRow(
-        decoration: header ? const BoxDecoration(color: Color(0xFFE8F8F3)) : null,
+        decoration: header ? BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHigh) : null,
         children: cells.map((c) => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-          child: Text(c, style: TextStyle(fontSize: small ? 7 : 8, fontWeight: header ? FontWeight.bold : FontWeight.normal)),
+          child: Text(c, style: TextStyle(fontSize: small ? 7 : 8, fontWeight: header ? FontWeight.bold : FontWeight.normal, color: Theme.of(context).colorScheme.onSurface)),
         )).toList(),
       );
 
@@ -838,7 +842,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
     final i = e.key;
     final item = e.value;
     return Column(children: [
-      Container(height: 0.5, color: Colors.black12),
+      Container(height: 0.5, color: Theme.of(context).colorScheme.outlineVariant),
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: Row(children: [
@@ -1094,8 +1098,8 @@ class _PreviewReceipt extends StatelessWidget {
           Text(shopPhone, textAlign: TextAlign.center, style: const TextStyle(fontSize: 8)),
         Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
-        _dash(),
-        if (header != null) ...[header!, _dash()],
+        _dash(context),
+        if (header != null) ...[header!, _dash(context)],
         if (itemsHeader != null) ...[const SizedBox(height: 3), itemsHeader!],
         if (itemRows != null) itemRows!,
         if (summary != null) ...[const SizedBox(height: 4), summary!],
@@ -1104,16 +1108,19 @@ class _PreviewReceipt extends StatelessWidget {
     );
   }
 
-  Widget _dash() => CustomPaint(
+  Widget _dash(BuildContext context) => CustomPaint(
     size: const Size(double.infinity, 1),
-    painter: _DashLinePainter(),
+    painter: _DashLinePainter(color: Theme.of(context).colorScheme.outlineVariant),
   );
 }
 
 class _DashLinePainter extends CustomPainter {
+  final Color color;
+  _DashLinePainter({required this.color});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.black26..strokeWidth = 0.5;
+    final paint = Paint()..color = color..strokeWidth = 0.5;
     double x = 0;
     while (x < size.width) {
       canvas.drawLine(Offset(x, 0), Offset((x + 3).clamp(0, size.width), 0), paint);

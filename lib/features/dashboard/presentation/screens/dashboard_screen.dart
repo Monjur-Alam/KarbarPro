@@ -270,7 +270,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         ),
         Builder(
           builder: (context) => IconButton(
-            icon: Icon(Icons.settings, color: colorScheme.onSurface),
+            icon: Icon(Icons.menu_rounded, color: colorScheme.onSurface),
             onPressed: () => Scaffold.of(context).openEndDrawer(),
           ),
         ),
