@@ -4,7 +4,6 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 
 const _kNavy = AppColors.primary;
-const _kBg = Color(0xFFF4F5FA);
 
 class ReceiptSettingsScreen extends StatefulWidget {
   const ReceiptSettingsScreen({super.key});
@@ -54,6 +53,11 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
   late TextEditingController _shopNameCtrl;
   late TextEditingController _shopAddressCtrl;
   late TextEditingController _shopPhoneCtrl;
+
+  // Dynamic surface color — adapts to dark mode
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _outline => Theme.of(context).colorScheme.outline.withOpacity(0.2);
 
   @override
   void initState() {
@@ -139,18 +143,15 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kBg,
+      backgroundColor: _bg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Receipt Settings',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 18),
-        ),
+        title: const Text('Receipt Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -162,7 +163,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         children: [
           // Top "Enable text only print" row
           Container(
-            color: Colors.white,
+            color: _surface,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
@@ -175,7 +176,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
                       const SizedBox(height: 2),
                       Text(
                         'Text only print mode can print only english language\nbut printing will fast, support most type of printers',
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600, height: 1.4),
+                        style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), height: 1.4),
                       ),
                     ],
                   ),
@@ -191,11 +192,11 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
           ),
           // Tab bar
           Container(
-            color: Colors.white,
+            color: _surface,
             child: TabBar(
               controller: _tab,
               labelColor: _kNavy,
-              unselectedLabelColor: Colors.grey,
+              unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               indicatorColor: _kNavy,
               indicatorWeight: 3,
               labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
@@ -221,7 +222,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
           // Bottom Okay button
           Container(
             width: double.infinity,
-            color: Colors.white,
+            color: _surface,
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
             child: SizedBox(
               height: 50,
@@ -333,7 +334,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Text(
             'You can set custom name for Tax that print in receipt\neg VAT(5%%), GST(18%%) ..etc',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
           ),
         ),
 
@@ -347,7 +348,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
 
         // Attach QR code toggle row
         Container(
-          color: Colors.white,
+          color: _surface,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
@@ -363,27 +364,30 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         // QR code data text area
         if (_attachQrCode) ...[
           Container(
-            color: Colors.white,
+            color: _surface,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Enter QR code data',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        fontWeight: FontWeight.w500)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _qrDataCtrl,
                   maxLines: 4,
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: _kBg,
+                    fillColor: _bg,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide(color: _outline),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide(color: _outline),
                     ),
                     contentPadding: const EdgeInsets.all(10),
                   ),
@@ -434,44 +438,49 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
 
   Widget _templatePreviewCard(_TplData t) {
     final selected = _receiptTemplate == t.index;
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.symmetric(horizontal: BorderSide(color: Colors.grey.shade200)),
-      ),
-      child: Column(
-        children: [
-          // Receipt preview (scaled to fit width)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: FittedBox(
-              fit: BoxFit.fitWidth,
-              alignment: Alignment.topCenter,
-              child: SizedBox(width: 300, child: t.preview),
+    return GestureDetector(
+      onTap: () => setState(() => _receiptTemplate = t.index),
+      child: Container(
+        decoration: BoxDecoration(
+          color: _surface,
+          border: Border.symmetric(horizontal: BorderSide(color: _outline)),
+        ),
+        child: Column(
+          children: [
+            // Receipt preview area — always white like paper
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+              child: FittedBox(
+                fit: BoxFit.fitWidth,
+                alignment: Alignment.topCenter,
+                child: SizedBox(width: 300, child: t.preview),
+              ),
             ),
-          ),
-          // Toggle row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(t.name,
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: selected ? _kNavy : Colors.black87)),
-                Switch(
-                  value: selected,
-                  onChanged: (v) {
-                    if (v) setState(() => _receiptTemplate = t.index);
-                  },
-                  activeColor: _kNavy,
-                ),
-              ],
+            // Selection row
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(t.name,
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: selected ? _kNavy : null)),
+                  ),
+                  Switch(
+                    value: selected,
+                    onChanged: (v) {
+                      if (v) setState(() => _receiptTemplate = t.index);
+                    },
+                    activeColor: _kNavy,
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -535,7 +544,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         _pRow('Grand Total', '৳405.00', bold: true),
         _pRow('Payable', '৳405.00'),
         const SizedBox(height: 3),
-        Container(height: 1, color: Colors.grey.shade300),
+        Container(height: 1, color: Colors.black12),
         _pText('Payment Information', bold: true, size: 9),
         Table(
           border: TableBorder.all(width: 0.5),
@@ -560,18 +569,18 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         _pText('Invoice Details', bold: true, size: 11),
         _pText('Order ID: INV-001', size: 10),
         _pText('Date: 24/06/2026  Payment: Cash', size: 10),
-        Container(height: 1, color: Colors.grey.shade400, margin: const EdgeInsets.symmetric(vertical: 4)),
+        Container(height: 0.5, color: Colors.black26, margin: const EdgeInsets.symmetric(vertical: 4)),
         Row(children: [
           Expanded(child: _pText('Item', bold: true, size: 11)),
           _pText('Amt', bold: true, size: 11),
         ]),
         for (final i in _sampleItems) ...[
-          Container(height: 0.5, color: Colors.grey.shade300),
+          Container(height: 0.5, color: Colors.black12),
           Row(children: [
             Expanded(child: _pText(i.$1, size: 11)),
             _pText('৳${(i.$2 * i.$3).toStringAsFixed(0)}', bold: true, size: 11),
           ]),
-          _pText('${i.$2} X ৳${i.$3.toStringAsFixed(0)}', size: 9, color: Colors.grey),
+          _pText('${i.$2} X ৳${i.$3.toStringAsFixed(0)}', size: 9, color: Colors.black54),
         ],
         Container(height: 1, color: Colors.black87, margin: const EdgeInsets.symmetric(vertical: 3)),
         _pRow('Sub Total', '৳405.00', size: 12),
@@ -590,7 +599,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
           painter: _QrPainter(),
         ),
       ),
-      _pText('INV-001', size: 8, align: TextAlign.center, color: Colors.grey),
+      _pText('INV-001', size: 8, align: TextAlign.center),
     ]);
   }
 
@@ -604,7 +613,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
           painter: _BarcodePainter(),
         ),
       ),
-      _pText('INV-001', size: 8, align: TextAlign.center, color: Colors.grey),
+      _pText('INV-001', size: 8, align: TextAlign.center),
     ]);
   }
 
@@ -661,7 +670,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         _pText('Invoice Details', bold: true, size: 11),
         _pText('Order ID: INV-001', size: 9),
         _pText('Date: 24/06/2026  Payment: Cash', size: 9),
-        Container(height: 1, color: Colors.grey.shade400, margin: const EdgeInsets.symmetric(vertical: 4)),
+        Container(height: 0.5, color: Colors.black26, margin: const EdgeInsets.symmetric(vertical: 4)),
         Table(
           border: TableBorder.all(width: 0.5),
           columnWidths: const {0: FixedColumnWidth(22), 1: FlexColumnWidth(3), 2: FlexColumnWidth(2), 3: FixedColumnWidth(22), 4: FlexColumnWidth(2)},
@@ -701,7 +710,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
 
   TableRow _tRow(List<String> cells, {bool header = false, bool small = false}) =>
       TableRow(
-        decoration: header ? const BoxDecoration(color: Color(0xFFEEEEEE)) : null,
+        decoration: header ? const BoxDecoration(color: Color(0xFFE8F8F3)) : null,
         children: cells.map((c) => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
           child: Text(c, style: TextStyle(fontSize: small ? 7 : 8, fontWeight: header ? FontWeight.bold : FontWeight.normal)),
@@ -712,7 +721,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
       Column(children: rows.map((r) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(children: [
-          Text(r.$1, style: const TextStyle(fontSize: 9, color: Colors.black54)),
+          Text(r.$1, style: const TextStyle(fontSize: 9)),
           const Spacer(),
           Text(r.$2, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
         ]),
@@ -720,19 +729,19 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
 
   Widget _previewTableHeader(List<String> cols) =>
       Row(children: [
-        SizedBox(width: 14, child: Text(cols[0], style: const TextStyle(fontSize: 8, color: Colors.grey, fontWeight: FontWeight.bold))),
+        SizedBox(width: 14, child: Text(cols[0], style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold))),
         const SizedBox(width: 4),
-        Expanded(child: Text(cols[1], style: const TextStyle(fontSize: 8, color: Colors.grey, fontWeight: FontWeight.bold))),
-        SizedBox(width: 40, child: Text(cols[2], textAlign: TextAlign.right, style: const TextStyle(fontSize: 8, color: Colors.grey, fontWeight: FontWeight.bold))),
-        SizedBox(width: 24, child: Text(cols[3], textAlign: TextAlign.center, style: const TextStyle(fontSize: 8, color: Colors.grey, fontWeight: FontWeight.bold))),
-        SizedBox(width: 40, child: Text(cols[4], textAlign: TextAlign.right, style: const TextStyle(fontSize: 8, color: Colors.grey, fontWeight: FontWeight.bold))),
+        Expanded(child: Text(cols[1], style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold))),
+        SizedBox(width: 40, child: Text(cols[2], textAlign: TextAlign.right, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold))),
+        SizedBox(width: 24, child: Text(cols[3], textAlign: TextAlign.center, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold))),
+        SizedBox(width: 40, child: Text(cols[4], textAlign: TextAlign.right, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold))),
       ]);
 
   Widget _previewItemRows() => Column(children: _sampleItems.asMap().entries.map((e) {
     final i = e.key;
     final item = e.value;
     return Column(children: [
-      Container(height: 0.5, color: Colors.grey.shade300),
+      Container(height: 0.5, color: Colors.black12),
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: Row(children: [
@@ -751,7 +760,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
     Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(children: [
-        Expanded(child: Text(r.$1, style: const TextStyle(fontSize: 9, color: Colors.black54))),
+        Expanded(child: Text(r.$1, style: const TextStyle(fontSize: 9))),
         Text(r.$2, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
       ]),
     )
@@ -798,7 +807,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
       {bool inline = false}) {
     final content = Row(
       children: [
-        Expanded(child: Text(label, style: const TextStyle(fontSize: 14, color: Colors.black87))),
+        Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
         Switch(
           value: value,
           onChanged: onChange,
@@ -809,7 +818,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
     );
     if (inline) return content;
     return Container(
-      color: Colors.white,
+      color: _surface,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: content,
     );
@@ -817,18 +826,18 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
 
   Widget _sliderSection(String label, double value, ValueChanged<double> onChange) {
     return Container(
-      color: Colors.white,
+      color: _surface,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 14, color: Colors.black87)),
+          Text(label, style: const TextStyle(fontSize: 14)),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               trackHeight: 3,
               thumbColor: _kNavy,
               activeTrackColor: _kNavy,
-              inactiveTrackColor: Colors.grey.shade300,
+              inactiveTrackColor: Theme.of(context).colorScheme.outline.withOpacity(0.3),
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
             ),
@@ -842,7 +851,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
   Widget _inputRow(String label, TextEditingController ctrl, VoidCallback onOkay,
       {TextInputType? keyboardType}) {
     return Container(
-      color: Colors.white,
+      color: _surface,
       margin: const EdgeInsets.only(bottom: 2),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
@@ -853,7 +862,10 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
               children: [
                 Text(label,
                     style: TextStyle(
-                        fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.4)),
                 const SizedBox(height: 4),
                 TextField(
                   controller: ctrl,
@@ -891,14 +903,17 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
   Widget _titlesInputRow(String label, TextEditingController ctrl,
       {String? hint, TextInputType? keyboardType, int maxLines = 1}) {
     return Container(
-      color: Colors.white,
+      color: _surface,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
               style: TextStyle(
-                  fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.4)),
           const SizedBox(height: 6),
           TextField(
             controller: ctrl,
@@ -907,18 +922,18 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
             style: const TextStyle(fontSize: 14),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: TextStyle(color: Colors.grey.shade400),
+              hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.35)),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
               filled: true,
-              fillColor: _kBg,
+              fillColor: _bg,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: Colors.grey.shade300),
+                borderSide: BorderSide(color: _outline),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: Colors.grey.shade300),
+                borderSide: BorderSide(color: _outline),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
@@ -931,8 +946,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
     );
   }
 
-  Widget _divider() =>
-      Container(height: 1, color: Colors.grey.shade200);
+  Widget _divider() => Container(height: 1, color: _outline);
 
   // Save a single field immediately (Okay button per field)
   void _saveField({
@@ -990,12 +1004,12 @@ class _PreviewReceipt extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (showStoreIcon)
-          const Icon(Icons.store_mall_directory_outlined, size: 28, color: Colors.grey),
+          const Icon(Icons.store_mall_directory_outlined, size: 28, color: AppColors.primary),
         Text(shopName, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
         if (shopAddr.isNotEmpty)
-          Text(shopAddr, textAlign: TextAlign.center, style: const TextStyle(fontSize: 8, color: Colors.black54)),
+          Text(shopAddr, textAlign: TextAlign.center, style: const TextStyle(fontSize: 8)),
         if (shopPhone.isNotEmpty)
-          Text(shopPhone, textAlign: TextAlign.center, style: const TextStyle(fontSize: 8, color: Colors.black54)),
+          Text(shopPhone, textAlign: TextAlign.center, style: const TextStyle(fontSize: 8)),
         Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         _dash(),
@@ -1017,7 +1031,7 @@ class _PreviewReceipt extends StatelessWidget {
 class _DashLinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.grey.shade400..strokeWidth = 0.5;
+    final paint = Paint()..color = Colors.black26..strokeWidth = 0.5;
     double x = 0;
     while (x < size.width) {
       canvas.drawLine(Offset(x, 0), Offset((x + 3).clamp(0, size.width), 0), paint);
@@ -1033,13 +1047,9 @@ class _QrPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final p = Paint()..color = Colors.black;
     final cell = size.width / 7;
-    // Finder pattern top-left
     _finder(canvas, p, 0, 0, cell);
-    // Finder pattern top-right
     _finder(canvas, p, 4 * cell, 0, cell);
-    // Finder pattern bottom-left
     _finder(canvas, p, 0, 4 * cell, cell);
-    // Some data cells
     final cells = [[2, 2], [3, 3], [2, 4], [4, 2], [3, 5], [5, 3], [4, 4], [5, 5], [6, 4]];
     for (final c in cells) {
       canvas.drawRect(Rect.fromLTWH(c[0] * cell, c[1] * cell, cell - 0.5, cell - 0.5), p);
@@ -1047,7 +1057,6 @@ class _QrPainter extends CustomPainter {
   }
 
   void _finder(Canvas canvas, Paint p, double x, double y, double cell) {
-    // Outer 3x3
     canvas.drawRect(Rect.fromLTWH(x, y, 3 * cell, 3 * cell), p);
     canvas.drawRect(Rect.fromLTWH(x + 0.5, y + 0.5, 3 * cell - 1, 3 * cell - 1),
         Paint()..color = Colors.white);

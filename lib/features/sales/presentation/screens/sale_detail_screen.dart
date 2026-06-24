@@ -17,6 +17,8 @@ class SaleDetailScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        elevation: 0,
         title: const Text('বিক্রির বিবরণ', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
@@ -43,7 +45,7 @@ class SaleDetailScreen extends StatelessWidget {
             _buildSummarySection(context),
             if (sale.notes != null && sale.notes!.isNotEmpty) ...[
               const SizedBox(height: 16),
-              _buildNotesSection(),
+              _buildNotesSection(context),
             ],
           ],
         ),
@@ -77,23 +79,29 @@ class SaleDetailScreen extends StatelessWidget {
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: sale.paymentMethod == 'cash' ? Colors.green.shade50 : Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  sale.paymentMethod == 'cash' ? 'নগদ বিক্রি' : 'বাকি বিক্রি',
-                  style: TextStyle(color: sale.paymentMethod == 'cash' ? Colors.green : Colors.red, fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-              ),
+                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                 decoration: BoxDecoration(
+                   color: sale.paymentMethod == 'cash'
+                       ? Colors.green.withValues(alpha: 0.15)
+                       : Colors.red.withValues(alpha: 0.15),
+                   borderRadius: BorderRadius.circular(8),
+                 ),
+                 child: Text(
+                   sale.paymentMethod == 'cash' ? 'নগদ বিক্রি' : 'বাকি বিক্রি',
+                   style: TextStyle(
+                     color: sale.paymentMethod == 'cash' ? Colors.green : Colors.red,
+                     fontWeight: FontWeight.bold,
+                     fontSize: 12,
+                   ),
+                 ),
+               ),
             ],
           ),
           if (sale.customerName != null) ...[
             const Divider(height: 32),
             Row(
               children: [
-                const Icon(Icons.person_outline, size: 20, color: Colors.blue),
+                 Icon(Icons.person_outline, size: 20, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 8),
                 Text('ক্রেতা: ${sale.customerName}', style: const TextStyle(fontWeight: FontWeight.w500)),
               ],
@@ -178,12 +186,13 @@ class SaleDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildNotesSection() {
+  Widget _buildNotesSection(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
@@ -192,7 +201,7 @@ class SaleDetailScreen extends StatelessWidget {
         children: [
           const Text('নোট/মন্তব্য', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 8),
-          Text(sale.notes!, style: TextStyle(color: Colors.grey.shade700)),
+          Text(sale.notes!, style: TextStyle(color: cs.onSurfaceVariant)),
         ],
       ),
     );

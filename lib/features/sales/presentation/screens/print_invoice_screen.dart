@@ -78,15 +78,14 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
     final busy = _isPrinting || _isSharing;
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade200,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        elevation: 0,
         title: Text(
           isBangla ? 'ইনভয়েস প্রিন্ট' : 'Print Invoice',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Column(
         children: [
@@ -94,7 +93,10 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: BlocBuilder<AppSettingsCubit, AppSettingsState>(
-                builder: (ctx, settings) => _buildReceiptCard(settings),
+                builder: (ctx, settings) => GestureDetector(
+                  onTap: _openReceiptSettings,
+                  child: _buildReceiptCard(settings),
+                ),
               ),
             ),
           ),
@@ -145,7 +147,7 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
         children: [
           // Header
           Column(children: [
-            const Icon(Icons.store_mall_directory_outlined, size: 52, color: Colors.grey),
+            Icon(Icons.store_mall_directory_outlined, size: 52, color: AppColors.primary),
             const SizedBox(height: 6),
             Text(s.shopName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
             if (s.shopAddress.isNotEmpty) Text(s.shopAddress, style: const TextStyle(fontSize: 13), textAlign: TextAlign.center),
@@ -167,12 +169,12 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(children: [
-              const SizedBox(width: 20, child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey))),
+              const SizedBox(width: 20, child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
               const SizedBox(width: 6),
-              Expanded(child: Text(L['prod']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey))),
-              SizedBox(width: 62, child: Text(L['rate']!, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey))),
-              SizedBox(width: 36, child: Text(L['qty']!, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey))),
-              SizedBox(width: 70, child: Text(L['amt']!, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey))),
+              Expanded(child: Text(L['prod']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+              SizedBox(width: 62, child: Text(L['rate']!, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+              SizedBox(width: 36, child: Text(L['qty']!, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+              SizedBox(width: 70, child: Text(L['amt']!, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
             ]),
           ),
           _dash(),
@@ -205,7 +207,7 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
           _meta(L['payMethod']!, isCash ? L['cash']! : L['cred']!),
           if (sale.dueAmount > 0) ...[_dash(), _meta(L['due']!, '৳${sale.dueAmount.toStringAsFixed(2)}', valueColor: Colors.red)],
           if (sale.notes != null && sale.notes!.isNotEmpty) ...[_dash(), _meta(L['note']!, sale.notes!)],
-          if (s.receiptFooter.isNotEmpty) ...[const SizedBox(height: 10), Text(s.receiptFooter, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Colors.black54))],
+          if (s.receiptFooter.isNotEmpty) ...[const SizedBox(height: 10), Text(s.receiptFooter, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Colors.black87))],
           const SizedBox(height: 12),
         ],
       ),
@@ -282,7 +284,7 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
             ),
           ],
           if (sale.notes != null && sale.notes!.isNotEmpty) ...[const SizedBox(height: 6), Text(sale.notes!, style: const TextStyle(fontSize: 11))],
-          if (s.receiptFooter.isNotEmpty) ...[const SizedBox(height: 8), Text(s.receiptFooter, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: Colors.black54))],
+          if (s.receiptFooter.isNotEmpty) ...[const SizedBox(height: 8), Text(s.receiptFooter, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: Colors.black87))],
           const SizedBox(height: 12),
         ],
       ),
@@ -325,7 +327,7 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(it.productName, style: const TextStyle(fontSize: 14)),
-                Text('${it.quantity} X ৳${it.unitPrice.toStringAsFixed(2)}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                Text('${it.quantity} X ৳${it.unitPrice.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
               ])),
               Text('৳${it.subTotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
             ]),
@@ -335,7 +337,7 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
           _bigRow(s.customPayableLabel, '৳${sale.totalAmount.toStringAsFixed(2)}', bold: true),
           if (sale.dueAmount > 0)
             _bigRow(isBn ? 'বাকি' : 'Due', '৳${sale.dueAmount.toStringAsFixed(2)}', color: Colors.red),
-          if (s.receiptFooter.isNotEmpty) ...[const SizedBox(height: 12), Text(s.receiptFooter, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: Colors.black54))],
+          if (s.receiptFooter.isNotEmpty) ...[const SizedBox(height: 12), Text(s.receiptFooter, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: Colors.black87))],
           const SizedBox(height: 12),
         ],
       ),
@@ -440,7 +442,7 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
             ),
           ),
           if (sale.dueAmount > 0) ...[const SizedBox(height: 6), Text('${isBn ? "বাকি" : "Due"}: ৳${sale.dueAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, color: Colors.red, fontWeight: FontWeight.bold))],
-          if (s.receiptFooter.isNotEmpty) ...[const SizedBox(height: 12), Text(s.receiptFooter, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13, color: Colors.black54))],
+          if (s.receiptFooter.isNotEmpty) ...[const SizedBox(height: 12), Text(s.receiptFooter, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13, color: Colors.black87))],
           const SizedBox(height: 12),
         ],
       ),
@@ -520,7 +522,7 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
               ]),
             ),
           ),
-          if (s.receiptFooter.isNotEmpty) ...[const SizedBox(height: 20), Text(s.receiptFooter, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Colors.black54))],
+          if (s.receiptFooter.isNotEmpty) ...[const SizedBox(height: 20), Text(s.receiptFooter, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Colors.black87))],
           const SizedBox(height: 12),
         ],
       ),
@@ -581,14 +583,14 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
           ),
           const SizedBox(width: 4),
           IconButton(
-            icon: const Icon(Icons.settings, color: Color(0xFF3D5AFE)),
+            icon: const Icon(Icons.settings, color: AppColors.primary),
             onPressed: busy ? null : _openReceiptSettings,
             tooltip: 'রসিদ সেটিংস',
           ),
           IconButton(
             icon: _isSharing
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black54))
-                : const Icon(Icons.share_outlined, color: Colors.black54),
+                : const Icon(Icons.share_outlined, color: AppColors.primary),
             onPressed: busy ? null : _handleShare,
             tooltip: 'শেয়ার',
           ),

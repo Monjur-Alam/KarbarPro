@@ -22,6 +22,8 @@ class SalesReportScreen extends StatelessWidget {
       ),
       child: Scaffold(
         appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          elevation: 0,
           title: const Text('বিক্রির রিপোর্ট', style: TextStyle(fontWeight: FontWeight.bold)),
           actions: [
             BlocBuilder<ReportBloc, ReportState>(
@@ -156,10 +158,11 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
   }
 
   Widget _buildDateFilterRow(BuildContext context, ReportLoaded state) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Row(
@@ -170,12 +173,12 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(color: cs.outlineVariant),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.calendar_month, size: 18, color: Colors.blue),
+                    Icon(Icons.calendar_month, size: 18, color: cs.primary),
                     const SizedBox(width: 8),
                     Text(
                       '${DateFormat('dd MMM').format(state.startDate)} - ${DateFormat('dd MMM').format(state.endDate)}',
@@ -197,11 +200,13 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
   }
 
   Widget _buildQuickFilter(BuildContext context, String label, VoidCallback onTap) {
+    final cs = Theme.of(context).colorScheme;
     return TextButton(
       onPressed: onTap,
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        backgroundColor: Colors.blue.shade50,
+        backgroundColor: cs.primaryContainer,
+        foregroundColor: cs.onPrimaryContainer,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -227,12 +232,13 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
   }
 
   Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color, {double? growth, String? subLabel}) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
         boxShadow: [BoxShadow(color: color.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
@@ -242,7 +248,7 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 13, fontWeight: FontWeight.bold)),
+              Text(label, style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13, fontWeight: FontWeight.bold)),
               Icon(icon, color: color, size: 20),
             ],
           ),
@@ -258,7 +264,7 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
                    ],
                  )
               else if (subLabel != null)
-                 Text(subLabel, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+                 Text(subLabel, style: TextStyle(color: cs.onSurfaceVariant, fontSize: 10)),
             ],
           ),
         ],
@@ -331,6 +337,9 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
   }
 
   Widget _buildChartsSection(SalesReportData data) {
+    final cs = Theme.of(context).colorScheme;
+    final gridColor = cs.outlineVariant.withValues(alpha: 0.4);
+    final labelColor = cs.onSurfaceVariant;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -340,16 +349,16 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
           height: 220,
           padding: const EdgeInsets.only(top: 24, right: 24, left: 12, bottom: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cs.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade100),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
           ),
           child: LineChart(
              LineChartData(
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.shade100, strokeWidth: 1),
+                  getDrawingHorizontalLine: (value) => FlLine(color: gridColor, strokeWidth: 1),
                 ),
                 titlesData: FlTitlesData(
                   show: true,
@@ -359,7 +368,7 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 40,
-                      getTitlesWidget: (value, meta) => Text(context.l10n.formatDigits(value.toInt().toString()), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                      getTitlesWidget: (value, meta) => Text(context.l10n.formatDigits(value.toInt().toString()), style: TextStyle(fontSize: 10, color: labelColor)),
                     ),
                   ),
                   bottomTitles: AxisTitles(
@@ -371,7 +380,7 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
                             padding: const EdgeInsets.only(top: 8.0),
                             child: Text(
                               DateFormat('dd/MM').format(data.dailyTrend[value.toInt()].date),
-                              style: const TextStyle(fontSize: 10, color: Colors.grey),
+                              style: TextStyle(fontSize: 10, color: labelColor),
                             ),
                           );
                         }
@@ -385,14 +394,14 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
                   LineChartBarData(
                     spots: data.dailyTrend.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.revenue)).toList(),
                     isCurved: true,
-                    color: Colors.blue.shade700,
+                    color: cs.primary,
                     barWidth: 3,
                     isStrokeCapRound: true,
                     dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(
                       show: true, 
                       gradient: LinearGradient(
-                        colors: [Colors.blue.withValues(alpha: 0.2), Colors.blue.withValues(alpha: 0.0)],
+                        colors: [cs.primary.withValues(alpha: 0.2), cs.primary.withValues(alpha: 0.0)],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                       ),
@@ -401,7 +410,7 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
                   LineChartBarData(
                     spots: data.dailyTrend.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.profit)).toList(),
                     isCurved: true,
-                    color: Colors.orange.shade700,
+                    color: Colors.orange,
                     barWidth: 2,
                     isStrokeCapRound: true,
                     dotData: const FlDotData(show: false),
@@ -415,6 +424,7 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
   }
 
   Widget _buildPaymentDistribution(List<PaymentTypeSummary> summary) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -423,9 +433,9 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cs.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade100),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
           ),
           child: Row(
             children: [
@@ -495,11 +505,12 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
             separatorBuilder: (context, index) => const Divider(height: 1),
             itemBuilder: (context, index) {
               final item = products[index];
+              final cs = Theme.of(context).colorScheme;
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: Colors.blue.shade50,
+                  backgroundColor: cs.primaryContainer,
                   radius: 12,
-                  child: Text(l10n.formatDigits((index + 1).toString()), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  child: Text(l10n.formatDigits((index + 1).toString()), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: cs.onPrimaryContainer)),
                 ),
                 title: Text(item.productName, style: const TextStyle(fontSize: 14)),
                 trailing: Column(
@@ -507,7 +518,7 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text('${l10n.formatDigits(item.quantitySold.toString())} টি', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text('৳${l10n.formatAmount(item.totalRevenue)}', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+                    Text('৳${l10n.formatAmount(item.totalRevenue)}', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11)),
                   ],
                 ),
               );
@@ -552,8 +563,8 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: const Text('প্রয়োগ করুন'),
+                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                child: const Text('প্রয়োগ করুন'),
               ),
             ),
             const SizedBox(height: 20),
@@ -564,24 +575,26 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
   }
 
   Widget _buildFilterField(String hint, IconData icon) {
+    final cs = Theme.of(context).colorScheme;
     return TextField(
       decoration: InputDecoration(
         hintText: hint,
         prefixIcon: Icon(icon, size: 20),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade100)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: cs.outlineVariant)),
         filled: true,
-        fillColor: Colors.grey.shade50,
+        fillColor: cs.surfaceContainerHighest,
       ),
     );
   }
 
   Widget _buildSalesTabs(BuildContext context, ReportLoaded state) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       children: [
         TabBar(
           controller: _tabController,
-          labelColor: Colors.blue,
-          unselectedLabelColor: Colors.grey,
+          labelColor: cs.primary,
+          unselectedLabelColor: cs.onSurfaceVariant,
           indicatorSize: TabBarIndicatorSize.tab,
           onTap: (index) {
              String type = 'all';
@@ -608,9 +621,9 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
           padding: const EdgeInsets.all(40.0),
           child: Column(
             children: [
-              Icon(Icons.receipt_long_outlined, size: 60, color: Colors.grey.shade300),
+              Icon(Icons.receipt_long_outlined, size: 60, color: Theme.of(context).colorScheme.outlineVariant),
               const SizedBox(height: 16),
-              const Text('এই সময়ে কোনো বিক্রয় নেই', style: TextStyle(color: Colors.grey)),
+              Text('এই সময়ে কোনো বিক্রয় নেই', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
           ),
         ),
@@ -622,14 +635,15 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
       itemCount: sales.length,
       itemBuilder: (context, index) {
         final sale = sales[index];
+        final cs = Theme.of(context).colorScheme;
         return Card(
            margin: const EdgeInsets.only(bottom: 12),
            elevation: 0,
-           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade100)),
+           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5))),
            child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: Colors.blue.shade50,
-                child: const Icon(Icons.receipt, color: Colors.blue, size: 20),
+                backgroundColor: cs.primaryContainer,
+                child: Icon(Icons.receipt, color: cs.onPrimaryContainer, size: 20),
               ),
               title: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -644,17 +658,17 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.access_time, size: 12, color: Colors.grey.shade500),
+                      Icon(Icons.access_time, size: 12, color: cs.onSurfaceVariant),
                       const SizedBox(width: 4),
                       Text(
                         context.l10n.formatDigits(DateFormat('dd MMM • hh:mm a').format(sale.saleDate)),
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                        style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
                       ),
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: sale.paymentMethod == 'cash' ? Colors.green.shade50 : Colors.red.shade50,
+                          color: sale.paymentMethod == 'cash' ? Colors.green.withValues(alpha: 0.15) : Colors.red.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -665,7 +679,7 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
                     ],
                   ),
                   if (sale.customerName != null) 
-                    Text(sale.customerName!, style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+                    Text(sale.customerName!, style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
                 ],
               ),
               onTap: () => _navigateToSaleDetail(sale),
@@ -692,13 +706,7 @@ class _SalesReportViewState extends State<SalesReportView> with SingleTickerProv
       initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
       builder: (context, child) {
         return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: Colors.blue.shade700,
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-          ),
+          data: Theme.of(context),
           child: child!,
         );
       },

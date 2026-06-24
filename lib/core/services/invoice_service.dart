@@ -12,11 +12,11 @@ class InvoiceService {
   static const String _storeIconSvg =
       '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" '
       'xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto 4px">'
-      '<path d="M3 9l1-5h16l1 5" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/>'
-      '<path d="M3 9v11a1 1 0 001 1h6v-5h4v5h6a1 1 0 001-1V9" stroke="#aaa" stroke-width="1.5"/>'
-      '<path d="M3 9c0 1.66 1.34 3 3 3s3-1.34 3-3" stroke="#aaa" stroke-width="1.5"/>'
-      '<path d="M9 9c0 1.66 1.34 3 3 3s3-1.34 3-3" stroke="#aaa" stroke-width="1.5"/>'
-      '<path d="M15 9c0 1.66 1.34 3 3 3s3-1.34 3-3" stroke="#aaa" stroke-width="1.5"/>'
+      '<path d="M3 9l1-5h16l1 5" stroke="#10B981" stroke-width="1.5" stroke-linecap="round"/>'
+      '<path d="M3 9v11a1 1 0 001 1h6v-5h4v5h6a1 1 0 001-1V9" stroke="#10B981" stroke-width="1.5"/>'
+      '<path d="M3 9c0 1.66 1.34 3 3 3s3-1.34 3-3" stroke="#10B981" stroke-width="1.5"/>'
+      '<path d="M9 9c0 1.66 1.34 3 3 3s3-1.34 3-3" stroke="#10B981" stroke-width="1.5"/>'
+      '<path d="M15 9c0 1.66 1.34 3 3 3s3-1.34 3-3" stroke="#10B981" stroke-width="1.5"/>'
       '</svg>';
 
   // ── Public API ────────────────────────────────────────────
@@ -115,16 +115,16 @@ body{font-family:'Noto Sans Bengali','Hind Siliguri','Kohinoor Bangla',
 .receipt{width:100%;padding:8px 5px}
 .hdr{text-align:center;padding:8px 0 6px}
 .sn{font-size:${fs + 10}px;font-weight:700;margin-bottom:2px}
-.sub{font-size:${fs - 1}px;color:#444;margin-top:1px}
+.sub{font-size:${fs - 1}px;color:#222;margin-top:1px}
 .title{font-size:${fs + 5}px;font-weight:700;margin-top:6px;margin-bottom:4px}
-.dotted{border:none;border-top:1px dashed #aaa;margin:2px 0}
-.solid{border:none;border-top:1px solid #333;margin:2px 0}
+.dotted{border:none;border-top:1px dashed #bbb;margin:2px 0}
+.solid{border:none;border-top:1px solid #222;margin:2px 0}
 .mt{width:100%;border-collapse:collapse}
 .meta-row td{padding:5px 0}
-.ml{font-size:${fs}px;color:#333;width:44%}
+.ml{font-size:${fs}px;width:44%}
 .mv{font-size:${fs}px;font-weight:700;text-align:right}
 .itable{width:100%;border-collapse:collapse;margin-top:4px}
-.itable thead th{font-size:${fs - 2}px;font-weight:700;color:#555;
+.itable thead th{font-size:${fs - 2}px;font-weight:700;
   padding:4px 2px;text-transform:uppercase}
 .sep-row td{padding:0}
 .itable tbody td{font-size:${fs}px;padding:5px 2px;vertical-align:top}
@@ -138,11 +138,11 @@ body{font-family:'Noto Sans Bengali','Hind Siliguri','Kohinoor Bangla',
 .sum-block{padding:4px 0}
 .sum-row{display:flex;justify-content:space-between;
   align-items:flex-start;padding:5px 0 0}
-.sl{font-size:${fs + 1}px;color:#333;max-width:58%}
+.sl{font-size:${fs + 1}px;max-width:58%}
 .sv{font-size:${fs + 1}px;text-align:right}
 .spacer{height:3px}
 .red{color:#c62828}
-.footer{text-align:center;margin-top:10px;font-size:${fs - 1}px;color:#555}
+.footer{text-align:center;margin-top:10px;font-size:${fs - 1}px;color:#333}
 ''';
   }
 
@@ -357,7 +357,7 @@ ${s.receiptFooter.isNotEmpty ? '<div class="footer">${_e(s.receiptFooter)}</div>
   </td>
 </tr>
 <tr>
-  <td colspan="2" style="padding:0 2px 6px;font-size:12px;color:#555">
+  <td colspan="2" style="padding:0 2px 6px;font-size:12px;color:#444">
     ${it.quantity} X ৳${it.unitPrice.toStringAsFixed(2)}
   </td>
 </tr>''');
@@ -420,7 +420,7 @@ ${s.receiptFooter.isNotEmpty ? '<div class="footer" style="font-size:14px;margin
     style="display:block;margin:0 auto">
     ${_miniQrSvg(qrData)}
   </svg>
-  <p style="font-size:9px;margin-top:4px;word-break:break-all;color:#555">$qrData</p>
+  <p style="font-size:9px;margin-top:4px;word-break:break-all;color:#333">$qrData</p>
 </div>''';
     return base.replaceFirst('</div>', '$qrSection</div>');
   }
@@ -536,7 +536,7 @@ $custLine
 <div style="border-top:1px solid #333;margin:8px 0"></div>
 <table style="width:100%;border-collapse:collapse">
   <thead>
-    <tr style="background:#f0f0f0">
+    <tr style="background:#e8f8f3">
       <th style="border:$bdr;padding:6px;text-align:center;font-size:12px">${isBn ? 'ক্রমিক' : 'SINo'}</th>
       <th style="border:$bdr;padding:6px;text-align:left;font-size:12px">${L['prod']}</th>
       <th style="border:$bdr;padding:6px;text-align:right;font-size:12px">${L['rate']}</th>
