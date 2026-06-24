@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 
-const _kNavy = Color(0xFF1A1F71);
+const _kNavy = AppColors.primary;
 const _kBg = Color(0xFFF4F5FA);
 
 class ReceiptSettingsScreen extends StatefulWidget {

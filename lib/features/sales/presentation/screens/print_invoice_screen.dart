@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/invoice_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../domain/sale.dart';
@@ -79,7 +80,7 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
     return Scaffold(
       backgroundColor: Colors.grey.shade200,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF3D5AFE),
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         title: Text(
           isBangla ? 'ইনভয়েস প্রিন্ট' : 'Print Invoice',
@@ -100,7 +101,7 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
           if (busy)
             LinearProgressIndicator(
               backgroundColor: Colors.grey.shade200,
-              color: const Color(0xFF3D5AFE),
+              color: AppColors.primary,
             ),
           _buildControlsPanel(isBangla, busy),
         ],
@@ -559,7 +560,7 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
               height: 48,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3D5AFE),
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
