@@ -159,86 +159,91 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Top "Enable text only print" row
-          Container(
-            color: _surface,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Enable text only print',
-                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Text only print mode can print only english language\nbut printing will fast, support most type of printers',
-                        style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), height: 1.4),
-                      ),
-                    ],
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          SliverToBoxAdapter(
+            child: Container(
+              color: _surface,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Enable text only print',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Text only print mode can print only english language\nbut printing will fast, support most type of printers',
+                          style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), height: 1.4),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Switch(
-                  value: _textOnlyPrint,
-                  onChanged: (v) => setState(() => _textOnlyPrint = v),
-                  activeColor: _kNavy,
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Switch(
+                    value: _textOnlyPrint,
+                    onChanged: (v) => setState(() => _textOnlyPrint = v),
+                    activeColor: _kNavy,
+                  ),
+                ],
+              ),
             ),
           ),
-          // Tab bar
-          Container(
-            color: _surface,
-            child: TabBar(
-              controller: _tab,
-              labelColor: _kNavy,
-              unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-              indicatorColor: _kNavy,
-              indicatorWeight: 3,
-              labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
-              tabs: const [
-                Tab(text: 'Basic'),
-                Tab(text: 'Templates'),
-                Tab(text: 'Receipt Titles'),
-              ],
-            ),
-          ),
-          // Tab content
-          Expanded(
-            child: TabBarView(
-              controller: _tab,
-              children: [
-                _buildBasicTab(),
-                _buildTemplatesTab(),
-                _buildReceiptTitlesTab(),
-              ],
-            ),
-          ),
-          // Bottom Okay button
-          Container(
-            width: double.infinity,
-            color: _surface,
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-            child: SizedBox(
-              height: 50,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _kNavy,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  elevation: 0,
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SliverAppBarDelegate(
+              minHeight: 48,
+              maxHeight: 48,
+              child: Container(
+                color: _surface,
+                child: TabBar(
+                  controller: _tab,
+                  labelColor: _kNavy,
+                  unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  indicatorColor: _kNavy,
+                  indicatorWeight: 3,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
+                  tabs: const [
+                    Tab(text: 'Basic'),
+                    Tab(text: 'Templates'),
+                    Tab(text: 'Receipt Titles'),
+                  ],
                 ),
-                onPressed: _saveAll,
-                child: const Text('Okay', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),
             ),
           ),
         ],
+        body: TabBarView(
+          controller: _tab,
+          children: [
+            _buildBasicTab(),
+            _buildTemplatesTab(),
+            _buildReceiptTitlesTab(),
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          width: double.infinity,
+          color: _surface,
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          child: SizedBox(
+            height: 50,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _kNavy,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
+              ),
+              onPressed: _saveAll,
+              child: const Text('Okay', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -249,15 +254,6 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
     return ListView(
       padding: EdgeInsets.zero,
       children: [
-        // Dark header
-        Container(
-          width: double.infinity,
-          color: _kNavy,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          child: const Text('Basic Settings',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-        ),
-
         // Toggle rows
         _toggleRow('Sort items alphabetical in receipt', _sortItemsAlphabetical,
             (v) => setState(() => _sortItemsAlphabetical = v)),
@@ -420,18 +416,24 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
       _TplData(6, 'A4-Style 1', _previewA4Style1(shop, addr, phone)),
     ];
 
-    return ListView(
-      padding: EdgeInsets.zero,
-      children: [
-        Container(
-          width: double.infinity,
-          color: _kNavy,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          child: const Text('Receipt Templates',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              mainAxisExtent: 280, // Fixed height to make them look like long receipts
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => _templatePreviewCard(templates[index]),
+              childCount: templates.length,
+            ),
+          ),
         ),
-        ...templates.map((t) => _templatePreviewCard(t)),
-        const SizedBox(height: 16),
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
       ],
     );
   }
@@ -447,36 +449,127 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         ),
         child: Column(
           children: [
-            // Receipt preview area — always white like paper
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-              child: FittedBox(
-                fit: BoxFit.fitWidth,
-                alignment: Alignment.topCenter,
-                child: SizedBox(width: 300, child: t.preview),
+            // Receipt preview area — POS machine style
+            GestureDetector(
+              onTap: () => _showFullScreenPreview(context, t),
+              child: Container(
+                color: Theme.of(context).colorScheme.surface,
+                padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
+                margin: const EdgeInsets.all(8),
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  alignment: Alignment.topCenter,
+                  child: Container(
+                    width: 220, // Narrow width like POS receipt
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 5,
+                          offset: const Offset(0, 2),
+                        )
+                      ]
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: t.preview,
+                  ),
+                ),
               ),
             ),
             // Selection row
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(t.name,
                         style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
                             color: selected ? _kNavy : null)),
                   ),
-                  Switch(
-                    value: selected,
-                    onChanged: (v) {
-                      if (v) setState(() => _receiptTemplate = t.index);
-                    },
-                    activeColor: _kNavy,
+                  SizedBox(
+                    height: 24,
+                    child: Switch(
+                      value: selected,
+                      onChanged: (v) {
+                        if (v) setState(() => _receiptTemplate = t.index);
+                      },
+                      activeColor: _kNavy,
+                    ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFullScreenPreview(BuildContext context, _TplData t) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: Column(
+          children: [
+            AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                title: Text(t.name, style: const TextStyle(fontSize: 16)),
+                leading: null,
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ]
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Center(
+                  child: Container(
+                    width: 280, // Slightly wider for full screen readability
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        )
+                      ]
+                    ),
+                    child: t.preview,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _kNavy,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () {
+                    setState(() => _receiptTemplate = t.index);
+                    Navigator.pop(context);
+                  },
+                  child: Text(_receiptTemplate == t.index ? 'Selected' : 'Select This Template'),
+                ),
               ),
             ),
           ],
@@ -516,6 +609,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
   }
 
   Widget _previewDetailedPOS(String shop, String addr, String phone) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -523,12 +617,12 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         if (addr.isNotEmpty) _pText(addr, size: 9, align: TextAlign.center),
         if (phone.isNotEmpty) _pText(phone, size: 9, align: TextAlign.center),
         const SizedBox(height: 4),
-        Container(height: 1, color: Colors.black),
+        Container(height: 1, color: cs.onSurface),
         const SizedBox(height: 3),
         _pText('Inv No: INV-001  Date: 24/06/2026  Payment: CASH', size: 8),
         const SizedBox(height: 3),
         Table(
-          border: TableBorder.all(width: 0.5),
+          border: TableBorder.all(width: 0.5, color: cs.outlineVariant),
           columnWidths: const {0: FlexColumnWidth(3), 1: FlexColumnWidth(2), 2: FlexColumnWidth(2), 3: FlexColumnWidth(2)},
           children: [
             _tRow(['Item Description', 'Price', 'Disc', 'Amt'], header: true),
@@ -544,10 +638,10 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         _pRow('Grand Total', '৳405.00', bold: true),
         _pRow('Payable', '৳405.00'),
         const SizedBox(height: 3),
-        Container(height: 1, color: Colors.black12),
+        Container(height: 1, color: cs.outlineVariant),
         _pText('Payment Information', bold: true, size: 9),
         Table(
-          border: TableBorder.all(width: 0.5),
+          border: TableBorder.all(width: 0.5, color: cs.outlineVariant),
           children: [
             _tRow(['Date', 'Paid', 'Due'], header: true),
             _tRow(['24-06-2026', '৳405.00(CASH)', '৳0.00']),
@@ -558,6 +652,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
   }
 
   Widget _previewBigFont(String shop, String addr, String phone) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -565,24 +660,24 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         if (addr.isNotEmpty) _pText(addr, size: 10, align: TextAlign.center),
         if (phone.isNotEmpty) _pText(phone, size: 10, align: TextAlign.center),
         _pText('বিক্রয় চালান', bold: true, size: 12, align: TextAlign.center),
-        Container(height: 1, color: Colors.black87, margin: const EdgeInsets.symmetric(vertical: 4)),
+        Container(height: 1, color: cs.onSurface, margin: const EdgeInsets.symmetric(vertical: 4)),
         _pText('Invoice Details', bold: true, size: 11),
         _pText('Order ID: INV-001', size: 10),
         _pText('Date: 24/06/2026  Payment: Cash', size: 10),
-        Container(height: 0.5, color: Colors.black26, margin: const EdgeInsets.symmetric(vertical: 4)),
+        Container(height: 0.5, color: cs.outlineVariant, margin: const EdgeInsets.symmetric(vertical: 4)),
         Row(children: [
           Expanded(child: _pText('Item', bold: true, size: 11)),
           _pText('Amt', bold: true, size: 11),
         ]),
         for (final i in _sampleItems) ...[
-          Container(height: 0.5, color: Colors.black12),
+          Container(height: 0.5, color: cs.outlineVariant),
           Row(children: [
             Expanded(child: _pText(i.$1, size: 11)),
             _pText('৳${(i.$2 * i.$3).toStringAsFixed(0)}', bold: true, size: 11),
           ]),
-          _pText('${i.$2} X ৳${i.$3.toStringAsFixed(0)}', size: 9, color: Colors.black54),
+          _pText('${i.$2} X ৳${i.$3.toStringAsFixed(0)}', size: 9, color: cs.onSurfaceVariant),
         ],
-        Container(height: 1, color: Colors.black87, margin: const EdgeInsets.symmetric(vertical: 3)),
+        Container(height: 1, color: cs.onSurface, margin: const EdgeInsets.symmetric(vertical: 3)),
         _pRow('Sub Total', '৳405.00', size: 12),
         _pRow('Payable', '৳405.00', size: 12, bold: true),
       ],
@@ -618,6 +713,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
   }
 
   Widget _previewTicket(String shop, String addr, String phone) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -630,7 +726,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         for (final i in _sampleItems.take(2))
           Container(
             margin: const EdgeInsets.only(bottom: 0),
-            decoration: BoxDecoration(border: Border.all(width: 1.5)),
+            decoration: BoxDecoration(border: Border.all(width: 1.5, color: cs.onSurface)),
             child: Column(children: [
               Container(
                 width: double.infinity,
@@ -638,7 +734,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
                 child: _pText(i.$1, size: 11),
               ),
               Container(
-                decoration: const BoxDecoration(border: Border(top: BorderSide(width: 1.5))),
+                decoration: BoxDecoration(border: Border(top: BorderSide(width: 1.5, color: cs.onSurface))),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 child: Row(children: [
                   Expanded(child: _pText('${i.$2}.0 X ${i.$3.toStringAsFixed(0)}', size: 11)),
@@ -648,7 +744,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
             ]),
           ),
         Container(
-          decoration: BoxDecoration(border: Border.all(width: 1.5)),
+          decoration: BoxDecoration(border: Border.all(width: 1.5, color: cs.onSurface)),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Row(children: [
             Expanded(child: _pText('BDT', bold: true, size: 13)),
@@ -660,19 +756,20 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
   }
 
   Widget _previewA4Style1(String shop, String addr, String phone) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _pText(shop, bold: true, size: 14, align: TextAlign.center),
         if (addr.isNotEmpty) _pText(addr, size: 9, align: TextAlign.center),
         if (phone.isNotEmpty) _pText(phone, size: 9, align: TextAlign.center),
-        Container(height: 2, color: Colors.black, margin: const EdgeInsets.symmetric(vertical: 5)),
+        Container(height: 2, color: cs.onSurface, margin: const EdgeInsets.symmetric(vertical: 5)),
         _pText('Invoice Details', bold: true, size: 11),
         _pText('Order ID: INV-001', size: 9),
         _pText('Date: 24/06/2026  Payment: Cash', size: 9),
-        Container(height: 0.5, color: Colors.black26, margin: const EdgeInsets.symmetric(vertical: 4)),
+        Container(height: 0.5, color: cs.outlineVariant, margin: const EdgeInsets.symmetric(vertical: 4)),
         Table(
-          border: TableBorder.all(width: 0.5),
+          border: TableBorder.all(width: 0.5, color: cs.outlineVariant),
           columnWidths: const {0: FixedColumnWidth(22), 1: FlexColumnWidth(3), 2: FlexColumnWidth(2), 3: FixedColumnWidth(22), 4: FlexColumnWidth(2)},
           children: [
             _tRow(['#', 'Item', 'Price', 'Qty', 'Total'], header: true),
@@ -687,7 +784,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               _pRow('Sub Total', '৳405.00', size: 9),
-              Container(height: 2, color: Colors.black, margin: const EdgeInsets.symmetric(vertical: 2)),
+              Container(height: 2, color: cs.onSurface, margin: const EdgeInsets.symmetric(vertical: 2)),
               _pRow('Grand Total', '৳405.00', bold: true, size: 11),
               _pRow('Paid', '৳405.00', size: 9),
             ],
@@ -772,27 +869,12 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
     return ListView(
       padding: EdgeInsets.zero,
       children: [
-        Container(
-          width: double.infinity,
-          color: _kNavy,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          child: const Text('Shop & Receipt Info',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-        ),
         _titlesInputRow('SHOP NAME', _shopNameCtrl, hint: 'আমার দোকান'),
         _divider(),
         _titlesInputRow('SHOP ADDRESS', _shopAddressCtrl, hint: 'দোকানের ঠিকানা', maxLines: 2),
         _divider(),
         _titlesInputRow('SHOP PHONE', _shopPhoneCtrl, hint: '০১XXXXXXXXX', keyboardType: TextInputType.phone),
-
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          color: _kNavy,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          child: const Text('Receipt Labels',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-        ),
+        _divider(),
         _titlesInputRow('RECEIPT TITLE', _receiptTitleCtrl, hint: 'বিক্রয় চালান'),
         _divider(),
         _titlesInputRow('FOOTER TEXT', _receiptFooterCtrl, hint: 'ধন্যবাদ আবার আসবেন', maxLines: 3),
@@ -1086,4 +1168,34 @@ class _BarcodePainter extends CustomPainter {
   }
   @override
   bool shouldRepaint(covariant CustomPainter old) => false;
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate({
+    required this.minHeight,
+    required this.maxHeight,
+    required this.child,
+  });
+
+  final double minHeight;
+  final double maxHeight;
+  final Widget child;
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => maxHeight > minHeight ? maxHeight : minHeight;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return maxHeight != oldDelegate.maxHeight ||
+        minHeight != oldDelegate.minHeight ||
+        child != oldDelegate.child;
+  }
 }

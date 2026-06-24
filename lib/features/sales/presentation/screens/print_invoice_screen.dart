@@ -352,13 +352,13 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
       children: [
         _standardPreview(s),
         Container(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: Center(
             child: Column(children: [
               CustomPaint(size: const Size(90, 90), painter: _QrPainter()),
               const SizedBox(height: 4),
-              Text(qrData, style: const TextStyle(fontSize: 9, color: Colors.black54), textAlign: TextAlign.center),
+              Text(qrData, style: TextStyle(fontSize: 9, color: Theme.of(context).colorScheme.onSurfaceVariant), textAlign: TextAlign.center),
             ]),
           ),
         ),
@@ -373,13 +373,13 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
       children: [
         _standardPreview(s),
         Container(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: Center(
             child: Column(children: [
               CustomPaint(size: const Size(160, 50), painter: _BarcodePainter(sale.invoiceId)),
               const SizedBox(height: 4),
-              Text(sale.invoiceId, style: const TextStyle(fontSize: 9, letterSpacing: 2, color: Colors.black54)),
+              Text(sale.invoiceId, style: TextStyle(fontSize: 9, letterSpacing: 2, color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ]),
           ),
         ),
@@ -532,8 +532,9 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
   // ── Controls panel ────────────────────────────────────────
 
   Widget _buildControlsPanel(bool isBangla, bool busy) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      color: Colors.white,
+      color: cs.surface,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
       child: Row(
         children: [
@@ -543,7 +544,7 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
             children: [
               Text(
                 isBangla ? 'কপির সংখ্যা' : 'Number of copy',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
               ),
               const SizedBox(height: 4),
               Row(children: [
@@ -589,7 +590,7 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
           ),
           IconButton(
             icon: _isSharing
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black54))
+                ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: cs.onSurfaceVariant))
                 : const Icon(Icons.share_outlined, color: AppColors.primary),
             onPressed: busy ? null : _handleShare,
             tooltip: 'শেয়ার',
@@ -614,7 +615,7 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
   }
 
   Widget _receiptShell({required Widget child, EdgeInsets padding = const EdgeInsets.all(16)}) =>
-      Container(color: Colors.white, padding: padding, child: child);
+      Container(color: Theme.of(context).colorScheme.surface, padding: padding, child: child);
 
   Widget _solidLine() => Container(height: 1, color: Colors.black87, margin: const EdgeInsets.symmetric(vertical: 6));
 
@@ -661,8 +662,11 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
         child: Container(
           width: 30,
           height: 30,
-          decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(6)),
-          child: Icon(icon, size: 18, color: onTap != null ? Colors.black : Colors.grey.shade300),
+          decoration: BoxDecoration(
+            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(icon, size: 18, color: onTap != null ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.outlineVariant),
         ),
       );
 
