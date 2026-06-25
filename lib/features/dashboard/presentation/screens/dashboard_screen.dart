@@ -7,9 +7,13 @@ import 'dart:async';
 import 'package:amar_dokan/features/dashboard/presentation/bloc/home_bloc.dart';
 import 'package:amar_dokan/core/services/sync_service.dart';
 import 'package:amar_dokan/features/inventory/presentation/screens/inventory_screen.dart';
+import 'package:amar_dokan/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:amar_dokan/features/sales/presentation/screens/sales_screen.dart';
+import 'package:amar_dokan/features/sales/presentation/bloc/sales_bloc.dart';
+import 'package:amar_dokan/features/sales/presentation/widgets/sale_form_bottom_sheet.dart';
 import 'package:amar_dokan/features/reports/presentation/screens/sales_report_screen.dart';
 import 'package:amar_dokan/features/reports/presentation/screens/expense_screen.dart';
+import '../../../reports/presentation/bloc/report_bloc.dart';
 import '../../../reports/presentation/screens/due_ledger_screen.dart';
 import '../../../../core/widgets/navigation_drawer.dart';
 
@@ -449,9 +453,39 @@ class DashboardHome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: () async {
-        context.read<HomeBloc>().add(LoadDashboard());
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'home_new_sale_fab',
+        onPressed: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (sheetContext) => MultiBlocProvider(
+              providers: [
+                BlocProvider.value(value: context.read<SalesBloc>()),
+                BlocProvider.value(value: context.read<InventoryBloc>()),
+              ],
+              child: BlocListener<SalesBloc, SalesState>(
+                listener: (listenerCtx, state) {
+                  if (state is SalesSuccess) {
+                    context.read<HomeBloc>().add(RefreshDashboard());
+                    context.read<InventoryBloc>().add(LoadProducts());
+                    try { context.read<ReportBloc>().add(RefreshReports()); } catch (_) {}
+                  }
+                },
+                child: const SaleFormBottomSheet(),
+              ),
+            ),
+          );
+        },
+        icon: const Icon(Icons.add_shopping_cart, size: 20),
+        label: Text(context.l10n.newSale),
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          context.read<HomeBloc>().add(LoadDashboard());
       },
       child: BlocBuilder<HomeBloc, HomeState>(
         builder: (context, state) {
@@ -527,7 +561,7 @@ class DashboardHome extends StatelessWidget {
           return const SizedBox();
         },
       ),
-    );
+    ));
   }
 
   Widget _buildTotalSalesCard(BuildContext context, HomeLoaded state) {

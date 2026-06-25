@@ -49,7 +49,12 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
   late final AnimationController _shakeController;
   late final Animation<double> _shakeAnimation;
 
+  // Scan line animation
+  late final AnimationController _scanLineController;
+  late final Animation<double> _scanLineAnimation;
+
   String? _beepFilePath;
+  String? _errorSoundFilePath;
 
   @override
   void initState() {
@@ -57,7 +62,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
     context.read<SalesBloc>().add(ClearCart());
     _scannerController = MobileScannerController(detectionSpeed: DetectionSpeed.normal);
     _requestCameraPermission();
-    _initBeepFile();
+    _initSoundFiles();
 
     // Shake animation: quick left-right jiggle
     _shakeController = AnimationController(
@@ -71,6 +76,15 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
       TweenSequenceItem(tween: Tween(begin: -6.0, end: 6.0), weight: 2),
       TweenSequenceItem(tween: Tween(begin: 6.0, end: 0.0), weight: 1),
     ]).animate(CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut));
+
+    // Scan line: bounces top → bottom → top endlessly
+    _scanLineController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat(reverse: true);
+    _scanLineAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _scanLineController, curve: Curves.easeInOut),
+    );
   }
 
   Future<void> _requestCameraPermission() async {
@@ -89,6 +103,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
     _scannerController.dispose();
     _feedbackTimer?.cancel();
     _shakeController.dispose();
+    _scanLineController.dispose();
     super.dispose();
   }
 
@@ -111,13 +126,15 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
 
     if (product == null) {
       HapticFeedback.heavyImpact();
+      _playErrorSound();
       _showScanFeedback('', false);
     } else if (product.currentStock <= 0) {
       HapticFeedback.heavyImpact();
+      _playErrorSound();
       _showScanFeedback(product.name, false);
     } else {
       context.read<SalesBloc>().add(AddToCart(product));
-      _playBeep();
+      _playSuccessBeep();
       _triggerShake();
       _showScanFeedback(product.name, true);
     }
@@ -134,72 +151,100 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
     });
   }
 
-  Future<void> _initBeepFile() async {
+  Future<void> _initSoundFiles() async {
     try {
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/scan_beep.wav');
-      if (!file.existsSync()) {
-        file.writeAsBytesSync(_generateBeepWav());
-      }
-      if (mounted) _beepFilePath = file.path;
+
+      // Success beep: high pitch 1400 Hz, 180ms
+      final beepFile = File('${dir.path}/scan_success.wav');
+      beepFile.writeAsBytesSync(_generateToneWav(frequency: 1400, durationMs: 180, amplitude: 0.7));
+      if (mounted) _beepFilePath = beepFile.path;
+
+      // Error buzz: two low 320 Hz pulses with a gap
+      final errorFile = File('${dir.path}/scan_error.wav');
+      errorFile.writeAsBytesSync(_generateErrorWav());
+      if (mounted) _errorSoundFilePath = errorFile.path;
     } catch (_) {}
   }
 
-  Future<void> _playBeep() async {
+  Future<void> _playSuccessBeep() async {
     if (_beepFilePath == null) return;
     try {
-      // Fresh player each time so rapid scans never interrupt each other
       final player = AudioPlayer();
+      await player.setVolume(1.0);
       await player.play(DeviceFileSource(_beepFilePath!));
       player.onPlayerComplete.listen((_) => player.dispose());
     } catch (_) {}
   }
 
-  Uint8List _generateBeepWav() {
-    const sampleRate = 22050;
-    const frequency = 880;
-    // 60ms silence lets Android audio output initialise before tone starts
-    const silenceSamples = sampleRate * 60 ~/ 1000;
-    // 220ms tone — long enough to hear clearly on all devices
-    const toneSamples = sampleRate * 220 ~/ 1000;
-    const numSamples = silenceSamples + toneSamples;
-    const amplitude = 0.65;
+  Future<void> _playErrorSound() async {
+    if (_errorSoundFilePath == null) return;
+    try {
+      final player = AudioPlayer();
+      await player.setVolume(1.0);
+      await player.play(DeviceFileSource(_errorSoundFilePath!));
+      player.onPlayerComplete.listen((_) => player.dispose());
+    } catch (_) {}
+  }
 
-    final pcm = Int16List(numSamples); // zeros = silence for first silenceSamples
-    for (int i = 0; i < toneSamples; i++) {
+  /// Generates a simple sine-wave WAV at [frequency] Hz for [durationMs] ms.
+  Uint8List _generateToneWav({required int frequency, required int durationMs, double amplitude = 0.65}) {
+    const sampleRate = 44100;
+    final numSamples = sampleRate * durationMs ~/ 1000;
+    final pcm = Int16List(numSamples);
+    for (int i = 0; i < numSamples; i++) {
       final t = i / sampleRate;
-      // Smooth attack (first 8%) and release (last 15%) to avoid clicks
       double env = 1.0;
-      if (i < toneSamples * 0.08) {
-        env = i / (toneSamples * 0.08);
-      } else if (i > toneSamples * 0.85) {
-        env = (toneSamples - i) / (toneSamples * 0.15);
-      }
-      final sample = (sin(2 * pi * frequency * t) * amplitude * 32767 * env).round();
-      pcm[silenceSamples + i] = sample.clamp(-32768, 32767);
+      if (i < numSamples * 0.05) env = i / (numSamples * 0.05);
+      else if (i > numSamples * 0.85) env = (numSamples - i) / (numSamples * 0.15);
+      pcm[i] = (sin(2 * pi * frequency * t) * amplitude * 32767 * env).round().clamp(-32768, 32767);
     }
+    return _wrapPcmInWav(pcm, sampleRate);
+  }
 
-    final dataSize = numSamples * 2;
+  /// Generates a double low-buzz error sound (two 320 Hz pulses separated by silence).
+  Uint8List _generateErrorWav() {
+    const sampleRate = 44100;
+    const frequency = 320;
+    const pulseMs = 120;
+    const gapMs = 80;
+    const pulseSamples = sampleRate * pulseMs ~/ 1000;
+    const gapSamples = sampleRate * gapMs ~/ 1000;
+    final numSamples = pulseSamples + gapSamples + pulseSamples;
+    final pcm = Int16List(numSamples);
+    for (int pass = 0; pass < 2; pass++) {
+      final offset = pass * (pulseSamples + gapSamples);
+      for (int i = 0; i < pulseSamples; i++) {
+        final t = i / sampleRate;
+        double env = 1.0;
+        if (i < pulseSamples * 0.1) env = i / (pulseSamples * 0.1);
+        else if (i > pulseSamples * 0.8) env = (pulseSamples - i) / (pulseSamples * 0.2);
+        pcm[offset + i] = (sin(2 * pi * frequency * t) * 0.8 * 32767 * env).round().clamp(-32768, 32767);
+      }
+    }
+    return _wrapPcmInWav(pcm, sampleRate);
+  }
+
+  Uint8List _wrapPcmInWav(Int16List pcm, int sampleRate) {
+    final dataSize = pcm.length * 2;
     final bd = ByteData(44 + dataSize);
-    // RIFF chunk
-    [0x52, 0x49, 0x46, 0x46].asMap().forEach((i, v) => bd.setUint8(i, v));
+    // RIFF
+    [0x52,0x49,0x46,0x46].asMap().forEach((i,v)=>bd.setUint8(i,v));
     bd.setUint32(4, 36 + dataSize, Endian.little);
-    [0x57, 0x41, 0x56, 0x45].asMap().forEach((i, v) => bd.setUint8(8 + i, v));
-    // fmt chunk
-    [0x66, 0x6D, 0x74, 0x20].asMap().forEach((i, v) => bd.setUint8(12 + i, v));
+    [0x57,0x41,0x56,0x45].asMap().forEach((i,v)=>bd.setUint8(8+i,v));
+    // fmt
+    [0x66,0x6D,0x74,0x20].asMap().forEach((i,v)=>bd.setUint8(12+i,v));
     bd.setUint32(16, 16, Endian.little);
-    bd.setUint16(20, 1, Endian.little); // PCM
-    bd.setUint16(22, 1, Endian.little); // mono
+    bd.setUint16(20, 1, Endian.little);
+    bd.setUint16(22, 1, Endian.little);
     bd.setUint32(24, sampleRate, Endian.little);
     bd.setUint32(28, sampleRate * 2, Endian.little);
     bd.setUint16(32, 2, Endian.little);
     bd.setUint16(34, 16, Endian.little);
-    // data chunk
-    [0x64, 0x61, 0x74, 0x61].asMap().forEach((i, v) => bd.setUint8(36 + i, v));
+    // data
+    [0x64,0x61,0x74,0x61].asMap().forEach((i,v)=>bd.setUint8(36+i,v));
     bd.setUint32(40, dataSize, Endian.little);
-    for (int i = 0; i < numSamples; i++) {
-      bd.setInt16(44 + i * 2, pcm[i], Endian.little);
-    }
+    for (int i = 0; i < pcm.length; i++) bd.setInt16(44 + i * 2, pcm[i], Endian.little);
     return bd.buffer.asUint8List();
   }
 
@@ -248,65 +293,93 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
                 children: [
                   // Scrollable content
                   Expanded(
-                    child: ListView(
+                    child: CustomScrollView(
                       controller: scrollController,
-                      padding: EdgeInsets.fromLTRB(20, 0, 20, 16).copyWith(
-                        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-                      ),
-                      children: [
-                        const SizedBox(height: 12),
-                        Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: colorScheme.outlineVariant, borderRadius: BorderRadius.circular(2)))),
-                        const SizedBox(height: 20),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              l10n.newSaleInvoice,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.onSurface,
-                              ),
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 12),
+                                Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: colorScheme.outlineVariant, borderRadius: BorderRadius.circular(2)))),
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      l10n.newSaleInvoice,
+                                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                                    ),
+                                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                                  ],
+                                ),
+                              ],
                             ),
-                            IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-                          ],
+                          ),
                         ),
-                        const Divider(),
-                        const SizedBox(height: 16),
+                        SliverPersistentHeader(
+                          pinned: true,
+                          delegate: _ScannerHeaderDelegate(
+                            backgroundColor: colorScheme.surface,
+                            height: 220, // 210 (scanner) + 10 (padding)
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _buildScannerBox(),
+                            ),
+                          ),
+                        ),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.fromLTRB(20, 0, 20, 16).copyWith(
+                              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Product Selection Section
+                                _buildSectionHeader('📦 ${l10n.selectProduct}', colorScheme.primary),
+                                const SizedBox(height: 12),
+                                _buildProductSelector(),
 
-                          // Product Selection Section
-                          _buildSectionHeader('📦 ${l10n.selectProduct}', colorScheme.primary),
-                          const SizedBox(height: 12),
-                          _buildProductSelector(),
-                          const SizedBox(height: 12),
-                          _buildScannerBox(),
+                                // Cart Summary Section
+                                if (state.cart.isNotEmpty) ...[
+                                  const SizedBox(height: 24),
+                                  _buildSectionHeader('🛒 ${l10n.cartListCount(l10n.formatDigits(state.cart.length.toString()))}', colorScheme.tertiary),
+                                  const SizedBox(height: 8),
+                                  _buildCartList(state),
+                                ],
 
-                          // Cart Summary Section
-                          if (state.cart.isNotEmpty) ...[
-                            const SizedBox(height: 24),
-                            _buildSectionHeader('🛒 ${l10n.cartListCount(l10n.formatDigits(state.cart.length.toString()))}', colorScheme.tertiary),
-                            const SizedBox(height: 8),
-                            _buildCartList(state),
-                          ],
+                                // Payment Section
+                                const SizedBox(height: 24),
+                                _buildSectionHeader('💳 ${l10n.paymentInfo}', Colors.green),
+                                const SizedBox(height: 12),
+                                _buildPaymentTypeToggle(state),
 
-                          // Payment Section
-                          const SizedBox(height: 24),
-                          _buildSectionHeader('💳 ${l10n.paymentInfo}', Colors.green),
-                          const SizedBox(height: 12),
-                          _buildPaymentTypeToggle(state),
+                                const SizedBox(height: 16),
+                                if (state.paymentType == PaymentType.credit) ...[
+                                  _buildCustomerSelector(state.selectedCustomer),
+                                  const SizedBox(height: 16),
+                                  _buildPartialPaymentSection(finalTotal),
+                                ] else ...[
+                                  _buildTextField(
+                                      _discountController, l10n.discountTaka,
+                                      prefix: '৳',
+                                      isNumber: true,
+                                      onChanged: (_) => setState(() {}),
+                                      focusNode: _discountFocus,
+                                      textInputAction: TextInputAction.next,
+                                      nextFocus: _notesFocus),
+                                ],
 
-                          const SizedBox(height: 16),
-                          if (state.paymentType == PaymentType.credit) ...[
-                            _buildCustomerSelector(state.selectedCustomer),
-                            const SizedBox(height: 16),
-                            _buildPartialPaymentSection(finalTotal),
-                          ] else ...[
-                            _buildTextField(_discountController, l10n.discountTaka, prefix: '৳', isNumber: true, onChanged: (_) => setState(() {}), focusNode: _discountFocus, textInputAction: TextInputAction.next, nextFocus: _notesFocus),
-                          ],
-
-                          const SizedBox(height: 16),
-                          _buildTextField(_notesController, '💬 ${l10n.additionalNotes}', maxLines: 2, focusNode: _notesFocus),
-                          const SizedBox(height: 8),
+                                const SizedBox(height: 16),
+                                _buildTextField(_notesController, '💬 ${l10n.additionalNotes}', maxLines: 2, focusNode: _notesFocus),
+                                const SizedBox(height: 8),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -481,6 +554,8 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
     if (due < 0) due = 0;
 
     final canCheckout = !state.isSubmitting && state.cart.isNotEmpty;
+    final totalQty = state.cart.fold<int>(0, (sum, item) => sum + item.quantity);
+    final itemCount = state.cart.length;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -505,14 +580,26 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Item count + qty badges
+                if (state.cart.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 5),
+                    child: Row(
+                      children: [
+                        _summaryBadge('$itemCount ${itemCount == 1 ? 'item' : 'items'}', colorScheme.primary.withValues(alpha: 0.12), colorScheme.primary),
+                        const SizedBox(width: 6),
+                        _summaryBadge('$totalQty qty', Colors.orange.withValues(alpha: 0.12), Colors.orange.shade700),
+                      ],
+                    ),
+                  ),
                 Row(
                   children: [
-                    Text(l10n.subTotal, style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6))),
-                    const SizedBox(width: 6),
-                    Text('৳${l10n.formatAmount(state.totalAmount)}', style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6))),
+                    Text(l10n.subTotal, style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withValues(alpha: 0.55))),
+                    const SizedBox(width: 4),
+                    Text('৳${l10n.formatAmount(state.totalAmount)}', style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withValues(alpha: 0.55))),
                     if ((double.tryParse(_discountController.text) ?? 0) > 0) ...[
                       const SizedBox(width: 8),
-                      Text('- ৳${l10n.formatAmount(double.tryParse(_discountController.text) ?? 0)}', style: TextStyle(fontSize: 11, color: Colors.red.shade400)),
+                      Text('- ৳${l10n.formatAmount(double.tryParse(_discountController.text) ?? 0)}', style: TextStyle(fontSize: 10, color: Colors.red.shade400)),
                     ],
                   ],
                 ),
@@ -544,13 +631,13 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
             onTap: canCheckout ? () => _handleCheckout(state, finalTotal) : null,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: 56,
-              height: 56,
+              width: 58,
+              height: 58,
               decoration: BoxDecoration(
                 color: canCheckout ? Colors.green.shade600 : colorScheme.outlineVariant,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: canCheckout
-                    ? [BoxShadow(color: Colors.green.withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, 4))]
+                    ? [BoxShadow(color: Colors.green.withValues(alpha: 0.4), blurRadius: 12, offset: const Offset(0, 4))]
                     : [],
               ),
               child: state.isSubmitting
@@ -563,6 +650,17 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _summaryBadge(String label, Color bgColor, Color textColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(label, style: TextStyle(fontSize: 11, color: textColor, fontWeight: FontWeight.w600)),
     );
   }
 
@@ -636,106 +734,123 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
             ? inventoryState.products
             : <Product>[];
         return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: 200,
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colorScheme.outlineVariant),
-        ),
-        child: _cameraPermissionGranted
-            ? Stack(
-                children: [
-                  MobileScanner(
-                    controller: _scannerController,
-                    onDetect: (capture) => _onBarcodeScanned(capture, products),
-                  ),
-                  // Scan frame guide
-                  Center(
-                    child: Container(
-                      width: 200,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.5),
-                        borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            height: 210,
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: _cameraPermissionGranted
+                ? Stack(
+                    children: [
+                      // Camera feed
+                      MobileScanner(
+                        controller: _scannerController,
+                        onDetect: (capture) => _onBarcodeScanned(capture, products),
                       ),
-                    ),
-                  ),
-                  // Label overlay
-                  Positioned(
-                    top: 10,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.qr_code_scanner, color: Colors.white70, size: 14),
-                            const SizedBox(width: 6),
-                            Text(l10n.scanBarcode, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-                          ],
+                      // Dark overlay outside the scan zone
+                      CustomPaint(
+                        size: Size.infinite,
+                        painter: _ScanOverlayPainter(),
+                      ),
+                      // Animated red scan line inside the frame
+                      Positioned.fill(
+                        child: AnimatedBuilder(
+                          animation: _scanLineAnimation,
+                          builder: (context, _) {
+                            const frameH = 90.0;
+                            const frameTop = (210 - frameH) / 2; // vertically centred
+                            final lineY = frameTop + _scanLineAnimation.value * (frameH - 2);
+                            return CustomPaint(
+                              painter: _ScanLinePainter(lineY: lineY),
+                            );
+                          },
                         ),
                       ),
-                    ),
-                  ),
-                  // Feedback banner
-                  if (_scanFeedback != null)
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
-                        color: (_scanSuccess ? Colors.green.shade600 : Colors.red.shade600).withValues(alpha: 0.9),
-                        child: Row(
-                          children: [
-                            Icon(
-                              _scanSuccess ? Icons.check_circle_outline : Icons.error_outline,
-                              color: Colors.white,
-                              size: 16,
+                      // Corner brackets (the scanner-style frame)
+                      Center(
+                        child: SizedBox(
+                          width: 240,
+                          height: 90,
+                          child: CustomPaint(painter: _CornerBracketPainter()),
+                        ),
+                      ),
+                      // Top label
+                      Positioned(
+                        top: 10,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(20),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _scanSuccess ? _scanFeedback! : l10n.productNotFound,
-                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.qr_code_scanner, color: Colors.white70, size: 13),
+                                const SizedBox(width: 5),
+                                Text(l10n.scanBarcode, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
+                      // Feedback banner
+                      if (_scanFeedback != null)
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+                            color: (_scanSuccess ? Colors.green.shade600 : Colors.red.shade700).withValues(alpha: 0.92),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _scanSuccess ? Icons.check_circle_outline : Icons.error_outline,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _scanSuccess ? _scanFeedback! : l10n.productNotFound,
+                                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  )
+                : Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.camera_alt_outlined, color: Colors.white38, size: 40),
+                        const SizedBox(height: 10),
+                        Text(
+                          l10n.cameraPermissionRequired,
+                          style: const TextStyle(color: Colors.white54, fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 10),
+                        TextButton(
+                          onPressed: openAppSettings,
+                          child: Text(l10n.grantPermission, style: TextStyle(color: colorScheme.primary)),
+                        ),
+                      ],
                     ),
-                ],
-              )
-            : Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.camera_alt_outlined, color: Colors.white38, size: 40),
-                    const SizedBox(height: 10),
-                    Text(
-                      l10n.cameraPermissionRequired,
-                      style: const TextStyle(color: Colors.white54, fontSize: 12),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 10),
-                    TextButton(
-                      onPressed: openAppSettings,
-                      child: Text(l10n.grantPermission, style: TextStyle(color: colorScheme.primary)),
-                    ),
-                  ],
-                ),
-              ),
-        ),
-      );
+                  ),
+          ),
+        );
       },
     );
   }
@@ -1097,4 +1212,137 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
       ),
     );
   }
+}
+
+// ── Scanner UI painters & delegates ──────────────────────────────────────────────────────
+
+class _ScannerHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double height;
+  final Color backgroundColor;
+
+  _ScannerHeaderDelegate({
+    required this.child,
+    required this.height,
+    required this.backgroundColor,
+  });
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      margin: EdgeInsets.only(left: 20, right: 20, top: 20),
+      color: backgroundColor, // hides scrolled content behind it
+      alignment: Alignment.topCenter,
+      child: child,
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _ScannerHeaderDelegate oldDelegate) {
+    return oldDelegate.child != child ||
+        oldDelegate.height != height ||
+        oldDelegate.backgroundColor != backgroundColor;
+  }
+}
+
+/// Semi-transparent dark overlay everywhere EXCEPT the central scan window.
+class _ScanOverlayPainter extends CustomPainter {
+  static const double _frameW = 240;
+  static const double _frameH = 90;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.black.withValues(alpha: 0.45);
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final rect = Rect.fromCenter(center: Offset(cx, cy), width: _frameW, height: _frameH);
+
+    final path = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..addRRect(RRect.fromRectAndRadius(rect, const Radius.circular(6)))
+      ..fillType = PathFillType.evenOdd;
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => false;
+}
+
+/// Four corner brackets (L-shapes) at the corners of the scan frame.
+class _CornerBracketPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    const len = 20.0;
+    final w = size.width;
+    final h = size.height;
+
+    // Top-left
+    canvas.drawLine(const Offset(0, len), const Offset(0, 0), paint);
+    canvas.drawLine(const Offset(0, 0), const Offset(len, 0), paint);
+    // Top-right
+    canvas.drawLine(Offset(w - len, 0), Offset(w, 0), paint);
+    canvas.drawLine(Offset(w, 0), Offset(w, len), paint);
+    // Bottom-left
+    canvas.drawLine(Offset(0, h - len), Offset(0, h), paint);
+    canvas.drawLine(Offset(0, h), Offset(len, h), paint);
+    // Bottom-right
+    canvas.drawLine(Offset(w - len, h), Offset(w, h), paint);
+    canvas.drawLine(Offset(w, h), Offset(w, h - len), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => false;
+}
+
+/// Horizontal glowing red scan line that travels up and down inside the frame.
+class _ScanLinePainter extends CustomPainter {
+  final double lineY;
+  const _ScanLinePainter({required this.lineY});
+
+  static const double _frameW = 240;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final left = cx - _frameW / 2 + 8;
+    final right = cx + _frameW / 2 - 8;
+
+    // Main gradient red line
+    final paint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          Colors.red.withValues(alpha: 0.0),
+          Colors.red.shade500,
+          Colors.red.shade300,
+          Colors.red.shade500,
+          Colors.red.withValues(alpha: 0.0),
+        ],
+      ).createShader(Rect.fromLTRB(left, lineY, right, lineY + 2))
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawLine(Offset(left, lineY), Offset(right, lineY), paint);
+
+    // Soft glow halo
+    final glowPaint = Paint()
+      ..color = Colors.red.withValues(alpha: 0.20)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    canvas.drawLine(Offset(left, lineY), Offset(right, lineY), glowPaint);
+  }
+
+  @override
+  bool shouldRepaint(_ScanLinePainter old) => old.lineY != lineY;
 }
