@@ -352,6 +352,80 @@ class AppLocalizations {
   String get totalReceivableLabel => isBangla ? 'মোট পাওনা' : 'Total Receivable';
   String get totalPayableLabel => isBangla ? 'মোট দেনা' : 'Total Payable';
 
+  // ——— Receipt Settings ———
+  String get receiptSettings => isBangla ? 'রসিদ সেটিংস' : 'Receipt Settings';
+  String get enableTextOnlyPrint => isBangla ? 'টেক্সট অনলি প্রিন্ট চালু করুন' : 'Enable text only print';
+  String get textOnlyPrintDesc => isBangla ? 'টেক্সট অনলি প্রিন্ট মোড শুধু ইংরেজি ভাষায় প্রিন্ট করতে পারে\nতবে প্রিন্টিং দ্রুত হবে এবং বেশিরভাগ প্রিন্টারে সাপোর্ট করবে' : 'Text only print mode can print only english language\nbut printing will fast, support most type of printers';
+  String get basicTab => isBangla ? 'বেসিক' : 'Basic';
+  String get templatesTab => isBangla ? 'টেম্পলেটস' : 'Templates';
+  String get receiptTitlesTab => isBangla ? 'রসিদ শিরোনাম' : 'Receipt Titles';
+  String get sortItemsAlphabetical => isBangla ? 'রসিদে আইটেমগুলো বর্ণানুক্রমিক সাজান' : 'Sort items alphabetical in receipt';
+  String get printCustomerInfoSetting => isBangla ? 'রসিদে গ্রাহকের তথ্য প্রিন্ট করুন' : 'Print customer info in receipt';
+  String get printSalesmanName => isBangla ? 'বিলে সেলস ম্যানের নাম প্রিন্ট করুন' : 'Print sales man name in bill';
+  String get enablePaymentInfoSetting => isBangla ? 'বিলে পেমেন্ট তথ্য চালু করুন' : 'Enable payment info in bill';
+  String get enableTableBorder => isBangla ? 'টেবিলের বর্ডার চালু করুন' : 'Enable table border';
+  String get enableMinimalInfo => isBangla ? 'বিলে সংক্ষিপ্ত তথ্য চালু করুন' : 'Enable minimal info in bill';
+  String get showTimeOnReceipt => isBangla ? 'রসিদে সময় দেখান' : 'Show time on receipt';
+  String get showTaxIncludedPrice => isBangla ? 'রসিদ লাইনে ট্যাক্স সহ মূল্য দেখান' : 'Show tax included price in receipt lines';
+  String get printFontSize => isBangla ? 'প্রিন্ট ফন্ট সাইজ' : 'Print font size';
+  String get printLineHeight => isBangla ? 'প্রিন্ট লাইন হাইট' : 'Print line height';
+  String get invoiceIdPrefixLbl => isBangla ? 'ইনভয়েস আইডি প্রিফিক্স' : 'INVOICE ID PREFIX';
+  String get lastInvoiceIdLbl => isBangla ? 'সর্বশেষ ইনভয়েস আইডি' : 'LAST INVOICE ID';
+  String get lastOrderIdLbl => isBangla ? 'সর্বশেষ অর্ডার আইডি' : 'LAST ORDER ID';
+  String get customLabelForTaxLbl => isBangla ? 'ট্যাক্সের জন্য কাস্টম লেবেল' : 'CUSTOM LABEL FOR TAX';
+  String get customNameForPayableLbl => isBangla ? 'পরিশোধযোগ্য হিসেবে কাস্টম নাম' : 'CUSTOM NAME FOR PAYABLE';
+  String get attachQrCodeLbl => isBangla ? 'কিউআর কোড যুক্ত করুন' : 'Attach Qr Code';
+  String get enterQrCodeDataLbl => isBangla ? 'কিউআর কোড ডেটা লিখুন' : 'Enter QR code data';
+  String get newLineInstructionLbl => isBangla ? 'রসিদে নতুন লাইনের জন্য শব্দের মাঝে </br> ব্যবহার করুন' : 'Use </br> in between words for new line in receipt';
+  String get taxInstructionLbl => isBangla ? 'রসিদে প্রিন্ট করার জন্য আপনি ট্যাক্সের কাস্টম নাম সেট করতে পারেন\nযেমন ভ্যাট(৫%), জিএসটি(১৮%) ..ইত্যাদি' : 'You can set custom name for Tax that print in receipt\neg VAT(5%), GST(18%) ..etc';
+  String get selectedTemplate => isBangla ? 'নির্বাচিত' : 'Selected';
+  String get selectThisTemplateBtn => isBangla ? 'এই টেমপ্লেটটি নির্বাচন করুন' : 'Select This Template';
+  String get okayBtn => isBangla ? 'ওকে' : 'Okay';
+  String get tplDetailedPos => isBangla ? 'বিস্তারিত পস' : 'Detailed POS';
+  String get tplStandard => isBangla ? 'স্ট্যান্ডার্ড' : 'Standard';
+  String get tplBigFont => isBangla ? 'বড় ফন্ট' : 'Big Font';
+  String get tplQrCode => isBangla ? 'কিউআর কোড' : 'QR Code';
+  String get tplBarcode => isBangla ? 'বারকোড' : 'Barcode';
+  String get tplTicket => isBangla ? 'টিকেট' : 'Ticket';
+  String get tplA4Style1 => isBangla ? 'এ৪-স্টাইল ১' : 'A4-Style 1';
+  String get shopNameLbl => isBangla ? 'দোকানের নাম' : 'SHOP NAME';
+  String get shopAddressLbl => isBangla ? 'দোকানের ঠিকানা' : 'SHOP ADDRESS';
+  String get shopPhoneLbl => isBangla ? 'দোকানের ফোন' : 'SHOP PHONE';
+  String get receiptTitleLbl => isBangla ? 'রসিদের শিরোনাম' : 'RECEIPT TITLE';
+  String get footerTextLbl => isBangla ? 'ফুটার টেক্সট' : 'FOOTER TEXT';
+  String get shopNameHint => isBangla ? 'আমার দোকান' : 'My Shop';
+  String get shopAddressHint => isBangla ? 'দোকানের ঠিকানা' : 'Shop Address';
+  String get shopPhoneHint => isBangla ? '০১XXXXXXXXX' : '01XXXXXXXXX';
+  String get receiptTitleHint => isBangla ? 'বিক্রয় চালান' : 'Sales Invoice';
+  String get footerTextHint => isBangla ? 'ধন্যবাদ আবার আসবেন' : 'Thank you, come again';
+
+  // ── Template preview labels ─────────────────────────────────────────────
+  String get previewSalesInvoice => isBangla ? 'বিক্রয় চালান' : 'Sales Invoice';
+  String get previewInvoiceNo => isBangla ? 'চালান নং:' : 'Invoice No:';
+  String get previewDate => isBangla ? 'তারিখ:' : 'Date:';
+  String get previewPaymentMethod => isBangla ? 'পেমেন্ট পদ্ধতি' : 'Payment Method';
+  String get previewCash => isBangla ? 'নগদ' : 'Cash';
+  String get previewPriceAmount => isBangla ? 'মূল্য পরিমাণ' : 'Price Amount';
+  String get previewBillAmount => isBangla ? 'বিলের পরিমাণ' : 'Bill Amount';
+  String get previewPaid => isBangla ? 'পরিশোধিত' : 'Paid';
+  String get previewSubTotal => isBangla ? 'উপ-মোট' : 'Sub Total';
+  String get previewGrandTotal => isBangla ? 'সর্বমোট' : 'Grand Total';
+  String get previewPayable => isBangla ? 'পরিশোধযোগ্য' : 'Payable';
+  String get previewItemDesc => isBangla ? 'পণ্যের বিবরণ' : 'Item Description';
+  String get previewItem => isBangla ? 'আইটেম' : 'Item';
+  String get previewPrice => isBangla ? 'মূল্য' : 'Price';
+  String get previewDisc => isBangla ? 'ছাড়' : 'Disc';
+  String get previewAmt => isBangla ? 'পরিমাণ' : 'Amt';
+  String get previewQty => isBangla ? 'পরিমাণ' : 'Qty';
+  String get previewTotal => isBangla ? 'মোট' : 'Total';
+  String get previewInvoiceDetails => isBangla ? 'চালানের বিবরণ' : 'Invoice Details';
+  String get previewOrderId => isBangla ? 'অর্ডার আইডি:' : 'Order ID:';
+  String get previewPaymentInfo => isBangla ? 'পেমেন্ট তথ্য' : 'Payment Information';
+  String get previewTicket => isBangla ? 'টিকেট:' : 'Ticket:';
+  String get previewBdt => isBangla ? 'টাকা' : 'BDT';
+  String get previewPayment => isBangla ? 'পেমেন্ট:' : 'Payment:';
+  String get previewDue => isBangla ? 'বাকি' : 'Due';
+
   /// Format number for display (Bengali digits when locale is bn).
   String formatAmount(num value) {
     final s = value.toStringAsFixed(0);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 
 const _kNavy = AppColors.primary;
@@ -152,13 +153,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Receipt Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Icon(Icons.print_outlined, color: _kNavy, size: 26),
-          ),
-        ],
+        title: Text(context.l10n.receiptSettings, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
       ),
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
@@ -172,11 +167,11 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Enable text only print',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                        Text(context.l10n.enableTextOnlyPrint,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                         const SizedBox(height: 2),
                         Text(
-                          'Text only print mode can print only english language\nbut printing will fast, support most type of printers',
+                          context.l10n.textOnlyPrintDesc,
                           style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), height: 1.4),
                         ),
                       ],
@@ -207,10 +202,10 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
                   indicatorWeight: 3,
                   labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                   unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
-                  tabs: const [
-                    Tab(text: 'Basic'),
-                    Tab(text: 'Templates'),
-                    Tab(text: 'Receipt Titles'),
+                  tabs: [
+                    Tab(text: context.l10n.basicTab),
+                    Tab(text: context.l10n.templatesTab),
+                    Tab(text: context.l10n.receiptTitlesTab),
                   ],
                 ),
               ),
@@ -241,7 +236,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
                 elevation: 0,
               ),
               onPressed: _saveAll,
-              child: const Text('Okay', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              child: Text(context.l10n.okayBtn, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           ),
         ),
@@ -256,49 +251,49 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
       padding: EdgeInsets.zero,
       children: [
         // Toggle rows
-        _toggleRow('Sort items alphabetical in receipt', _sortItemsAlphabetical,
+        _toggleRow(context.l10n.sortItemsAlphabetical, _sortItemsAlphabetical,
             (v) => setState(() => _sortItemsAlphabetical = v)),
         _divider(),
-        _toggleRow('Print customer info in receipt', _printCustomerInfo,
+        _toggleRow(context.l10n.printCustomerInfoSetting, _printCustomerInfo,
             (v) => setState(() => _printCustomerInfo = v)),
         _divider(),
-        _toggleRow('Print sales man name in bill', _printSalesmanName,
+        _toggleRow(context.l10n.printSalesmanName, _printSalesmanName,
             (v) => setState(() => _printSalesmanName = v)),
         _divider(),
-        _toggleRow('Enable payment info in bill', _enablePaymentInfo,
+        _toggleRow(context.l10n.enablePaymentInfoSetting, _enablePaymentInfo,
             (v) => setState(() => _enablePaymentInfo = v)),
         _divider(),
-        _toggleRow('Enable table border', _enableTableBorder,
+        _toggleRow(context.l10n.enableTableBorder, _enableTableBorder,
             (v) => setState(() => _enableTableBorder = v)),
         _divider(),
-        _toggleRow('Enable minimal info in bill', _enableMinimalInfo,
+        _toggleRow(context.l10n.enableMinimalInfo, _enableMinimalInfo,
             (v) => setState(() => _enableMinimalInfo = v)),
         _divider(),
-        _toggleRow('Show time on receipt', _showTimeOnReceipt,
+        _toggleRow(context.l10n.showTimeOnReceipt, _showTimeOnReceipt,
             (v) => setState(() => _showTimeOnReceipt = v)),
         _divider(),
-        _toggleRow('Show tax included price in receipt lines', _showTaxIncludedPrice,
+        _toggleRow(context.l10n.showTaxIncludedPrice, _showTaxIncludedPrice,
             (v) => setState(() => _showTaxIncludedPrice = v)),
 
         // Font size slider
-        _sliderSection('Print font size', _printFontSize,
+        _sliderSection(context.l10n.printFontSize, _printFontSize,
             (v) => setState(() => _printFontSize = v)),
         _divider(),
 
         // Line height slider
-        _sliderSection('Print line height', _printLineHeight,
+        _sliderSection(context.l10n.printLineHeight, _printLineHeight,
             (v) => setState(() => _printLineHeight = v)),
 
         const SizedBox(height: 8),
 
         // Input fields
-        _inputRow('INVOICE ID PREFIX', _invoicePrefixCtrl, () {
+        _inputRow(context.l10n.invoiceIdPrefixLbl, _invoicePrefixCtrl, () {
           _saveField(invoiceIdPrefix: _invoicePrefixCtrl.text.trim());
         }),
-        _inputRow('LAST INVOICE ID', _lastInvoiceIdCtrl, () {
+        _inputRow(context.l10n.lastInvoiceIdLbl, _lastInvoiceIdCtrl, () {
           _saveField(lastInvoiceId: int.tryParse(_lastInvoiceIdCtrl.text.trim()) ?? 1);
         }, keyboardType: TextInputType.number),
-        _inputRow('LAST ORDER ID', _lastOrderIdCtrl, () {
+        _inputRow(context.l10n.lastOrderIdLbl, _lastOrderIdCtrl, () {
           _saveField(lastOrderId: int.tryParse(_lastOrderIdCtrl.text.trim()) ?? 1);
         }, keyboardType: TextInputType.number),
 
@@ -318,7 +313,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Use </br> in between words for new line in receipt',
+                  context.l10n.newLineInstructionLbl,
                   style: TextStyle(fontSize: 12, color: Colors.blue.shade800),
                 ),
               ),
@@ -330,16 +325,16 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Text(
-            'You can set custom name for Tax that print in receipt\neg VAT(5%%), GST(18%%) ..etc',
+            context.l10n.taxInstructionLbl,
             style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
           ),
         ),
 
         // Custom label for tax
-        _inputRow('CUSTOM LABEL FOR TAX', _taxLabelCtrl, () {
+        _inputRow(context.l10n.customLabelForTaxLbl, _taxLabelCtrl, () {
           _saveField(customTaxLabel: _taxLabelCtrl.text.trim().isEmpty ? 'ট্যাক্স' : _taxLabelCtrl.text.trim());
         }),
-        _inputRow('CUSTOM NAME FOR PAYABLE', _payableLabelCtrl, () {
+        _inputRow(context.l10n.customNameForPayableLbl, _payableLabelCtrl, () {
           _saveField(customPayableLabel: _payableLabelCtrl.text.trim().isEmpty ? 'পরিশোধযোগ্য' : _payableLabelCtrl.text.trim());
         }),
 
@@ -350,7 +345,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
           child: Row(
             children: [
               Expanded(
-                child: _toggleRow('Attach Qr Code', _attachQrCode,
+                child: _toggleRow(context.l10n.attachQrCodeLbl, _attachQrCode,
                     (v) => setState(() => _attachQrCode = v), inline: true),
               ),
             ],
@@ -366,7 +361,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Enter QR code data',
+                Text(context.l10n.enterQrCodeDataLbl,
                     style: TextStyle(
                         fontSize: 12,
                         color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
@@ -408,13 +403,13 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
     final phone = _shopPhoneCtrl.text.trim();
 
     final templates = <_TplData>[
-      _TplData(1, 'Detailed POS', _previewDetailedPOS(shop, addr, phone)),
-      _TplData(0, 'Standard', _previewStandard(shop, addr, phone)),
-      _TplData(2, 'Big Font', _previewBigFont(shop, addr, phone)),
-      _TplData(3, 'QR Code', _previewQrCode(shop, addr, phone)),
-      _TplData(4, 'Barcode', _previewBarcode(shop, addr, phone)),
-      _TplData(5, 'Ticket', _previewTicket(shop, addr, phone)),
-      _TplData(6, 'A4-Style 1', _previewA4Style1(shop, addr, phone)),
+      _TplData(1, context.l10n.tplDetailedPos, _previewDetailedPOS(shop, addr, phone)),
+      _TplData(0, context.l10n.tplStandard, _previewStandard(shop, addr, phone)),
+      _TplData(2, context.l10n.tplBigFont, _previewBigFont(shop, addr, phone)),
+      _TplData(3, context.l10n.tplQrCode, _previewQrCode(shop, addr, phone)),
+      _TplData(4, context.l10n.tplBarcode, _previewBarcode(shop, addr, phone)),
+      _TplData(5, context.l10n.tplTicket, _previewTicket(shop, addr, phone)),
+      _TplData(6, context.l10n.tplA4Style1, _previewA4Style1(shop, addr, phone)),
     ];
 
     return CustomScrollView(
@@ -572,7 +567,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
                     setState(() => _receiptTemplate = t.index);
                     Navigator.pop(context);
                   },
-                  child: Text(_receiptTemplate == t.index ? 'Selected' : 'Select This Template'),
+                  child: Text(_receiptTemplate == t.index ? context.l10n.selectedTemplate : context.l10n.selectThisTemplateBtn),
                 ),
               ),
             ),
@@ -591,23 +586,24 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
   ];
 
   Widget _previewStandard(String shop, String addr, String phone) {
+    final l = context.l10n;
     return _PreviewReceipt(
       shopName: shop,
       shopAddr: addr,
       shopPhone: phone,
-      title: 'বিক্রয় চালান',
+      title: l.previewSalesInvoice,
       showStoreIcon: true,
       header: _previewMetaRows([
-        ('Invoice No:', 'INV-001'),
-        ('Date:', '24/06/2026'),
+        (l.previewInvoiceNo, 'INV-001'),
+        (l.previewDate, '24/06/2026'),
       ]),
-      itemsHeader: _previewTableHeader(['#', 'Item', 'Price', 'Qty', 'Amt']),
+      itemsHeader: _previewTableHeader(['#', l.previewItem, l.previewPrice, l.previewQty, l.previewAmt]),
       itemRows: _previewItemRows(),
       summary: _previewSummaryRows([
-        ('Price Amount', '৳405.00'),
-        ('Bill Amount', '৳405.00'),
-        ('Paid', '৳405.00'),
-        ('Payment Method', 'Cash'),
+        (l.previewPriceAmount, '৳405.00'),
+        (l.previewBillAmount, '৳405.00'),
+        (l.previewPaid, '৳405.00'),
+        (l.previewPaymentMethod, l.previewCash),
       ]),
     );
   }
@@ -623,13 +619,13 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         const SizedBox(height: 4),
         Container(height: 1, color: cs.onSurface),
         const SizedBox(height: 3),
-        _pText('Inv No: INV-001  Date: 24/06/2026  Payment: CASH', size: 8),
+        _pText('${context.l10n.previewInvoiceNo} INV-001  ${context.l10n.previewDate} 24/06/2026  ${context.l10n.previewPayment} CASH', size: 8),
         const SizedBox(height: 3),
         Table(
           border: TableBorder.all(width: 0.5, color: cs.outlineVariant),
           columnWidths: const {0: FlexColumnWidth(3), 1: FlexColumnWidth(2), 2: FlexColumnWidth(2), 3: FlexColumnWidth(2)},
           children: [
-            _tRow(['Item Description', 'Price', 'Disc', 'Amt'], header: true),
+            _tRow([context.l10n.previewItemDesc, context.l10n.previewPrice, context.l10n.previewDisc, context.l10n.previewAmt], header: true),
             for (final i in _sampleItems) ...[
               _tRow([i.$1, '৳${i.$3.toStringAsFixed(0)}', '0.00', '৳${(i.$2 * i.$3).toStringAsFixed(0)}']),
               _tRow(['${i.$2}', '', '', ''], small: true),
@@ -638,16 +634,16 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
           ],
         ),
         const SizedBox(height: 3),
-        _pRow('Sub Total', '৳405.00'),
-        _pRow('Grand Total', '৳405.00', bold: true),
-        _pRow('Payable', '৳405.00'),
+        _pRow(context.l10n.previewSubTotal, '৳405.00'),
+        _pRow(context.l10n.previewGrandTotal, '৳405.00', bold: true),
+        _pRow(context.l10n.previewPayable, '৳405.00'),
         const SizedBox(height: 3),
         Container(height: 1, color: cs.outlineVariant),
-        _pText('Payment Information', bold: true, size: 9),
+        _pText(context.l10n.previewPaymentInfo, bold: true, size: 9),
         Table(
           border: TableBorder.all(width: 0.5, color: cs.outlineVariant),
           children: [
-            _tRow(['Date', 'Paid', 'Due'], header: true),
+            _tRow([context.l10n.previewDate, context.l10n.previewPaid, context.l10n.previewDue], header: true),
             _tRow(['24-06-2026', '৳405.00(CASH)', '৳0.00']),
           ],
         ),
@@ -663,15 +659,15 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         _pText(shop, bold: true, size: 14, align: TextAlign.center),
         if (addr.isNotEmpty) _pText(addr, size: 10, align: TextAlign.center),
         if (phone.isNotEmpty) _pText(phone, size: 10, align: TextAlign.center),
-        _pText('বিক্রয় চালান', bold: true, size: 12, align: TextAlign.center),
+        _pText(context.l10n.previewSalesInvoice, bold: true, size: 12, align: TextAlign.center),
         Container(height: 1, color: cs.onSurface, margin: const EdgeInsets.symmetric(vertical: 4)),
-        _pText('Invoice Details', bold: true, size: 11),
-        _pText('Order ID: INV-001', size: 10),
-        _pText('Date: 24/06/2026  Payment: Cash', size: 10),
+        _pText(context.l10n.previewInvoiceDetails, bold: true, size: 11),
+        _pText('${context.l10n.previewOrderId} INV-001', size: 10),
+        _pText('${context.l10n.previewDate} 24/06/2026  ${context.l10n.previewPayment} ${context.l10n.previewCash}', size: 10),
         Container(height: 0.5, color: cs.outlineVariant, margin: const EdgeInsets.symmetric(vertical: 4)),
         Row(children: [
-          Expanded(child: _pText('Item', bold: true, size: 11)),
-          _pText('Amt', bold: true, size: 11),
+          Expanded(child: _pText(context.l10n.previewItem, bold: true, size: 11)),
+          _pText(context.l10n.previewAmt, bold: true, size: 11),
         ]),
         for (final i in _sampleItems) ...[
           Container(height: 0.5, color: cs.outlineVariant),
@@ -682,8 +678,8 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
           _pText('${i.$2} X ৳${i.$3.toStringAsFixed(0)}', size: 9, color: cs.onSurfaceVariant),
         ],
         Container(height: 1, color: cs.onSurface, margin: const EdgeInsets.symmetric(vertical: 3)),
-        _pRow('Sub Total', '৳405.00', size: 12),
-        _pRow('Payable', '৳405.00', size: 12, bold: true),
+        _pRow(context.l10n.previewSubTotal, '৳405.00', size: 12),
+        _pRow(context.l10n.previewPayable, '৳405.00', size: 12, bold: true),
       ],
     );
   }
@@ -725,7 +721,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         if (addr.isNotEmpty) _pText(addr, size: 10, align: TextAlign.center),
         if (phone.isNotEmpty) _pText(phone, size: 10, align: TextAlign.center),
         const SizedBox(height: 6),
-        _pText('Ticket: INV-001  Date: 24/06/2026', bold: true, size: 10, align: TextAlign.center),
+        _pText('${context.l10n.previewTicket} INV-001  ${context.l10n.previewDate} 24/06/2026', bold: true, size: 10, align: TextAlign.center),
         const SizedBox(height: 6),
         for (final i in _sampleItems.take(2))
           Container(
@@ -751,7 +747,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
           decoration: BoxDecoration(border: Border.all(width: 1.5, color: cs.onSurface)),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Row(children: [
-            Expanded(child: _pText('BDT', bold: true, size: 13)),
+            Expanded(child: _pText(context.l10n.previewBdt, bold: true, size: 13)),
             _pText('৳405.00', bold: true, size: 18),
           ]),
         ),
@@ -768,15 +764,15 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
         if (addr.isNotEmpty) _pText(addr, size: 9, align: TextAlign.center),
         if (phone.isNotEmpty) _pText(phone, size: 9, align: TextAlign.center),
         Container(height: 2, color: cs.onSurface, margin: const EdgeInsets.symmetric(vertical: 5)),
-        _pText('Invoice Details', bold: true, size: 11),
-        _pText('Order ID: INV-001', size: 9),
-        _pText('Date: 24/06/2026  Payment: Cash', size: 9),
+        _pText(context.l10n.previewInvoiceDetails, bold: true, size: 11),
+        _pText('${context.l10n.previewOrderId} INV-001', size: 9),
+        _pText('${context.l10n.previewDate} 24/06/2026  ${context.l10n.previewPayment} ${context.l10n.previewCash}', size: 9),
         Container(height: 0.5, color: cs.outlineVariant, margin: const EdgeInsets.symmetric(vertical: 4)),
         Table(
           border: TableBorder.all(width: 0.5, color: cs.outlineVariant),
           columnWidths: const {0: FixedColumnWidth(22), 1: FlexColumnWidth(3), 2: FlexColumnWidth(2), 3: FixedColumnWidth(22), 4: FlexColumnWidth(2)},
           children: [
-            _tRow(['#', 'Item', 'Price', 'Qty', 'Total'], header: true),
+            _tRow(['#', context.l10n.previewItem, context.l10n.previewPrice, context.l10n.previewQty, context.l10n.previewTotal], header: true),
             for (int i = 0; i < _sampleItems.length; i++)
               _tRow(['${i + 1}', _sampleItems[i].$1, '৳${_sampleItems[i].$3.toStringAsFixed(0)}', '${_sampleItems[i].$2}', '৳${(_sampleItems[i].$2 * _sampleItems[i].$3).toStringAsFixed(0)}']),
           ],
@@ -787,10 +783,10 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _pRow('Sub Total', '৳405.00', size: 9),
+              _pRow(context.l10n.previewSubTotal, '৳405.00', size: 9),
               Container(height: 2, color: cs.onSurface, margin: const EdgeInsets.symmetric(vertical: 2)),
-              _pRow('Grand Total', '৳405.00', bold: true, size: 11),
-              _pRow('Paid', '৳405.00', size: 9),
+              _pRow(context.l10n.previewGrandTotal, '৳405.00', bold: true, size: 11),
+              _pRow(context.l10n.previewPaid, '৳405.00', size: 9),
             ],
           ),
         ),
@@ -873,15 +869,15 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
     return ListView(
       padding: EdgeInsets.zero,
       children: [
-        _titlesInputRow('SHOP NAME', _shopNameCtrl, hint: 'আমার দোকান'),
+        _titlesInputRow(context.l10n.shopNameLbl, _shopNameCtrl, hint: context.l10n.shopNameHint),
         _divider(),
-        _titlesInputRow('SHOP ADDRESS', _shopAddressCtrl, hint: 'দোকানের ঠিকানা', maxLines: 2),
+        _titlesInputRow(context.l10n.shopAddressLbl, _shopAddressCtrl, hint: context.l10n.shopAddressHint, maxLines: 2),
         _divider(),
-        _titlesInputRow('SHOP PHONE', _shopPhoneCtrl, hint: '০১XXXXXXXXX', keyboardType: TextInputType.phone),
+        _titlesInputRow(context.l10n.shopPhoneLbl, _shopPhoneCtrl, hint: context.l10n.shopPhoneHint, keyboardType: TextInputType.phone),
         _divider(),
-        _titlesInputRow('RECEIPT TITLE', _receiptTitleCtrl, hint: 'বিক্রয় চালান'),
+        _titlesInputRow(context.l10n.receiptTitleLbl, _receiptTitleCtrl, hint: context.l10n.receiptTitleHint),
         _divider(),
-        _titlesInputRow('FOOTER TEXT', _receiptFooterCtrl, hint: 'ধন্যবাদ আবার আসবেন', maxLines: 3),
+        _titlesInputRow(context.l10n.footerTextLbl, _receiptFooterCtrl, hint: context.l10n.footerTextHint, maxLines: 3),
         const SizedBox(height: 16),
       ],
     );
@@ -978,7 +974,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen>
                 elevation: 0,
               ),
               onPressed: onOkay,
-              child: const Text('Okay', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              child: Text(context.l10n.okayBtn, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
             ),
           ),
         ],

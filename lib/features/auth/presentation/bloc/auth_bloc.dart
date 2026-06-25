@@ -1,8 +1,12 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:amar_dokan/core/services/sync_service.dart';
+import 'package:amar_dokan/core/database/database_helper.dart';
 import '../../data/auth_repository.dart';
 import '../../domain/auth_user.dart';
+
+const _kLastUserId = 'last_signed_in_user_id';
 
 // Events
 abstract class AuthEvent extends Equatable {
@@ -24,13 +28,16 @@ abstract class AuthState extends Equatable {
 
 class AuthInitial extends AuthState {}
 class AuthLoading extends AuthState {}
+
 class AuthAuthenticated extends AuthState {
   final AuthUser user;
   const AuthAuthenticated(this.user);
   @override
   List<Object> get props => [user];
 }
+
 class AuthUnauthenticated extends AuthState {}
+
 class AuthFailure extends AuthState {
   final String message;
   const AuthFailure(this.message);
@@ -42,48 +49,71 @@ class AuthFailure extends AuthState {
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository _authRepository;
   final SyncService _syncService;
+  final DatabaseHelper _dbHelper;
 
   AuthBloc({
     required AuthRepository authRepository,
     required SyncService syncService,
+    required DatabaseHelper dbHelper,
   })  : _authRepository = authRepository,
         _syncService = syncService,
+        _dbHelper = dbHelper,
         super(AuthInitial()) {
     on<AuthCheckRequested>(_onAuthCheckRequested);
     on<AuthLoginRequested>(_onAuthLoginRequested);
     on<AuthLogoutRequested>(_onAuthLogoutRequested);
   }
 
+  /// Clears local DB + sync prefs when a DIFFERENT account signs in.
+  Future<void> _clearIfAccountChanged(String newUserId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastUserId = prefs.getString(_kLastUserId);
+
+    if (lastUserId != null && lastUserId != newUserId) {
+      await _dbHelper.clearAllTables();
+      await prefs.remove('sync_settings');
+    }
+
+    await prefs.setString(_kLastUserId, newUserId);
+  }
+
+  /// Wipes all local data and forgets the last user.
+  /// Called on sign-out so the next login (any account) starts clean.
+  Future<void> _clearLocalData() async {
+    await _dbHelper.clearAllTables();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kLastUserId);
+    await prefs.remove('sync_settings');
+  }
+
   Future<void> _onAuthCheckRequested(
     AuthCheckRequested event,
     Emitter<AuthState> emit,
   ) async {
-    // Note: Don't emit AuthLoading if you want to avoid a white splash
-    // but here we are already in AppView's BlocBuilder.
     try {
-      // 1. Try to get the current user immediately if already available
       final currentUser = await _authRepository.getCurrentGoogleUser();
-      
+
       if (currentUser != null) {
+        await _clearIfAccountChanged(currentUser.id);
         emit(AuthAuthenticated(AuthUser(
           id: currentUser.id,
           email: currentUser.email,
           displayName: currentUser.displayName ?? '',
           photoUrl: currentUser.photoUrl,
         )));
-        _syncService.checkAndRestoreFromDrive(); // Check for restore on startup/check
+        _syncService.checkAndRestoreFromDrive();
         return;
       }
 
-      // 2. Try to restore previous session silently
-      // We use a timeout to ensure we don't hang the app start
-      final user = await _authRepository.signIn()
+      final user = await _authRepository
+          .signIn()
           .timeout(const Duration(seconds: 3))
           .catchError((_) => null);
 
       if (user != null) {
+        await _clearIfAccountChanged(user.id);
         emit(AuthAuthenticated(user));
-        _syncService.checkAndRestoreFromDrive(); // Check for restore on session restore
+        _syncService.checkAndRestoreFromDrive();
       } else {
         emit(AuthUnauthenticated());
       }
@@ -100,8 +130,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       final user = await _authRepository.signIn();
       if (user != null) {
+        await _clearIfAccountChanged(user.id);
         emit(AuthAuthenticated(user));
-        _syncService.checkAndRestoreFromDrive(); // Check for restore on login
+        _syncService.checkAndRestoreFromDrive();
       } else {
         emit(AuthUnauthenticated());
       }
@@ -115,6 +146,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     await _authRepository.signOut();
+    await _clearLocalData(); // wipe data on every sign-out
     emit(AuthUnauthenticated());
   }
 }
