@@ -26,7 +26,8 @@ class SaleFormBottomSheet extends StatefulWidget {
   State<SaleFormBottomSheet> createState() => _SaleFormBottomSheetState();
 }
 
-class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
+class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
+    with TickerProviderStateMixin {
   final TextEditingController _discountController = TextEditingController(text: '0');
   final TextEditingController _paidAmountController = TextEditingController(text: '0');
   final TextEditingController _notesController = TextEditingController();
@@ -44,6 +45,10 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
   Timer? _feedbackTimer;
   final Map<String, DateTime> _lastScanTime = {};
 
+  // Shake animation for checkout summary card
+  late final AnimationController _shakeController;
+  late final Animation<double> _shakeAnimation;
+
   String? _beepFilePath;
 
   @override
@@ -53,6 +58,19 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     _scannerController = MobileScannerController(detectionSpeed: DetectionSpeed.normal);
     _requestCameraPermission();
     _initBeepFile();
+
+    // Shake animation: quick left-right jiggle
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _shakeAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: -8.0), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -8.0, end: 8.0), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 8.0, end: -6.0), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: -6.0, end: 6.0), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 6.0, end: 0.0), weight: 1),
+    ]).animate(CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut));
   }
 
   Future<void> _requestCameraPermission() async {
@@ -70,7 +88,13 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     _notesFocus.dispose();
     _scannerController.dispose();
     _feedbackTimer?.cancel();
+    _shakeController.dispose();
     super.dispose();
+  }
+
+  void _triggerShake() {
+    _shakeController.forward(from: 0.0);
+    HapticFeedback.mediumImpact();
   }
 
   void _onBarcodeScanned(BarcodeCapture capture, List<Product> products) {
@@ -94,7 +118,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     } else {
       context.read<SalesBloc>().add(AddToCart(product));
       _playBeep();
-      HapticFeedback.mediumImpact();
+      _triggerShake();
       _showScanFeedback(product.name, true);
     }
   }
@@ -282,16 +306,13 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
 
                           const SizedBox(height: 16),
                           _buildTextField(_notesController, '💬 ${l10n.additionalNotes}', maxLines: 2, focusNode: _notesFocus),
-
-                          const SizedBox(height: 32),
-                          _buildCheckoutSummary(state, finalTotal),
-                        const SizedBox(height: 8),
+                          const SizedBox(height: 8),
                       ],
                     ),
                   ),
 
-                  // Sticky bottom buttons
-                  _buildStickyBottomBar(context, state, finalTotal, l10n, colorScheme),
+                  // Sticky checkout summary card
+                  _buildStickyCheckoutSummary(state, finalTotal, l10n, colorScheme),
                 ],
               ),
             );
@@ -302,8 +323,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     );
   }
 
-  Widget _buildStickyBottomBar(
-    BuildContext context,
+  Widget _buildStickyCheckoutSummary(
     SalesDataLoaded state,
     double finalTotal,
     AppLocalizations l10n,
@@ -311,49 +331,22 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
   ) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, bottomPad + 16),
+      padding: EdgeInsets.fromLTRB(16, 10, 16, bottomPad + 12),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        border: Border(top: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5))),
+        border: Border(top: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4))),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, -3)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 14, offset: const Offset(0, -4)),
         ],
       ),
-      child: _buildCartButtons(state, finalTotal, l10n),
-    );
-  }
-
-  Widget _buildCartButtons(SalesDataLoaded state, double finalTotal, AppLocalizations l10n) {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: () => Navigator.pop(context),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: Text(l10n.cancel),
-          ),
+      child: AnimatedBuilder(
+        animation: _shakeAnimation,
+        builder: (context, child) => Transform.translate(
+          offset: Offset(_shakeAnimation.value, 0),
+          child: child,
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          flex: 2,
-          child: ElevatedButton(
-            onPressed: state.isSubmitting || state.cart.isEmpty ? null : () => _handleCheckout(state, finalTotal),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              backgroundColor: Colors.green.shade700,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 2,
-            ),
-            child: state.isSubmitting
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : Text(l10n.completeSale, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ),
-        ),
-      ],
+        child: _buildCheckoutSummary(state, finalTotal, l10n, colorScheme),
+      ),
     );
   }
 
@@ -480,50 +473,99 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
     );
   }
 
-  Widget _buildCheckoutSummary(SalesDataLoaded state, double finalTotal) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
+  Widget _buildCheckoutSummary(SalesDataLoaded state, double finalTotal, AppLocalizations l10n, ColorScheme colorScheme) {
     double paid = double.tryParse(_paidAmountController.text) ?? 0;
     if (state.paymentType == PaymentType.cash) paid = finalTotal;
 
     double due = finalTotal - paid;
     if (due < 0) due = 0;
 
+    final canCheckout = !state.isSubmitting && state.cart.isNotEmpty;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        children: [
-          _buildSummaryRow(l10n.subTotal, '৳${l10n.formatAmount(state.totalAmount)}', colorScheme.onSurface.withOpacity(0.7)),
-          _buildSummaryRow('${l10n.discount}:', '- ৳${l10n.formatAmount(double.tryParse(_discountController.text) ?? 0)}', Colors.red.shade300),
-          Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Divider(color: colorScheme.onSurface.withOpacity(0.24))),
-          _buildSummaryRow(l10n.grandTotal, '৳${l10n.formatAmount(finalTotal)}', colorScheme.onSurface, isBold: true, fontSize: 20),
-          if (state.paymentType == PaymentType.credit) ...[
-             const SizedBox(height: 8),
-             _buildSummaryRow(l10n.collectedColon, '৳${l10n.formatAmount(paid)}', Colors.green.shade300),
-             _buildSummaryRow(l10n.dueRemaining, '৳${l10n.formatAmount(due)}', Colors.orange.shade300),
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.surfaceContainerHighest,
+            colorScheme.surfaceContainerHighest.withValues(alpha: 0.85),
           ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Summary info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Text(l10n.subTotal, style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6))),
+                    const SizedBox(width: 6),
+                    Text('৳${l10n.formatAmount(state.totalAmount)}', style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6))),
+                    if ((double.tryParse(_discountController.text) ?? 0) > 0) ...[
+                      const SizedBox(width: 8),
+                      Text('- ৳${l10n.formatAmount(double.tryParse(_discountController.text) ?? 0)}', style: TextStyle(fontSize: 11, color: Colors.red.shade400)),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '৳${l10n.formatAmount(finalTotal)}',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                ),
+                if (state.paymentType == PaymentType.credit) ...[
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(l10n.collectedColon, style: TextStyle(fontSize: 11, color: Colors.green.shade400)),
+                      const SizedBox(width: 4),
+                      Text('৳${l10n.formatAmount(paid)}', style: TextStyle(fontSize: 11, color: Colors.green.shade400, fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 10),
+                      Text(l10n.dueRemaining, style: TextStyle(fontSize: 11, color: Colors.orange.shade400)),
+                      const SizedBox(width: 4),
+                      Text('৳${l10n.formatAmount(due)}', style: TextStyle(fontSize: 11, color: Colors.orange.shade400, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Confirm arrow button
+          GestureDetector(
+            onTap: canCheckout ? () => _handleCheckout(state, finalTotal) : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: canCheckout ? Colors.green.shade600 : colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: canCheckout
+                    ? [BoxShadow(color: Colors.green.withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, 4))]
+                    : [],
+              ),
+              child: state.isSubmitting
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                    )
+                  : const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 28),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, Color color, {bool isBold = false, double fontSize = 14}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: color, fontSize: fontSize, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
-          Text(value, style: TextStyle(color: color, fontSize: fontSize, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
-        ],
-      ),
-    );
-  }
 
   Widget _buildSmallQtyBtn(IconData icon, VoidCallback onTap, {Color? color}) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -827,10 +869,10 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet> {
                                     });
                                   }),
                                   const SizedBox(width: 8),
-                                  IconButton(
+                                   IconButton(
                                     onPressed: () {
                                       salesBloc.add(AddToCart(product, quantity: qty));
-                                      HapticFeedback.lightImpact();
+                                      _triggerShake();
                                       Navigator.pop(modalContext);
                                     },
                                     icon: Icon(Icons.add_shopping_cart, color: colorScheme.primary, size: 22),
