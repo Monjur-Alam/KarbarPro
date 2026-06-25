@@ -180,7 +180,7 @@ class _SalesViewState extends State<SalesView> {
             floatingActionButton: FloatingActionButton.extended(
               heroTag: 'sales_fab',
               onPressed: () => _showSaleFormBottomSheet(context),
-              icon: const Icon(Icons.add_shopping_cart, size: 20),
+              icon: const Icon(Icons.qr_code_scanner, size: 20),
               label: Text(context.l10n.newSale),
             ),
             body: _buildBody(state),

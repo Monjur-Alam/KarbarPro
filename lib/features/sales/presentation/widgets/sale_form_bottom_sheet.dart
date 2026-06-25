@@ -17,6 +17,8 @@ import '../bloc/sales_bloc.dart';
 import '../../../../core/constants/database_constants.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/services/invoice_service.dart';
+import '../../../../core/settings/app_settings_cubit.dart';
 import '../screens/print_invoice_screen.dart';
 
 class SaleFormBottomSheet extends StatefulWidget {
@@ -39,6 +41,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
   bool _isPartialPayment = false;
 
   late final MobileScannerController _scannerController;
+  final GlobalKey _scannerKey = GlobalKey();
   bool _cameraPermissionGranted = false;
   String? _scanFeedback; // null = hidden; product name = success; '' = not found
   bool _scanSuccess = false;
@@ -258,10 +261,35 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
         if (state is SalesSuccess) {
           HapticFeedback.heavyImpact();
           final sale = state.sale;
-          Navigator.of(context).pop(); // close bottom sheet
-          Navigator.of(context).push(
+          final navigator = Navigator.of(context);
+          final settings = context.read<AppSettingsCubit>().state;
+          final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+          // Close bottom sheet and navigate
+          navigator.pop();
+          navigator.push(
             MaterialPageRoute(builder: (_) => PrintInvoiceScreen(sale: sale)),
-          );
+          ).then((startNewSale) {
+            if (startNewSale == true && navigator.context.mounted) {
+              showModalBottomSheet(
+                context: navigator.context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => const SaleFormBottomSheet(),
+              );
+            }
+          });
+
+          // Trigger print asynchronously so it doesn't block navigation
+          InvoiceService.printReceipt(sale, settings, copies: settings.defaultCopies).catchError((e) {
+            scaffoldMessenger.showSnackBar(
+              SnackBar(
+                content: Text('প্রিন্ট ব্যর্থ: ${e.toString()}'),
+                backgroundColor: colorScheme.error,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          });
         } else if (state is SalesError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.message), backgroundColor: colorScheme.error),
@@ -323,7 +351,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
                           pinned: true,
                           delegate: _ScannerHeaderDelegate(
                             backgroundColor: colorScheme.surface,
-                            height: 220, // 210 (scanner) + 10 (padding)
+                            height: 166, // 130 (scanner) + 16 (bottom pad) + 20 (top margin)
                             child: Padding(
                               padding: const EdgeInsets.only(bottom: 16),
                               child: _buildScannerBox(),
@@ -733,22 +761,47 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
         final products = inventoryState is InventoryLoaded
             ? inventoryState.products
             : <Product>[];
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            height: 210,
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: _cameraPermissionGranted
-                ? Stack(
-                    children: [
-                      // Camera feed
-                      MobileScanner(
+        return Container(
+          height: 130, // Updated height as per earlier request
+          clipBehavior: Clip.hardEdge,
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: _cameraPermissionGranted
+              ? Stack(
+                  children: [
+                    // Camera feed
+                    Positioned.fill(
+                      child: MobileScanner(
+                        key: _scannerKey,
                         controller: _scannerController,
                         onDetect: (capture) => _onBarcodeScanned(capture, products),
+                        errorBuilder: (context, error, child) {
+                          return Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.error_outline, color: Colors.white, size: 24),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Err: ${error.errorCode}\n${error.errorDetails?.message ?? ''}',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: Colors.white, fontSize: 10),
+                                ),
+                                const SizedBox(height: 8),
+                                TextButton(
+                                  onPressed: () {
+                                    _scannerController.stop().then((_) => _scannerController.start());
+                                  },
+                                  child: const Text('Retry', style: TextStyle(color: Colors.blue)),
+                                )
+                              ],
+                            ),
+                          );
+                        },
                       ),
+                    ),
                       // Dark overlay outside the scan zone
                       CustomPaint(
                         size: Size.infinite,
@@ -760,7 +813,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
                           animation: _scanLineAnimation,
                           builder: (context, _) {
                             const frameH = 90.0;
-                            const frameTop = (210 - frameH) / 2; // vertically centred
+                            const frameTop = (130 - frameH) / 2; // centred in 130px box
                             final lineY = frameTop + _scanLineAnimation.value * (frameH - 2);
                             return CustomPaint(
                               painter: _ScanLinePainter(lineY: lineY),
@@ -797,6 +850,23 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
                               ],
                             ),
                           ),
+                        ),
+                      ),
+                      // Flash (Torch) toggle button
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: IconButton(
+                          icon: ValueListenableBuilder(
+                            valueListenable: _scannerController,
+                            builder: (context, state, child) {
+                              if (state.torchState == TorchState.on) {
+                                return const Icon(Icons.flash_on, color: Colors.amber, size: 20);
+                              }
+                              return const Icon(Icons.flash_off, color: Colors.white70, size: 20);
+                            },
+                          ),
+                          onPressed: () => _scannerController.toggleTorch(),
                         ),
                       ),
                       // Feedback banner
@@ -849,7 +919,6 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
                       ],
                     ),
                   ),
-          ),
         );
       },
     );

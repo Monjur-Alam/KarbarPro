@@ -17,8 +17,6 @@ class PrintInvoiceScreen extends StatefulWidget {
 }
 
 class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
-  late int _copies;
-  bool _isPrinting = false;
   bool _isSharing = false;
 
   Sale get sale => widget.sale;
@@ -26,28 +24,10 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
   @override
   void initState() {
     super.initState();
-    _copies = context.read<AppSettingsCubit>().state.defaultCopies;
-  }
-
-  Future<void> _handlePrint() async {
-    if (_isPrinting || _isSharing) return;
-    setState(() => _isPrinting = true);
-    final settings = context.read<AppSettingsCubit>().state;
-    try {
-      await InvoiceService.printReceipt(sale, settings, copies: _copies);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('প্রিন্ট ব্যর্থ: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isPrinting = false);
-    }
   }
 
   Future<void> _handleShare() async {
-    if (_isPrinting || _isSharing) return;
+    if (_isSharing) return;
     setState(() => _isSharing = true);
     final settings = context.read<AppSettingsCubit>().state;
     try {
@@ -75,7 +55,7 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
   @override
   Widget build(BuildContext context) {
     final isBangla = context.read<AppSettingsCubit>().state.isBangla;
-    final busy = _isPrinting || _isSharing;
+    final busy = _isSharing;
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -87,6 +67,13 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
           isBangla ? 'ইনভয়েস প্রিন্ট' : 'Print Invoice',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings, color: AppColors.primary),
+            onPressed: busy ? null : _openReceiptSettings,
+            tooltip: isBangla ? 'রসিদ সেটিংস' : 'Receipt Settings',
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -543,26 +530,6 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
       child: Row(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                isBangla ? 'কপির সংখ্যা' : 'Number of copy',
-                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-              ),
-              const SizedBox(height: 4),
-              Row(children: [
-                _stepperBtn(Icons.remove, (!busy && _copies > 1) ? () => setState(() => _copies--) : null),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: Text('$_copies', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                ),
-                _stepperBtn(Icons.add, (!busy && _copies < 20) ? () => setState(() => _copies++) : null),
-              ]),
-            ],
-          ),
-          const SizedBox(width: 12),
           Expanded(
             child: SizedBox(
               height: 48,
@@ -573,32 +540,25 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),
-                onPressed: busy ? null : _handlePrint,
-                child: _isPrinting
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.print, size: 20),
-                          const SizedBox(width: 6),
-                          Text(isBangla ? 'প্রিন্ট' : 'Print', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
+                onPressed: busy ? null : () => Navigator.pop(context, true),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.add_shopping_cart, size: 20),
+                    const SizedBox(width: 6),
+                    Text(isBangla ? 'নতুন বিক্রি' : 'New Sale', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  ],
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 4),
-          IconButton(
-            icon: const Icon(Icons.settings, color: AppColors.primary),
-            onPressed: busy ? null : _openReceiptSettings,
-            tooltip: 'রসিদ সেটিংস',
-          ),
+          const SizedBox(width: 12),
           IconButton(
             icon: _isSharing
                 ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: cs.onSurfaceVariant))
                 : const Icon(Icons.share_outlined, color: AppColors.primary),
             onPressed: busy ? null : _handleShare,
-            tooltip: 'শেয়ার',
+            tooltip: isBangla ? 'শেয়ার' : 'Share',
           ),
         ],
       ),
@@ -660,19 +620,6 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
           Expanded(child: Text(label, style: TextStyle(fontSize: fontSize, fontWeight: bold ? FontWeight.bold : FontWeight.normal, color: color))),
           Text('৳${amount.abs().toStringAsFixed(2)}', style: TextStyle(fontSize: fontSize, fontWeight: bold ? FontWeight.bold : FontWeight.w500, color: color)),
         ]),
-      );
-
-  Widget _stepperBtn(IconData icon, VoidCallback? onTap) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Icon(icon, size: 18, color: onTap != null ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.outlineVariant),
-        ),
       );
 
   TableRow _tableRow(List<String> cells, {bool header = false, bool small = false}) => TableRow(

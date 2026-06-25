@@ -1,7 +1,10 @@
 import 'package:amar_dokan/core/constants/app_colors.dart';
+import 'package:amar_dokan/core/constants/app_icons_string.dart';
+import 'package:amar_dokan/core/constants/icon_helper.dart';
 import 'package:amar_dokan/core/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:googleapis/drive/v3.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
 import 'package:amar_dokan/features/dashboard/presentation/bloc/home_bloc.dart';
@@ -480,7 +483,7 @@ class DashboardHome extends StatelessWidget {
             ),
           );
         },
-        icon: const Icon(Icons.add_shopping_cart, size: 20),
+        icon: const Icon(Icons.qr_code_scanner, size: 20),
         label: Text(context.l10n.newSale),
       ),
       body: RefreshIndicator(
