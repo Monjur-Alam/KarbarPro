@@ -1,3 +1,4 @@
+import 'package:sqflite/sqflite.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../../../core/constants/database_constants.dart';
 import '../domain/product.dart';
@@ -79,15 +80,42 @@ class InventoryRepository {
   Future<void> addProduct(Product product) async {
     final productModel = ProductModel.fromEntity(product);
     await _dbHelper.insert(DatabaseConstants.tableProducts, productModel.toJson());
+    await _ensureCategoryExists(product.category);
   }
 
   Future<void> updateProduct(Product product) async {
     if (product.id == null) return;
     final productModel = ProductModel.fromEntity(product);
     await _dbHelper.update(DatabaseConstants.tableProducts, productModel.toJson());
+    await _ensureCategoryExists(product.category);
+  }
+
+  Future<void> _ensureCategoryExists(String? category) async {
+    if (category == null || category.isEmpty) return;
+    final db = await _dbHelper.database;
+    final now = DateTime.now().toIso8601String();
+    await db.insert(
+      DatabaseConstants.tableProductCategories,
+      {
+        DatabaseConstants.colName: category,
+        DatabaseConstants.colCreatedAt: now,
+        DatabaseConstants.colUpdatedAt: now,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
   }
 
   Future<void> deleteProduct(int id) async {
     await _dbHelper.delete(DatabaseConstants.tableProducts, id);
+  }
+
+  Future<List<String>> getAllCategories() async {
+    final db = await _dbHelper.database;
+    final result = await db.rawQuery('''
+      SELECT ${DatabaseConstants.colName}
+      FROM ${DatabaseConstants.tableProductCategories}
+      ORDER BY ${DatabaseConstants.colName} ASC
+    ''');
+    return result.map((r) => r[DatabaseConstants.colName] as String).toList();
   }
 }

@@ -719,16 +719,14 @@ class _ProductFormBottomSheetState extends State<ProductFormBottomSheet> with Si
     final database = await db.database;
 
     final result = await database.rawQuery('''
-      SELECT DISTINCT ${DatabaseConstants.colCategory}
-      FROM ${DatabaseConstants.tableProducts}
-      WHERE ${DatabaseConstants.colCategory} IS NOT NULL
-        AND ${DatabaseConstants.colCategory} != ''
-      ORDER BY ${DatabaseConstants.colCategory} ASC
+      SELECT ${DatabaseConstants.colName}
+      FROM ${DatabaseConstants.tableProductCategories}
+      ORDER BY ${DatabaseConstants.colName} ASC
     ''');
 
     setState(() {
       _existingCategories = result
-          .map((row) => row[DatabaseConstants.colCategory] as String)
+          .map((row) => row[DatabaseConstants.colName] as String)
           .toList();
     });
   }

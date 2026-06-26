@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sqflite/sqflite.dart';
 import '../../../../core/constants/database_constants.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../../../core/l10n/app_localizations.dart';
@@ -33,16 +34,16 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
     final db = context.read<DatabaseHelper>();
     final database = await db.database;
 
-    // Get unique categories with product count
+    // All categories from product_categories table + product count (even if 0)
     final result = await database.rawQuery('''
-      SELECT 
-        ${DatabaseConstants.colCategory} as category,
-        COUNT(*) as product_count
-      FROM ${DatabaseConstants.tableProducts}
-      WHERE ${DatabaseConstants.colCategory} IS NOT NULL 
-        AND ${DatabaseConstants.colCategory} != ''
-      GROUP BY ${DatabaseConstants.colCategory}
-      ORDER BY ${DatabaseConstants.colCategory} ASC
+      SELECT
+        pc.${DatabaseConstants.colName} as category,
+        COUNT(p.${DatabaseConstants.colId}) as product_count
+      FROM ${DatabaseConstants.tableProductCategories} pc
+      LEFT JOIN ${DatabaseConstants.tableProducts} p
+        ON p.${DatabaseConstants.colCategory} = pc.${DatabaseConstants.colName}
+      GROUP BY pc.${DatabaseConstants.colName}
+      ORDER BY pc.${DatabaseConstants.colName} ASC
     ''');
 
     setState(() {
@@ -78,7 +79,7 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
             ElevatedButton(
               onPressed: () {
                 if (controller.text.isNotEmpty) {
-                  Navigator.pop(context, controller.text);
+                  Navigator.pop(context, controller.text.trim());
                 }
               },
               child: const Text('যোগ করুন'),
@@ -89,9 +90,8 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
     );
 
     if (result != null && result.isNotEmpty) {
-      // Check if category already exists
-      final exists = _categories.any((cat) => 
-        cat['category'].toString().toLowerCase() == result.toLowerCase()
+      final exists = _categories.any(
+        (cat) => cat['category'].toString().toLowerCase() == result.toLowerCase(),
       );
 
       if (exists) {
@@ -104,11 +104,23 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
           );
         }
       } else {
-        // Category will be created when a product is added with this category
+        final db = context.read<DatabaseHelper>();
+        final database = await db.database;
+        final now = DateTime.now().toIso8601String();
+        await database.insert(
+          DatabaseConstants.tableProductCategories,
+          {
+            DatabaseConstants.colName: result,
+            DatabaseConstants.colCreatedAt: now,
+            DatabaseConstants.colUpdatedAt: now,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+        _loadCategories();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('ক্যাটাগরি "$result" তৈরি হবে যখন কোনো পণ্য এই ক্যাটাগরিতে যুক্ত হবে'),
+              content: Text('ক্যাটাগরি "$result" যোগ হয়েছে'),
               backgroundColor: Colors.green,
             ),
           );
@@ -144,7 +156,7 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
             ElevatedButton(
               onPressed: () {
                 if (controller.text.isNotEmpty) {
-                  Navigator.pop(context, controller.text);
+                  Navigator.pop(context, controller.text.trim());
                 }
               },
               child: const Text('সংরক্ষণ'),
@@ -157,7 +169,17 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
     if (result != null && result.isNotEmpty && result != oldCategory) {
       final db = context.read<DatabaseHelper>();
       final database = await db.database;
+      final now = DateTime.now().toIso8601String();
 
+      // Update the category name in product_categories table
+      await database.update(
+        DatabaseConstants.tableProductCategories,
+        {DatabaseConstants.colName: result, DatabaseConstants.colUpdatedAt: now},
+        where: '${DatabaseConstants.colName} = ?',
+        whereArgs: [oldCategory],
+      );
+
+      // Update all products that have the old category
       await database.update(
         DatabaseConstants.tableProducts,
         {DatabaseConstants.colCategory: result},
@@ -166,7 +188,7 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
       );
 
       _loadCategories();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -188,8 +210,10 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           title: Text('ক্যাটাগরি মুছে ফেলুন', style: TextStyle(color: colorScheme.onSurface)),
           content: Text(
-            'আপনি কি নিশ্চিত যে "$category" ক্যাটাগরি মুছে ফেলতে চান?\n\n'
-            'এই ক্যাটাগরিতে $productCount টি পণ্য আছে। পণ্যগুলি মুছে যাবে না, শুধুমাত্র তাদের ক্যাটাগরি খালি হয়ে যাবে।',
+            productCount > 0
+                ? 'আপনি কি নিশ্চিত যে "$category" ক্যাটাগরি মুছে ফেলতে চান?\n\n'
+                    'এই ক্যাটাগরিতে $productCount টি পণ্য আছে। পণ্যগুলি মুছে যাবে না, শুধুমাত্র তাদের ক্যাটাগরি খালি হয়ে যাবে।'
+                : 'আপনি কি নিশ্চিত যে "$category" ক্যাটাগরি মুছে ফেলতে চান?',
             style: TextStyle(color: colorScheme.onSurfaceVariant),
           ),
           actions: [
@@ -211,7 +235,14 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
       final db = context.read<DatabaseHelper>();
       final database = await db.database;
 
-      // Set category to null for all products in this category
+      // Remove from product_categories table
+      await database.delete(
+        DatabaseConstants.tableProductCategories,
+        where: '${DatabaseConstants.colName} = ?',
+        whereArgs: [category],
+      );
+
+      // Clear category from all products
       await database.update(
         DatabaseConstants.tableProducts,
         {DatabaseConstants.colCategory: null},
@@ -220,7 +251,7 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
       );
 
       _loadCategories();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -312,7 +343,10 @@ class _ManageCategoryScreenState extends State<ManageCategoryScreen> {
                               ),
                               subtitle: Text(
                                 '${context.l10n.formatDigits(productCount.toString())} আইটেম',
-                                style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
+                                style: TextStyle(
+                                  color: productCount == 0 ? colorScheme.outlineVariant : colorScheme.onSurfaceVariant,
+                                  fontSize: 14,
+                                ),
                               ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,

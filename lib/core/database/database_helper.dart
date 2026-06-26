@@ -84,6 +84,11 @@ class DatabaseHelper {
       await _upgradeToVersion12(db);
       print('DB_LOG: Upgrade to Version 12 Complete.');
     }
+    if (oldVersion < 13) {
+      print('DB_LOG: Upgrading to Version 13...');
+      await _upgradeToVersion13(db);
+      print('DB_LOG: Upgrade to Version 13 Complete.');
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -264,6 +269,7 @@ class DatabaseHelper {
 
     await _createTransactionTables(db);
     await _createKhorochCategoryTable(db);
+    await _createProductCategoryTable(db);
   }
 
   Future<void> _createTransactionTables(Database db) async {
@@ -460,6 +466,38 @@ class DatabaseHelper {
       print('DB_LOG: size column might already exist: $e');
     }
     print('DB_LOG: Version 12 Migration - size column added to products.');
+  }
+
+  Future<void> _createProductCategoryTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DatabaseConstants.tableProductCategories} (
+        ${DatabaseConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DatabaseConstants.colName} TEXT NOT NULL UNIQUE,
+        ${DatabaseConstants.colCreatedAt} TEXT,
+        ${DatabaseConstants.colUpdatedAt} TEXT
+      )
+    ''');
+  }
+
+  Future<void> _upgradeToVersion13(Database db) async {
+    await _createProductCategoryTable(db);
+    // Migrate existing product categories into the new table
+    final existing = await db.rawQuery('''
+      SELECT DISTINCT ${DatabaseConstants.colCategory} FROM ${DatabaseConstants.tableProducts}
+      WHERE ${DatabaseConstants.colCategory} IS NOT NULL AND ${DatabaseConstants.colCategory} != ''
+    ''');
+    final now = DateTime.now().toIso8601String();
+    for (final row in existing) {
+      await db.insert(
+        DatabaseConstants.tableProductCategories,
+        {
+          DatabaseConstants.colName: row[DatabaseConstants.colCategory],
+          DatabaseConstants.colCreatedAt: now,
+          DatabaseConstants.colUpdatedAt: now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
   }
 
   Future<void> _createKhorochCategoryTable(Database db) async {

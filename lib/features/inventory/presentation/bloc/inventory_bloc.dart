@@ -149,15 +149,8 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
       // but if we are filtering, we might lose other categories. 
       // Better approach: If categories are empty (first load), aggregate them.
       if (categories.isEmpty) {
-        // Fetch all products once to get categories if needed, or just use current list
-        // Optimization: For now just use unique categories from current list
-        final uniqueCats = products
-            .where((p) => p.category != null && p.category!.isNotEmpty)
-            .map((p) => p.category!)
-            .toSet()
-            .toList();
-        uniqueCats.sort();
-        categories = ['All', ...uniqueCats];
+        final allCats = await _repository.getAllCategories();
+        categories = ['All', ...allCats];
       }
 
       emit(InventoryLoaded(
