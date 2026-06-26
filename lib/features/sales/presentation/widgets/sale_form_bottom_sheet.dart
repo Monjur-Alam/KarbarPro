@@ -130,16 +130,31 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
     if (product == null) {
       HapticFeedback.heavyImpact();
       _playErrorSound();
-      _showScanFeedback('', false);
-    } else if (product.currentStock <= 0) {
-      HapticFeedback.heavyImpact();
-      _playErrorSound();
-      _showScanFeedback(product.name, false);
+      _showScanFeedback(context.l10n.productNotFound, false);
     } else {
-      context.read<SalesBloc>().add(AddToCart(product));
-      _playSuccessBeep();
-      _triggerShake();
-      _showScanFeedback(product.name, true);
+      final salesState = context.read<SalesBloc>().state;
+      int cartQty = 0;
+      if (salesState is SalesDataLoaded) {
+        cartQty = salesState.cart
+            .where((i) => i.product.id == product.id)
+            .fold(0, (sum, i) => sum + i.quantity);
+      }
+      final remaining = product.currentStock - cartQty;
+      final isBangla = context.read<AppSettingsCubit>().state.isBangla;
+
+      if (remaining <= 0) {
+        HapticFeedback.heavyImpact();
+        _playErrorSound();
+        _showScanFeedback(
+          '${product.name} — ${isBangla ? "স্টক শেষ" : "Out of Stock"}',
+          false,
+        );
+      } else {
+        context.read<SalesBloc>().add(AddToCart(product));
+        _playSuccessBeep();
+        _triggerShake();
+        _showScanFeedback(product.name, true);
+      }
     }
   }
 
@@ -829,29 +844,6 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
                           child: CustomPaint(painter: _CornerBracketPainter()),
                         ),
                       ),
-                      // Top label
-                      Positioned(
-                        top: 10,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.55),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.qr_code_scanner, color: Colors.white70, size: 13),
-                                const SizedBox(width: 5),
-                                Text(l10n.scanBarcode, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
                       // Flash (Torch) toggle button
                       Positioned(
                         top: 4,
@@ -889,7 +881,7 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    _scanSuccess ? _scanFeedback! : l10n.productNotFound,
+                                    _scanFeedback!,
                                     style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -959,6 +951,16 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
     final colorScheme = Theme.of(context).colorScheme;
     final l10n = context.l10n;
     final salesBloc = context.read<SalesBloc>();
+    final isBangla = context.read<AppSettingsCubit>().state.isBangla;
+
+    // Snapshot cart quantities when picker opens
+    final Map<int, int> cartQtyMap = {};
+    final salesState = salesBloc.state;
+    if (salesState is SalesDataLoaded) {
+      for (final item in salesState.cart) {
+        if (item.product.id != null) cartQtyMap[item.product.id!] = item.quantity;
+      }
+    }
 
     showModalBottomSheet(
       context: context,
@@ -1004,7 +1006,11 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
                           separatorBuilder: (context, index) => const Divider(height: 1),
                           itemBuilder: (context, index) {
                             final product = filtered[index];
-                            final qty = itemQtys[product.id] ?? 1;
+                            final cartQty = cartQtyMap[product.id] ?? 0;
+                            final remaining = product.currentStock - cartQty;
+                            final isStockOut = remaining <= 0;
+                            final qty = (itemQtys[product.id] ?? 1).clamp(1, isStockOut ? 1 : remaining);
+
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               child: Row(
@@ -1028,40 +1034,60 @@ class _SaleFormBottomSheetState extends State<SaleFormBottomSheet>
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          l10n.stockInfo(l10n.formatDigits(product.currentStock.toString()), product.unit),
-                                          style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                                          isStockOut
+                                              ? (isBangla ? 'স্টক শেষ' : 'Out of Stock')
+                                              : l10n.stockInfo(l10n.formatDigits(remaining.toString()), product.unit),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: isStockOut ? Colors.red : colorScheme.onSurfaceVariant,
+                                            fontWeight: isStockOut ? FontWeight.w600 : FontWeight.normal,
+                                          ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  _buildSmallQtyBtn(Icons.remove, () {
-                                    setPickerState(() {
-                                      if (qty > 1) itemQtys[product.id!] = qty - 1;
-                                    });
-                                  }),
-                                  Container(
-                                    width: 32,
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      l10n.formatDigits(qty.toString()),
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: colorScheme.onSurface),
+                                  if (!isStockOut) ...[
+                                    _buildSmallQtyBtn(Icons.remove, () {
+                                      setPickerState(() {
+                                        if (qty > 1) itemQtys[product.id!] = qty - 1;
+                                      });
+                                    }),
+                                    Container(
+                                      width: 32,
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        l10n.formatDigits(qty.toString()),
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: colorScheme.onSurface),
+                                      ),
                                     ),
-                                  ),
-                                  _buildSmallQtyBtn(Icons.add, () {
-                                    setPickerState(() {
-                                      if (qty < product.currentStock) itemQtys[product.id!] = qty + 1;
-                                    });
-                                  }),
-                                  const SizedBox(width: 8),
-                                   IconButton(
-                                    onPressed: () {
-                                      salesBloc.add(AddToCart(product, quantity: qty));
-                                      _triggerShake();
-                                      Navigator.pop(modalContext);
-                                    },
-                                    icon: Icon(Icons.add_shopping_cart, color: colorScheme.primary, size: 22),
+                                    _buildSmallQtyBtn(Icons.add, () {
+                                      setPickerState(() {
+                                        if (qty < remaining) itemQtys[product.id!] = qty + 1;
+                                      });
+                                    }),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  IconButton(
+                                    onPressed: isStockOut
+                                        ? () {
+                                            ScaffoldMessenger.of(modalContext).showSnackBar(SnackBar(
+                                              content: Text(isBangla ? '${product.name} — স্টক শেষ' : '${product.name} — Out of Stock'),
+                                              backgroundColor: Colors.red.shade700,
+                                              duration: const Duration(seconds: 2),
+                                            ));
+                                          }
+                                        : () {
+                                            salesBloc.add(AddToCart(product, quantity: qty));
+                                            _triggerShake();
+                                            Navigator.pop(modalContext);
+                                          },
+                                    icon: Icon(
+                                      isStockOut ? Icons.remove_shopping_cart_outlined : Icons.add_shopping_cart,
+                                      color: isStockOut ? Colors.red.shade300 : colorScheme.primary,
+                                      size: 22,
+                                    ),
                                     style: IconButton.styleFrom(
-                                      backgroundColor: colorScheme.primaryContainer,
+                                      backgroundColor: isStockOut ? Colors.red.withValues(alpha: 0.08) : colorScheme.primaryContainer,
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                     ),
                                   ),

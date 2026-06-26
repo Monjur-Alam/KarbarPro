@@ -55,20 +55,14 @@ class InvoiceService {
   ) async {
     final pdf = await generateSaleReceipt(sale, settings, copies: 1);
     final dir = await getTemporaryDirectory();
-    
-    // Rasterize the first page of the PDF to a PNG image
-    final pages = await Printing.raster(pdf, pages: [0], dpi: 200).toList();
-    if (pages.isNotEmpty) {
-      final imageBytes = await pages.first.toPng();
-      final file = File('${dir.path}/Receipt_${sale.invoiceId}.png');
-      await file.writeAsBytes(imageBytes);
-      await SharePlus.instance.share(ShareParams(
-        files: [XFile(file.path, mimeType: 'image/png')],
-        subject: settings.isBangla
-            ? 'ইনভয়েস: ${sale.invoiceId}'
-            : 'Invoice: ${sale.invoiceId}',
-      ));
-    }
+    final file = File('${dir.path}/Receipt_${sale.invoiceId}.pdf');
+    await file.writeAsBytes(pdf);
+    await SharePlus.instance.share(ShareParams(
+      files: [XFile(file.path, mimeType: 'application/pdf')],
+      subject: settings.isBangla
+          ? 'ইনভয়েস: ${sale.invoiceId}'
+          : 'Invoice: ${sale.invoiceId}',
+    ));
   }
 
   // ── HTML assembly ─────────────────────────────────────────

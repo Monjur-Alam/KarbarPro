@@ -1,9 +1,13 @@
+import 'dart:io';
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/services/invoice_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../domain/sale.dart';
 import 'receipt_settings_screen.dart';
@@ -18,6 +22,7 @@ class PrintInvoiceScreen extends StatefulWidget {
 
 class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
   bool _isSharing = false;
+  final _receiptKey = GlobalKey();
 
   Sale get sale => widget.sale;
 
@@ -29,9 +34,20 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
   Future<void> _handleShare() async {
     if (_isSharing) return;
     setState(() => _isSharing = true);
-    final settings = context.read<AppSettingsCubit>().state;
+    final isBangla = context.read<AppSettingsCubit>().state.isBangla;
     try {
-      await InvoiceService.shareReceipt(sale, settings);
+      final boundary = _receiptKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return;
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/Receipt_${sale.invoiceId}.png');
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(file.path, mimeType: 'image/png')],
+        subject: isBangla ? 'ইনভয়েস: ${sale.invoiceId}' : 'Invoice: ${sale.invoiceId}',
+      ));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -83,7 +99,10 @@ class _PrintInvoiceScreenState extends State<PrintInvoiceScreen> {
               child: BlocBuilder<AppSettingsCubit, AppSettingsState>(
                 builder: (ctx, settings) => GestureDetector(
                   onTap: _openReceiptSettings,
-                  child: _buildReceiptCard(settings),
+                  child: RepaintBoundary(
+                    key: _receiptKey,
+                    child: _buildReceiptCard(settings),
+                  ),
                 ),
               ),
             ),
