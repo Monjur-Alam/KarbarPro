@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/screens/profile_screen.dart';
+import '../../features/inventory/presentation/screens/manage_attribute_screen.dart';
+import '../../features/inventory/presentation/screens/manage_category_screen.dart';
 import '../constants/app_colors.dart';
+import '../constants/database_constants.dart';
 import '../database/database_helper.dart';
 import '../l10n/app_localizations.dart';
 import '../services/google_drive_service.dart';
@@ -30,6 +33,8 @@ class AppDrawer extends StatelessWidget {
               children: [
                 _buildExpandableLanguage(context, l10n, isDark),
                 _buildExpandableTheme(context, l10n, isDark),
+                _buildExpandableSettings(context, l10n, isDark),
+                _buildExpandableManage(context, l10n, isDark),
                 const Divider(height: 1),
                 _buildMenuItem(
                   context: context,
@@ -40,42 +45,6 @@ class AppDrawer extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                    );
-                  },
-                  isDark: isDark,
-                ),
-                _buildMenuItem(
-                  context: context,
-                  icon: Icons.settings_outlined,
-                  label: l10n.settings,
-                  onTap: () {
-                    Navigator.pop(context);
-                    // TODO: Navigate to Settings
-                  },
-                  isDark: isDark,
-                ),
-                _buildMenuItem(
-                  context: context,
-                  icon: Icons.print_outlined,
-                  label: 'Printer Settings',
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()),
-                    );
-                  },
-                  isDark: isDark,
-                ),
-                _buildMenuItem(
-                  context: context,
-                  icon: Icons.receipt_long_outlined,
-                  label: 'Receipt Settings',
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ReceiptSettingsScreen()),
                     );
                   },
                   isDark: isDark,
@@ -362,6 +331,159 @@ class AppDrawer extends StatelessWidget {
       trailing: isSelected
           ? Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22)
           : null,
+      onTap: onTap,
+    );
+  }
+
+  Widget _buildExpandableSettings(
+    BuildContext context,
+    AppLocalizations l10n,
+    bool isDark,
+  ) {
+    final iconColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimary;
+
+    return ExpansionTile(
+      leading: Icon(Icons.settings_outlined, color: iconColor, size: 24),
+      title: Text(
+        l10n.settings,
+        style: TextStyle(fontWeight: FontWeight.w600, color: iconColor, fontSize: 15),
+      ),
+      iconColor: iconColor,
+      collapsedIconColor: iconColor,
+      childrenPadding: const EdgeInsets.only(left: 24, bottom: 8),
+      children: [
+        _buildSubMenuItem(
+          context: context,
+          icon: Icons.print_outlined,
+          label: 'Printer Settings',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()));
+          },
+          isDark: isDark,
+        ),
+        _buildSubMenuItem(
+          context: context,
+          icon: Icons.receipt_long_outlined,
+          label: 'Receipt Settings',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ReceiptSettingsScreen()));
+          },
+          isDark: isDark,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpandableManage(
+    BuildContext context,
+    AppLocalizations l10n,
+    bool isDark,
+  ) {
+    final iconColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimary;
+
+    return ExpansionTile(
+      leading: Icon(Icons.tune_outlined, color: iconColor, size: 24),
+      title: Text(
+        'Manage',
+        style: TextStyle(fontWeight: FontWeight.w600, color: iconColor, fontSize: 15),
+      ),
+      iconColor: iconColor,
+      collapsedIconColor: iconColor,
+      childrenPadding: const EdgeInsets.only(left: 24, bottom: 8),
+      children: [
+        _buildSubMenuItem(
+          context: context,
+          icon: Icons.category_outlined,
+          label: 'Categories',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageCategoryScreen()));
+          },
+          isDark: isDark,
+        ),
+        _buildSubMenuItem(
+          context: context,
+          icon: Icons.branding_watermark_outlined,
+          label: 'Brands',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ManageAttributeScreen(
+                  title: 'Brands',
+                  tableName: DatabaseConstants.tableProductBrands,
+                  addLabel: 'Brand যোগ করুন',
+                  fieldLabel: 'Brand নাম',
+                ),
+              ),
+            );
+          },
+          isDark: isDark,
+        ),
+        _buildSubMenuItem(
+          context: context,
+          icon: Icons.straighten_outlined,
+          label: 'Units',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ManageAttributeScreen(
+                  title: 'Units',
+                  tableName: DatabaseConstants.tableProductUnits,
+                  addLabel: 'Unit যোগ করুন',
+                  fieldLabel: 'Unit নাম',
+                ),
+              ),
+            );
+          },
+          isDark: isDark,
+        ),
+        _buildSubMenuItem(
+          context: context,
+          icon: Icons.palette_outlined,
+          label: 'Colors',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ManageAttributeScreen(
+                  title: 'Colors',
+                  tableName: DatabaseConstants.tableProductColors,
+                  addLabel: 'Color যোগ করুন',
+                  fieldLabel: 'Color নাম',
+                ),
+              ),
+            );
+          },
+          isDark: isDark,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubMenuItem({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimary;
+
+    return ListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+      leading: Icon(icon, size: 20, color: textColor),
+      title: Text(
+        label,
+        style: TextStyle(fontSize: 14, color: textColor, fontWeight: FontWeight.normal),
+      ),
       onTap: onTap,
     );
   }

@@ -89,6 +89,11 @@ class DatabaseHelper {
       await _upgradeToVersion13(db);
       print('DB_LOG: Upgrade to Version 13 Complete.');
     }
+    if (oldVersion < 14) {
+      print('DB_LOG: Upgrading to Version 14...');
+      await _upgradeToVersion14(db);
+      print('DB_LOG: Upgrade to Version 14 Complete.');
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -270,6 +275,10 @@ class DatabaseHelper {
     await _createTransactionTables(db);
     await _createKhorochCategoryTable(db);
     await _createProductCategoryTable(db);
+    await _createAttributeTable(db, DatabaseConstants.tableProductBrands);
+    await _createAttributeTable(db, DatabaseConstants.tableProductUnits);
+    await _createAttributeTable(db, DatabaseConstants.tableProductColors);
+    await _seedProductUnits(db);
   }
 
   Future<void> _createTransactionTables(Database db) async {
@@ -466,6 +475,36 @@ class DatabaseHelper {
       print('DB_LOG: size column might already exist: $e');
     }
     print('DB_LOG: Version 12 Migration - size column added to products.');
+  }
+
+  Future<void> _upgradeToVersion14(Database db) async {
+    await _createAttributeTable(db, DatabaseConstants.tableProductBrands);
+    await _createAttributeTable(db, DatabaseConstants.tableProductUnits);
+    await _createAttributeTable(db, DatabaseConstants.tableProductColors);
+    await _seedProductUnits(db);
+  }
+
+  Future<void> _createAttributeTable(Database db, String tableName) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $tableName (
+        ${DatabaseConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DatabaseConstants.colName} TEXT NOT NULL UNIQUE,
+        ${DatabaseConstants.colCreatedAt} TEXT,
+        ${DatabaseConstants.colUpdatedAt} TEXT
+      )
+    ''');
+  }
+
+  Future<void> _seedProductUnits(Database db) async {
+    final now = DateTime.now().toIso8601String();
+    final units = ['pcs', 'kg', 'g', 'litre', 'ml', 'box', 'dozen', 'pair', 'bag', 'bottle', 'meter', 'yard'];
+    for (final u in units) {
+      await db.insert(
+        DatabaseConstants.tableProductUnits,
+        {DatabaseConstants.colName: u, DatabaseConstants.colCreatedAt: now, DatabaseConstants.colUpdatedAt: now},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
   }
 
   Future<void> _createProductCategoryTable(Database db) async {

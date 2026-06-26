@@ -1,6 +1,6 @@
 class DatabaseConstants {
   static const String databaseName = 'amar_dokan.db';
-  static const int databaseVersion = 13;
+  static const int databaseVersion = 14;
 
   // New Customer Columns
   static const String colCustomerType = 'type'; // 'customer' or 'supplier'
@@ -21,6 +21,9 @@ class DatabaseConstants {
   static const String tableShopTransactions = 'shop_transactions';
   static const String tableKhorochCategories = 'khoroch_categories';
   static const String tableProductCategories = 'product_categories';
+  static const String tableProductBrands = 'product_brands';
+  static const String tableProductUnits = 'product_units';
+  static const String tableProductColors = 'product_colors';
 
   // Common Columns
   static const String colId = 'id';
