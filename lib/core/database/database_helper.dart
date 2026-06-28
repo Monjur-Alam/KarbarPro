@@ -94,6 +94,11 @@ class DatabaseHelper {
       await _upgradeToVersion14(db);
       print('DB_LOG: Upgrade to Version 14 Complete.');
     }
+    if (oldVersion < 15) {
+      print('DB_LOG: Upgrading to Version 15...');
+      await _createVariationTables(db);
+      print('DB_LOG: Upgrade to Version 15 Complete.');
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -279,6 +284,27 @@ class DatabaseHelper {
     await _createAttributeTable(db, DatabaseConstants.tableProductUnits);
     await _createAttributeTable(db, DatabaseConstants.tableProductColors);
     await _seedProductUnits(db);
+    await _createVariationTables(db);
+  }
+
+  Future<void> _createVariationTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DatabaseConstants.tableProductVariations} (
+        ${DatabaseConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DatabaseConstants.colName} TEXT NOT NULL UNIQUE,
+        ${DatabaseConstants.colCreatedAt} TEXT,
+        ${DatabaseConstants.colUpdatedAt} TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DatabaseConstants.tableProductVariationValues} (
+        ${DatabaseConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DatabaseConstants.colVariationId} INTEGER NOT NULL,
+        value TEXT NOT NULL,
+        ${DatabaseConstants.colCreatedAt} TEXT,
+        FOREIGN KEY (${DatabaseConstants.colVariationId}) REFERENCES ${DatabaseConstants.tableProductVariations} (${DatabaseConstants.colId}) ON DELETE CASCADE
+      )
+    ''');
   }
 
   Future<void> _createTransactionTables(Database db) async {

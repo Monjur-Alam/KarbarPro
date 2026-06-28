@@ -4,6 +4,7 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/screens/profile_screen.dart';
 import '../../features/inventory/presentation/screens/manage_attribute_screen.dart';
 import '../../features/inventory/presentation/screens/manage_category_screen.dart';
+import '../../features/inventory/presentation/screens/manage_variation_screen.dart';
 import '../constants/app_colors.dart';
 import '../constants/database_constants.dart';
 import '../database/database_helper.dart';
@@ -24,6 +25,9 @@ class AppDrawer extends StatelessWidget {
     final l10n = AppLocalizations(locale);
 
     return Drawer(
+      backgroundColor: isDark
+          ? theme.colorScheme.surfaceContainerLow
+          : theme.colorScheme.surface,
       child: Column(
         children: [
           _buildHeader(context, l10n),
@@ -31,10 +35,10 @@ class AppDrawer extends StatelessWidget {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
+                _buildExpandableManage(context, l10n, isDark),
+                _buildExpandableSettings(context, l10n, isDark),
                 _buildExpandableLanguage(context, l10n, isDark),
                 _buildExpandableTheme(context, l10n, isDark),
-                _buildExpandableSettings(context, l10n, isDark),
-                _buildExpandableManage(context, l10n, isDark),
                 const Divider(height: 1),
                 _buildMenuItem(
                   context: context,
@@ -445,21 +449,11 @@ class AppDrawer extends StatelessWidget {
         ),
         _buildSubMenuItem(
           context: context,
-          icon: Icons.palette_outlined,
-          label: 'Colors',
+          icon: Icons.layers_outlined,
+          label: 'Variations',
           onTap: () {
             Navigator.pop(context);
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const ManageAttributeScreen(
-                  title: 'Colors',
-                  tableName: DatabaseConstants.tableProductColors,
-                  addLabel: 'Color যোগ করুন',
-                  fieldLabel: 'Color নাম',
-                ),
-              ),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageVariationScreen()));
           },
           isDark: isDark,
         ),
