@@ -20,6 +20,9 @@ class ProductModel extends Product {
     super.updatedAt,
     super.syncedAt,
     super.isSynced,
+    super.variationsJson,
+    super.supplierId,
+    super.variants,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -37,16 +40,19 @@ class ProductModel extends Product {
       size: json[DatabaseConstants.colSize],
       imagePath: json[DatabaseConstants.colImagePath],
       isActive: json[DatabaseConstants.colIsActive] == 1,
-      createdAt: json[DatabaseConstants.colCreatedAt] != null 
-          ? DateTime.parse(json[DatabaseConstants.colCreatedAt]) 
+      createdAt: json[DatabaseConstants.colCreatedAt] != null
+          ? DateTime.parse(json[DatabaseConstants.colCreatedAt])
           : null,
-      updatedAt: json[DatabaseConstants.colUpdatedAt] != null 
-          ? DateTime.parse(json[DatabaseConstants.colUpdatedAt]) 
+      updatedAt: json[DatabaseConstants.colUpdatedAt] != null
+          ? DateTime.parse(json[DatabaseConstants.colUpdatedAt])
           : null,
-      syncedAt: json[DatabaseConstants.colSyncedAt] != null 
-          ? DateTime.parse(json[DatabaseConstants.colSyncedAt]) 
+      syncedAt: json[DatabaseConstants.colSyncedAt] != null
+          ? DateTime.parse(json[DatabaseConstants.colSyncedAt])
           : null,
       isSynced: json[DatabaseConstants.colIsSynced] == 1,
+      variationsJson: json[DatabaseConstants.colVariationsJson] as String?,
+      supplierId: json[DatabaseConstants.colSupplierId] as int?,
+      variants: null,
     );
   }
 
@@ -69,6 +75,8 @@ class ProductModel extends Product {
       if (updatedAt != null) DatabaseConstants.colUpdatedAt: updatedAt!.toIso8601String(),
       if (syncedAt != null) DatabaseConstants.colSyncedAt: syncedAt!.toIso8601String(),
       DatabaseConstants.colIsSynced: isSynced ? 1 : 0,
+      DatabaseConstants.colVariationsJson: variationsJson,
+      DatabaseConstants.colSupplierId: supplierId,
     };
   }
 
@@ -91,6 +99,9 @@ class ProductModel extends Product {
       updatedAt: product.updatedAt,
       syncedAt: product.syncedAt,
       isSynced: product.isSynced,
+      variationsJson: product.variationsJson,
+      supplierId: product.supplierId,
+      variants: product.variants,
     );
   }
 }

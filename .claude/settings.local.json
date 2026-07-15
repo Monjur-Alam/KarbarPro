@@ -15,7 +15,9 @@
       "Bash(adb shell *)",
       "Bash(adb devices *)",
       "Bash(adb *)",
-      "Bash(keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android)"
+      "Bash(keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android)",
+      "Bash(head -641 /Users/munjuralam/Documents/amar_dokan/lib/features/inventory/presentation/screens/inventory_screen.dart)",
+      "Read(//tmp/**)"
     ]
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -99,6 +100,21 @@ class DatabaseHelper {
       await _createVariationTables(db);
       print('DB_LOG: Upgrade to Version 15 Complete.');
     }
+    if (oldVersion < 16) {
+      print('DB_LOG: Upgrading to Version 16...');
+      await db.execute('ALTER TABLE ${DatabaseConstants.tableProducts} ADD COLUMN ${DatabaseConstants.colVariationsJson} TEXT');
+      print('DB_LOG: Upgrade to Version 16 Complete.');
+    }
+    if (oldVersion < 17) {
+      print('DB_LOG: Upgrading to Version 17...');
+      await db.execute('ALTER TABLE ${DatabaseConstants.tableProducts} ADD COLUMN ${DatabaseConstants.colSupplierId} INTEGER');
+      print('DB_LOG: Upgrade to Version 17 Complete.');
+    }
+    if (oldVersion < 18) {
+      print('DB_LOG: Upgrading to Version 18...');
+      await _upgradeToVersion18(db);
+      print('DB_LOG: Upgrade to Version 18 Complete.');
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -121,12 +137,17 @@ class DatabaseHelper {
         ${DatabaseConstants.colCreatedAt} TEXT,
         ${DatabaseConstants.colUpdatedAt} TEXT,
         ${DatabaseConstants.colSyncedAt} TEXT,
-        ${DatabaseConstants.colIsSynced} INTEGER DEFAULT 0
+        ${DatabaseConstants.colIsSynced} INTEGER DEFAULT 0,
+        ${DatabaseConstants.colVariationsJson} TEXT,
+        ${DatabaseConstants.colSupplierId} INTEGER
       )
     ''');
     await db.execute('CREATE INDEX idx_products_name ON ${DatabaseConstants.tableProducts} (${DatabaseConstants.colName})');
     await db.execute('CREATE INDEX idx_products_category ON ${DatabaseConstants.tableProducts} (${DatabaseConstants.colCategory})');
     await db.execute('CREATE INDEX idx_products_active ON ${DatabaseConstants.tableProducts} (${DatabaseConstants.colIsActive})');
+
+    // 1b. Product Variants Table
+    await _createProductVariantsTable(db);
 
     // 2. Customers Table
     await db.execute('''
@@ -401,7 +422,7 @@ class DatabaseHelper {
     ''');
 
     // Initialize is_manual: 1 for manual_khoroch, 0 for others
-    final count = await db.execute('''
+    await db.execute('''
       UPDATE ${DatabaseConstants.tableShopTransactions}
       SET ${DatabaseConstants.colIsManual} = 1
       WHERE ${DatabaseConstants.colTransactionSource} = 'manual_khoroch'
@@ -742,5 +763,82 @@ class DatabaseHelper {
   Future<void> close() async {
     await _database?.close();
     _database = null;
+  }
+
+  Future<void> _createProductVariantsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DatabaseConstants.tableProductVariants} (
+        ${DatabaseConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id INTEGER NOT NULL,
+        ${DatabaseConstants.colVariantLabel} TEXT,
+        ${DatabaseConstants.colBarcode} TEXT,
+        ${DatabaseConstants.colPurchasePrice} REAL NOT NULL DEFAULT 0.01,
+        ${DatabaseConstants.colSellingPrice} REAL NOT NULL DEFAULT 0.01,
+        ${DatabaseConstants.colCurrentStock} INTEGER NOT NULL DEFAULT 0,
+        ${DatabaseConstants.colMinStockAlert} INTEGER DEFAULT 5,
+        ${DatabaseConstants.colIsActive} INTEGER DEFAULT 1,
+        ${DatabaseConstants.colCreatedAt} TEXT,
+        ${DatabaseConstants.colUpdatedAt} TEXT,
+        FOREIGN KEY (product_id) REFERENCES ${DatabaseConstants.tableProducts}(${DatabaseConstants.colId}) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON ${DatabaseConstants.tableProductVariants} (product_id)');
+  }
+
+  Future<void> _upgradeToVersion18(Database db) async {
+    await _createProductVariantsTable(db);
+
+    final products = await db.query(DatabaseConstants.tableProducts);
+    for (final p in products) {
+      final productId = p[DatabaseConstants.colId] as int;
+      final variationsJson = p[DatabaseConstants.colVariationsJson] as String?;
+      final now = DateTime.now().toIso8601String();
+
+      if (variationsJson != null && variationsJson.isNotEmpty) {
+        try {
+          final variants = jsonDecode(variationsJson) as List<dynamic>;
+          for (final v in variants) {
+            await db.insert(DatabaseConstants.tableProductVariants, {
+              'product_id': productId,
+              DatabaseConstants.colVariantLabel: v['label'] as String?,
+              DatabaseConstants.colBarcode: null,
+              DatabaseConstants.colPurchasePrice: (p[DatabaseConstants.colPurchasePrice] as num?)?.toDouble() ?? 0.01,
+              DatabaseConstants.colSellingPrice: (p[DatabaseConstants.colSellingPrice] as num?)?.toDouble() ?? 0.01,
+              DatabaseConstants.colCurrentStock: v['qty'] as int? ?? 0,
+              DatabaseConstants.colMinStockAlert: 5,
+              DatabaseConstants.colIsActive: 1,
+              DatabaseConstants.colCreatedAt: now,
+              DatabaseConstants.colUpdatedAt: now,
+            });
+          }
+        } catch (_) {
+          await db.insert(DatabaseConstants.tableProductVariants, {
+            'product_id': productId,
+            DatabaseConstants.colVariantLabel: null,
+            DatabaseConstants.colBarcode: p[DatabaseConstants.colBarcode] as String?,
+            DatabaseConstants.colPurchasePrice: (p[DatabaseConstants.colPurchasePrice] as num?)?.toDouble() ?? 0.01,
+            DatabaseConstants.colSellingPrice: (p[DatabaseConstants.colSellingPrice] as num?)?.toDouble() ?? 0.01,
+            DatabaseConstants.colCurrentStock: p[DatabaseConstants.colCurrentStock] as int? ?? 0,
+            DatabaseConstants.colMinStockAlert: p[DatabaseConstants.colMinStockAlert] as int? ?? 5,
+            DatabaseConstants.colIsActive: 1,
+            DatabaseConstants.colCreatedAt: now,
+            DatabaseConstants.colUpdatedAt: now,
+          });
+        }
+      } else {
+        await db.insert(DatabaseConstants.tableProductVariants, {
+          'product_id': productId,
+          DatabaseConstants.colVariantLabel: null,
+          DatabaseConstants.colBarcode: p[DatabaseConstants.colBarcode] as String?,
+          DatabaseConstants.colPurchasePrice: (p[DatabaseConstants.colPurchasePrice] as num?)?.toDouble() ?? 0.01,
+          DatabaseConstants.colSellingPrice: (p[DatabaseConstants.colSellingPrice] as num?)?.toDouble() ?? 0.01,
+          DatabaseConstants.colCurrentStock: p[DatabaseConstants.colCurrentStock] as int? ?? 0,
+          DatabaseConstants.colMinStockAlert: p[DatabaseConstants.colMinStockAlert] as int? ?? 5,
+          DatabaseConstants.colIsActive: 1,
+          DatabaseConstants.colCreatedAt: now,
+          DatabaseConstants.colUpdatedAt: now,
+        });
+      }
+    }
   }
 }

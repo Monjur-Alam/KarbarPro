@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'product_variant.dart';
 
 class Product extends Equatable {
   final int? id;
@@ -18,6 +19,9 @@ class Product extends Equatable {
   final DateTime? updatedAt;
   final DateTime? syncedAt;
   final bool isSynced;
+  final String? variationsJson;
+  final int? supplierId;
+  final List<ProductVariant>? variants;
 
   const Product({
     this.id,
@@ -37,6 +41,9 @@ class Product extends Equatable {
     this.updatedAt,
     this.syncedAt,
     this.isSynced = false,
+    this.variationsJson,
+    this.supplierId,
+    this.variants,
   });
 
   Product copyWith({
@@ -57,6 +64,9 @@ class Product extends Equatable {
     DateTime? updatedAt,
     DateTime? syncedAt,
     bool? isSynced,
+    String? variationsJson,
+    int? supplierId,
+    List<ProductVariant>? variants,
   }) {
     return Product(
       id: id ?? this.id,
@@ -76,6 +86,9 @@ class Product extends Equatable {
       updatedAt: updatedAt ?? this.updatedAt,
       syncedAt: syncedAt ?? this.syncedAt,
       isSynced: isSynced ?? this.isSynced,
+      variationsJson: variationsJson ?? this.variationsJson,
+      supplierId: supplierId ?? this.supplierId,
+      variants: variants ?? this.variants,
     );
   }
 
@@ -98,6 +111,8 @@ class Product extends Equatable {
         updatedAt,
         syncedAt,
         isSynced,
+        variationsJson,
+        supplierId,
+        variants,
       ];
 }
-

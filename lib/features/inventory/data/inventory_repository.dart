@@ -2,7 +2,9 @@ import 'package:sqflite/sqflite.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../../../core/constants/database_constants.dart';
 import '../domain/product.dart';
+import '../domain/product_variant.dart';
 import 'product_model.dart';
+import 'product_variant_model.dart';
 
 class InventoryRepository {
   final DatabaseHelper _dbHelper;
@@ -74,7 +76,23 @@ class InventoryRepository {
       orderBy: orderBy,
     );
     
-    return result.map((json) => ProductModel.fromJson(json)).toList();
+    final products = result.map((json) => ProductModel.fromJson(json)).toList();
+    if (products.isEmpty) return products;
+
+    final productIds = products.map((p) => p.id!).toList();
+    final placeholders = List.filled(productIds.length, '?').join(',');
+    final variantRows = await db.rawQuery(
+      'SELECT * FROM ${DatabaseConstants.tableProductVariants} WHERE product_id IN ($placeholders) ORDER BY product_id ASC, id ASC',
+      productIds,
+    );
+
+    final variantsByProduct = <int, List<ProductVariant>>{};
+    for (final row in variantRows) {
+      final pId = row['product_id'] as int;
+      variantsByProduct.putIfAbsent(pId, () => []).add(ProductVariantModel.fromJson(row));
+    }
+
+    return products.map((p) => p.copyWith(variants: variantsByProduct[p.id] ?? [])).toList();
   }
 
   Future<void> addProduct(Product product) async {

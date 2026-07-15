@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -66,6 +64,7 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     'totalPaid': 0.0,
   };
   bool _isLoading = true;
+  int? _expandedCustomerId;
 
   final TextEditingController _searchController = TextEditingController();
   String _sortBy = 'name_asc';
@@ -657,20 +656,21 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
   }
 
   Widget _buildCustomerDueItem(CustomerDue customer) {
-    final isCustomer = customer.type == 'customer';
+    final isExpanded = _expandedCustomerId == customer.id;
+    final isCustomerType = customer.type == 'customer';
     final colorScheme = Theme.of(context).colorScheme;
-    final amountColor = isCustomer ? colorScheme.error : colorScheme.primary;
-    final iconBgColor = isCustomer ? colorScheme.error.withValues(alpha: 0.15) : colorScheme.primaryContainer.withValues(alpha: 0.3);
-    final iconColor = isCustomer ? colorScheme.tertiary : colorScheme.primary;
+    final amountColor = isCustomerType ? colorScheme.error : colorScheme.primary;
+    final iconBgColor = isCustomerType
+        ? colorScheme.error.withValues(alpha: 0.15)
+        : colorScheme.primaryContainer.withValues(alpha: 0.3);
+    final iconColor = isCustomerType ? colorScheme.tertiary : colorScheme.primary;
 
     return Dismissible(
       key: Key('customer_${customer.id}'),
       direction: DismissDirection.endToStart,
       confirmDismiss: (direction) async {
         if (customer.currentCreditBalance > 0) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.cannotDeleteCustomerWithDue), backgroundColor: Colors.red),
-          );
+          _snack(context.l10n.cannotDeleteCustomerWithDue, color: Colors.red);
           return false;
         }
         return await _showDeleteConfirmation(customer);
@@ -688,99 +688,266 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
           ],
         ),
       ),
-      child: Builder(
-        builder: (ctx) {
-          final cs = Theme.of(ctx).colorScheme;
-          return InkWell(
-            onTap: () => _showCustomerMenu(context, customer),
-            child: Container(
-              color: cs.surface,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        color: isExpanded
+            ? colorScheme.primaryContainer.withValues(alpha: 0.18)
+            : colorScheme.surface,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: iconBgColor,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: Text(
-                        customer.name.isNotEmpty ? customer.name[0] : '?',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                          color: iconColor,
+                  // Avatar → edit dialog
+                  GestureDetector(
+                    onTap: () {
+                      setState(() => _expandedCustomerId = null);
+                      _showEditCustomerDialog(customer);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: isExpanded ? colorScheme.primary.withValues(alpha: 0.15) : iconBgColor,
+                        borderRadius: BorderRadius.circular(isExpanded ? 22 : 10),
+                      ),
+                      child: Center(
+                        child: Text(
+                          customer.name.isNotEmpty ? customer.name[0].toUpperCase() : '?',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: isExpanded ? colorScheme.primary : iconColor,
+                          ),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
+                  // Name/phone → toggle expand
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          customer.name,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color: cs.onSurface,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(Icons.phone_outlined, size: 12, color: cs.outline),
-                            const SizedBox(width: 4),
-                            Text(
-                              customer.phone ?? context.l10n.noPhone,
-                              style: TextStyle(fontSize: 12, color: cs.outline),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => setState(() {
+                        _expandedCustomerId = isExpanded ? null : customer.id;
+                      }),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            customer.name,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: isExpanded ? FontWeight.w600 : FontWeight.w500,
+                              color: colorScheme.onSurface,
                             ),
-                            if (customer.lastTransactionDate != null) ...[
-                              const SizedBox(width: 12),
-                              Icon(Icons.calendar_today, size: 12, color: cs.outline),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(Icons.phone_outlined, size: 12, color: colorScheme.outline),
                               const SizedBox(width: 4),
                               Text(
-                                DateFormat('dd MMM').format(customer.lastTransactionDate!),
-                                style: TextStyle(fontSize: 12, color: cs.outline),
+                                customer.phone ?? context.l10n.noPhone,
+                                style: TextStyle(fontSize: 12, color: colorScheme.outline),
                               ),
+                              if (customer.lastTransactionDate != null) ...[
+                                const SizedBox(width: 12),
+                                Icon(Icons.calendar_today, size: 12, color: colorScheme.outline),
+                                const SizedBox(width: 4),
+                                Text(
+                                  DateFormat('dd MMM').format(customer.lastTransactionDate!),
+                                  style: TextStyle(fontSize: 12, color: colorScheme.outline),
+                                ),
+                              ],
                             ],
-                          ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Amount + chevron → transaction history
+                  GestureDetector(
+                    onTap: () {
+                      setState(() => _expandedCustomerId = null);
+                      _showTransactionHistorySheet(context, customer);
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '৳${context.l10n.formatAmount(customer.currentCreditBalance.abs())}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: amountColor,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        AnimatedRotation(
+                          turns: isExpanded ? 0.25 : 0,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                          child: Icon(Icons.chevron_right, size: 20, color: colorScheme.outline),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '৳${context.l10n.formatAmount(customer.currentCreditBalance.abs())}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: amountColor,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Icon(
-                        Icons.chevron_right,
-                        size: 20,
-                        color: cs.outline,
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
-          );
-        },
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              child: isExpanded
+                  ? _buildInlineActions(customer, colorScheme)
+                  : const SizedBox.shrink(),
+            ),
+            Divider(height: 1, color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildInlineActions(CustomerDue customer, ColorScheme cs) {
+    final phone = customer.phone ?? '';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 14),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _buildActionChip(
+                icon: Icons.edit_outlined,
+                label: context.l10n.actionEdit,
+                color: cs.primary,
+                onTap: () {
+                  setState(() => _expandedCustomerId = null);
+                  _showEditCustomerDialog(customer);
+                },
+              ),
+              _buildActionChip(
+                icon: Icons.payments_outlined,
+                label: context.l10n.actionPayment,
+                color: Colors.green.shade600,
+                onTap: () {
+                  setState(() => _expandedCustomerId = null);
+                  _showPaymentCollectionDialog(context, customer);
+                },
+              ),
+              _buildActionChip(
+                icon: Icons.history,
+                label: context.l10n.actionHistory,
+                color: cs.secondary,
+                onTap: () {
+                  setState(() => _expandedCustomerId = null);
+                  _showTransactionHistorySheet(context, customer);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildActionChip(
+                icon: Icons.sms_outlined,
+                label: context.l10n.actionSms,
+                color: Colors.orange.shade700,
+                onTap: () async {
+                  if (phone.isEmpty) return;
+                  try {
+                    await launchUrl(
+                      Uri(scheme: 'sms', path: phone),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  } catch (_) {}
+                },
+              ),
+              _buildActionChip(
+                icon: Icons.chat_outlined,
+                label: context.l10n.actionWhatsApp,
+                color: const Color(0xFF25D366),
+                onTap: () async {
+                  if (phone.isEmpty) return;
+                  final digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
+                  final waPhone = digits.startsWith('880') ? digits : '880$digits';
+                  try {
+                    await launchUrl(
+                      Uri.parse('https://wa.me/$waPhone'),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  } catch (_) {}
+                },
+              ),
+              _buildActionChip(
+                icon: Icons.call_outlined,
+                label: context.l10n.actionCall,
+                color: cs.tertiary,
+                onTap: () async {
+                  if (phone.isEmpty) return;
+                  try {
+                    await launchUrl(
+                      Uri(scheme: 'tel', path: phone),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  } catch (_) {}
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label,
+              style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _snack(String message, {Color? color}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: color,
+      behavior: SnackBarBehavior.floating,
+    ));
   }
 
   // --- Actions ---
@@ -807,9 +974,9 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
   Future<void> _deleteCustomer(int id) async {
     final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
     await repo.deleteCustomer(id);
-    _loadData();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.customerDeleted)));
+    _loadData();
+    _snack(context.l10n.customerDeleted);
   }
 
   Future<bool?> _showDeleteConfirmation(CustomerDue customer) {
@@ -826,87 +993,42 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     );
   }
 
-  void _showCustomerMenu(BuildContext context, CustomerDue customer) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ),
-          const Divider(),
-          ListTile(
-            leading: Icon(Icons.edit_outlined, color: Theme.of(context).colorScheme.primary),
-            title: Text(context.l10n.editCustomerInfo),
-            onTap: () {
-              Navigator.pop(context);
-              _showEditCustomerDialog(customer);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.payments_outlined, color: Theme.of(context).colorScheme.primary),
-            title: Text(context.l10n.recordPayment),
-            subtitle: Text(context.l10n.recordPaymentSubtitle),
-            onTap: () {
-              Navigator.pop(context);
-              _showPaymentCollectionDialog(context, customer);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.history, color: Theme.of(context).colorScheme.primary),
-            title: Text(context.l10n.transactionHistory),
-            onTap: () {
-              Navigator.pop(context);
-              _showTransactionHistorySheet(context, customer);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.call_outlined, color: Theme.of(context).colorScheme.tertiary),
-            title: Text(context.l10n.contact),
-            onTap: () {
-              Navigator.pop(context);
-              _showContactOptions(context, customer);
-            },
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
-
   void _showEditCustomerDialog(CustomerDue customer) {
     final nameController = TextEditingController(text: customer.name);
     final phoneController = TextEditingController(text: customer.phone);
     final addressController = TextEditingController(text: customer.address);
     final notesController = TextEditingController(text: customer.notes);
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    final db = context.read<DatabaseHelper>();
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.l10n.editCustomer),
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.editCustomer),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: nameController, decoration: InputDecoration(labelText: context.l10n.nameRequiredLabel)),
-              TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: context.l10n.phoneRequiredLabel)),
-              TextField(controller: addressController, decoration: InputDecoration(labelText: context.l10n.addressOptional)),
-              TextField(controller: notesController, decoration: InputDecoration(labelText: context.l10n.commentOptional)),
+              TextField(controller: nameController, decoration: InputDecoration(labelText: l10n.nameRequiredLabel)),
+              TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: l10n.phoneRequiredLabel)),
+              TextField(controller: addressController, decoration: InputDecoration(labelText: l10n.addressOptional)),
+              TextField(controller: notesController, decoration: InputDecoration(labelText: l10n.commentOptional)),
               const SizedBox(height: 16),
-              Text('${context.l10n.currentDue}: ৳${context.l10n.formatAmount(customer.currentCreditBalance)}',
-                style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
+              Text('${l10n.currentDue}: ৳${l10n.formatAmount(customer.currentCreditBalance)}',
+                style: TextStyle(color: Theme.of(ctx).colorScheme.outline, fontSize: 12)),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
           ElevatedButton(
             onPressed: () async {
               if (nameController.text.isEmpty || phoneController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.namePhoneRequiredError)));
+                messenger.showSnackBar(SnackBar(
+                  content: Text(l10n.namePhoneRequiredError),
+                  behavior: SnackBarBehavior.floating,
+                ));
                 return;
               }
 
@@ -923,15 +1045,18 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                 totalPurchases: customer.totalPurchases,
               );
 
-              final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
+              final repo = ReportRepository(dbHelper: db);
               await repo.updateCustomer(updated);
 
               if (!mounted) return;
-              Navigator.pop(context);
+              Navigator.pop(ctx);
               _loadData();
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.customerUpdated)));
+              messenger.showSnackBar(SnackBar(
+                content: Text(l10n.customerUpdated),
+                behavior: SnackBarBehavior.floating,
+              ));
             },
-            child: Text(context.l10n.save),
+            child: Text(l10n.save),
           ),
         ],
       ),
@@ -957,12 +1082,14 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     final addressController = TextEditingController();
     final notesController = TextEditingController();
     String customerType = isSupplier ? 'supplier' : 'customer';
-    final l10n = (context).l10n;
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    final db = context.read<DatabaseHelper>();
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
           title: Text(isSupplier ? l10n.newSupplier : l10n.newCustomer),
           content: SingleChildScrollView(
             child: Column(
@@ -972,30 +1099,31 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                   value: customerType,
                   decoration: InputDecoration(labelText: l10n.type),
                   items: [
-                    DropdownMenuItem(value: 'customer', child: Text(context.l10n.customerReceivable)),
-                    DropdownMenuItem(value: 'supplier', child: Text(context.l10n.supplierPayable)),
+                    DropdownMenuItem(value: 'customer', child: Text(l10n.customerReceivable)),
+                    DropdownMenuItem(value: 'supplier', child: Text(l10n.supplierPayable)),
                   ],
-                  onChanged: (val) => setState(() => customerType = val!),
+                  onChanged: (val) => setDlgState(() => customerType = val!),
                 ),
-                TextField(controller: nameController, decoration: InputDecoration(labelText: context.l10n.nameRequiredLabel)),
-                TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: context.l10n.phoneRequiredLabel)),
-                TextField(controller: addressController, decoration: InputDecoration(labelText: context.l10n.addressOptional)),
-                TextField(controller: notesController, decoration: InputDecoration(labelText: context.l10n.commentOptional)),
+                TextField(controller: nameController, decoration: InputDecoration(labelText: l10n.nameRequiredLabel)),
+                TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: l10n.phoneRequiredLabel)),
+                TextField(controller: addressController, decoration: InputDecoration(labelText: l10n.addressOptional)),
+                TextField(controller: notesController, decoration: InputDecoration(labelText: l10n.commentOptional)),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
             ElevatedButton(
               onPressed: () async {
-              if (nameController.text.isEmpty || phoneController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.namePhoneRequiredError)));
-                return;
-              }
+                if (nameController.text.isEmpty || phoneController.text.isEmpty) {
+                  messenger.showSnackBar(SnackBar(
+                    content: Text(l10n.namePhoneRequiredError),
+                    behavior: SnackBarBehavior.floating,
+                  ));
+                  return;
+                }
 
-                final db = context.read<DatabaseHelper>();
                 final database = await db.database;
-
                 await database.insert(DatabaseConstants.tableCustomers, {
                   DatabaseConstants.colName: nameController.text,
                   DatabaseConstants.colPhone: phoneController.text,
@@ -1012,12 +1140,15 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
                   DatabaseConstants.colIsSynced: 0,
                 });
 
-                if (!context.mounted) return;
-                Navigator.pop(context);
+                if (!mounted) return;
+                Navigator.pop(ctx);
                 _loadData();
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.customerAdded)));
+                messenger.showSnackBar(SnackBar(
+                  content: Text(l10n.customerAdded),
+                  behavior: SnackBarBehavior.floating,
+                ));
               },
-              child: Text(context.l10n.save),
+              child: Text(l10n.save),
             ),
           ],
         ),
@@ -1028,42 +1159,48 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
   void _showPaymentCollectionDialog(BuildContext context, CustomerDue customer) {
     final amountController = TextEditingController();
     final notesController = TextEditingController();
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    final db = context.read<DatabaseHelper>();
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.l10n.collectMoney),
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.collectMoney),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('${context.l10n.customer}: ${customer.name}'),
+            Text('${l10n.customer}: ${customer.name}'),
             const SizedBox(height: 8),
-            Text('${context.l10n.currentDue}: ৳${context.l10n.formatAmount(customer.currentCreditBalance)}',
-              style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold)),
+            Text('${l10n.currentDue}: ৳${l10n.formatAmount(customer.currentCreditBalance)}',
+              style: TextStyle(color: Theme.of(ctx).colorScheme.error, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: context.l10n.amountToCollect, prefixText: '৳', border: const OutlineInputBorder()),
+              decoration: InputDecoration(labelText: l10n.amountToCollect, prefixText: '৳', border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: notesController,
-              decoration: InputDecoration(labelText: context.l10n.noteOptional, border: const OutlineInputBorder()),
+              decoration: InputDecoration(labelText: l10n.noteOptional, border: const OutlineInputBorder()),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
           ElevatedButton(
             onPressed: () async {
               final amount = double.tryParse(amountController.text);
               if (amount == null || amount <= 0) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.enterCorrectAmount)));
+                messenger.showSnackBar(SnackBar(
+                  content: Text(l10n.enterCorrectAmount),
+                  behavior: SnackBarBehavior.floating,
+                ));
                 return;
               }
 
-              final repo = ReportRepository(dbHelper: context.read<DatabaseHelper>());
+              final repo = ReportRepository(dbHelper: db);
               await repo.recordCustomerPayment(
                 customerId: customer.id,
                 amount: amount,
@@ -1071,11 +1208,14 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
               );
 
               if (!mounted) return;
-              Navigator.pop(context);
+              Navigator.pop(ctx);
               _loadData();
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.moneyCollectionSuccess)));
+              messenger.showSnackBar(SnackBar(
+                content: Text(l10n.moneyCollectionSuccess),
+                behavior: SnackBarBehavior.floating,
+              ));
             },
-            child: Text(context.l10n.confirm),
+            child: Text(l10n.confirm),
           ),
         ],
       ),
@@ -1160,42 +1300,6 @@ class _DueLedgerViewState extends State<DueLedgerView> with SingleTickerProvider
     );
   }
 
-  void _showContactOptions(BuildContext context, CustomerDue customer) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: Icon(Icons.call, color: Theme.of(context).colorScheme.primary),
-            title: Text(context.l10n.call),
-            onTap: () async {
-              final url = 'tel:${customer.phone}';
-              if (await canLaunchUrl(Uri.parse(url))) {
-                await launchUrl(Uri.parse(url));
-              }
-              if (!mounted) return;
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.message, color: Theme.of(context).colorScheme.primary),
-            title: Text(context.l10n.sendSms),
-            onTap: () async {
-              final url = 'sms:${customer.phone}?body=${context.l10n.yourShopDueMessage} ৳${customer.currentCreditBalance} ${context.l10n.paymentRequestMessage}';
-              if (await canLaunchUrl(Uri.parse(url))) {
-                await launchUrl(Uri.parse(url));
-              }
-              if (!mounted) return;
-              Navigator.pop(context);
-            },
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
 }
 
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {

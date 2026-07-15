@@ -11,6 +11,7 @@ import '../database/database_helper.dart';
 import '../l10n/app_localizations.dart';
 import '../services/google_drive_service.dart';
 import '../settings/app_settings_cubit.dart';
+import '../../features/inventory/presentation/bloc/inventory_bloc.dart';
 import '../../features/sales/presentation/screens/printer_settings_screen.dart';
 import '../../features/sales/presentation/screens/receipt_settings_screen.dart';
 
@@ -554,6 +555,11 @@ class AppDrawer extends StatelessWidget {
       // Clear all SQLite tables
       final dbHelper = context.read<DatabaseHelper>();
       await dbHelper.clearAllTables();
+
+      // Refresh all in-memory bloc states so stale data isn't shown after re-login
+      if (context.mounted) {
+        context.read<InventoryBloc>().add(LoadProducts());
+      }
 
       // Try to delete all Google Drive backups
       try {

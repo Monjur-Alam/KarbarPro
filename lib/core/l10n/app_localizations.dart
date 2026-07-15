@@ -435,6 +435,14 @@ class AppLocalizations {
     return s.split('').map((c) => en.contains(c) ? bn[en.indexOf(c)] : c).join();
   }
 
+  // Action chip short labels
+  String get actionEdit => isBangla ? 'সম্পাদনা' : 'Edit';
+  String get actionPayment => isBangla ? 'পেমেন্ট' : 'Payment';
+  String get actionHistory => isBangla ? 'ইতিহাস' : 'History';
+  String get actionSms => 'SMS';
+  String get actionWhatsApp => 'WhatsApp';
+  String get actionCall => isBangla ? 'কল' : 'Call';
+
   /// Format any string of digits by locale (e.g. invoice id, count).
   String formatDigits(String input) {
     if (!isBangla) return input;
