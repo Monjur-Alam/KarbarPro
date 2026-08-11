@@ -6,7 +6,7 @@ import '../services/google_drive_service.dart';
 import '../services/connectivity_service.dart';
 import '../database/database_helper.dart';
 
-const String syncTaskName = 'com.example.amar_dokan.syncTask';
+const String syncTaskName = 'com.munjuralam.karbarpro.syncTask';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {

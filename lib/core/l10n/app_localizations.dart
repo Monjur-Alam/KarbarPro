@@ -101,8 +101,8 @@ class AppLocalizations {
   String get stockLabel => isBangla ? 'স্টক' : 'Stock';
 
   // ——— Login ———
-  String get appName => 'Amar Dokan';
-  String get loginSubtitle => isBangla ? 'দোকান সফলভাবে পরিচালনা করুন' : 'Manage your shop efficiently';
+  String get appName => 'Karbar Pro';
+  String get loginSubtitle => isBangla ? 'আপনার ব্যবসা, এক অ্যাপেই' : 'Your business, all in one app';
   String get signInWithGoogle => isBangla ? 'গুগল দিয়ে সাইন ইন' : 'Sign in with Google';
 
   // ——— Profile ———

@@ -50,7 +50,7 @@ This guide will walk you through setting up Google Sign-In and Google Drive API 
 1. Go to **"APIs & Services"** > **"Credentials"**
 2. Click **"Create Credentials"** > **"OAuth client ID"**
 3. Select **"Android"** as application type
-4. Enter package name: `com.example.amar_dokan` (or your package name from `android/app/build.gradle`)
+4. Enter package name: `com.munjuralam.karbarpro` (or your package name from `android/app/build.gradle`)
 5. Get your SHA-1 fingerprint:
    ```bash
    # For debug builds

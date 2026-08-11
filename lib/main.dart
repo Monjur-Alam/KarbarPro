@@ -149,7 +149,7 @@ class MyApp extends StatelessWidget {
               prev.locale != curr.locale || prev.themeMode != curr.themeMode,
           builder: (context, settingsState) {
             return MaterialApp(
-              title: 'Amar Dokan',
+              title: 'Karbar Pro',
               debugShowCheckedModeBanner: false,
               theme: AppTheme.lightTheme,
               darkTheme: AppTheme.darkTheme,
