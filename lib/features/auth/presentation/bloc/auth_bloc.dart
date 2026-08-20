@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,7 +17,9 @@ abstract class AuthEvent extends Equatable {
 }
 
 class AuthCheckRequested extends AuthEvent {}
+
 class AuthLoginRequested extends AuthEvent {}
+
 class AuthLogoutRequested extends AuthEvent {}
 
 // States
@@ -27,6 +30,7 @@ abstract class AuthState extends Equatable {
 }
 
 class AuthInitial extends AuthState {}
+
 class AuthLoading extends AuthState {}
 
 class AuthAuthenticated extends AuthState {
@@ -55,10 +59,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required AuthRepository authRepository,
     required SyncService syncService,
     required DatabaseHelper dbHelper,
-  })  : _authRepository = authRepository,
-        _syncService = syncService,
-        _dbHelper = dbHelper,
-        super(AuthInitial()) {
+  }) : _authRepository = authRepository,
+       _syncService = syncService,
+       _dbHelper = dbHelper,
+       super(AuthInitial()) {
     on<AuthCheckRequested>(_onAuthCheckRequested);
     on<AuthLoginRequested>(_onAuthLoginRequested);
     on<AuthLogoutRequested>(_onAuthLogoutRequested);
@@ -91,32 +95,25 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     try {
-      final currentUser = await _authRepository.getCurrentGoogleUser();
+      final currentUser = await _authRepository.signInSilently();
 
       if (currentUser != null) {
         await _clearIfAccountChanged(currentUser.id);
-        emit(AuthAuthenticated(AuthUser(
-          id: currentUser.id,
-          email: currentUser.email,
-          displayName: currentUser.displayName ?? '',
-          photoUrl: currentUser.photoUrl,
-        )));
+        emit(
+          AuthAuthenticated(
+            AuthUser(
+              id: currentUser.id,
+              email: currentUser.email,
+              displayName: currentUser.displayName ?? '',
+              photoUrl: currentUser.photoUrl,
+            ),
+          ),
+        );
         _syncService.checkAndRestoreFromDrive();
         return;
       }
 
-      final user = await _authRepository
-          .signIn()
-          .timeout(const Duration(seconds: 3))
-          .catchError((_) => null);
-
-      if (user != null) {
-        await _clearIfAccountChanged(user.id);
-        emit(AuthAuthenticated(user));
-        _syncService.checkAndRestoreFromDrive();
-      } else {
-        emit(AuthUnauthenticated());
-      }
+      emit(AuthUnauthenticated());
     } catch (_) {
       emit(AuthUnauthenticated());
     }
@@ -129,14 +126,32 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthLoading());
     try {
       final user = await _authRepository.signIn();
-      if (user != null) {
-        await _clearIfAccountChanged(user.id);
-        emit(AuthAuthenticated(user));
-        _syncService.checkAndRestoreFromDrive();
-      } else {
+      if (user == null) {
+        debugPrint('AUTH: login cancelled or no Google account returned');
         emit(AuthUnauthenticated());
+        return;
       }
-    } catch (e) {
+
+      debugPrint('AUTH: preparing local account for ${user.email}');
+      try {
+        await _clearIfAccountChanged(user.id);
+      } catch (e, stackTrace) {
+        debugPrint('AUTH: local account preparation failed: $e');
+        debugPrintStack(stackTrace: stackTrace);
+        emit(
+          AuthFailure(
+            'Google sign-in succeeded, but local account setup failed: $e',
+          ),
+        );
+        return;
+      }
+
+      debugPrint('AUTH: local account prepared; authenticating user');
+      emit(AuthAuthenticated(user));
+      _syncService.checkAndRestoreFromDrive();
+    } catch (e, stackTrace) {
+      debugPrint('AUTH: interactive login failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
       emit(AuthFailure(e.toString()));
     }
   }

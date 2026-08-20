@@ -12,9 +12,9 @@ class LoginScreen extends StatelessWidget {
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthFailure) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
           }
         },
         child: Container(
@@ -80,14 +80,43 @@ class LoginScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 60),
 
+                    BlocBuilder<AuthBloc, AuthState>(
+                      buildWhen: (previous, current) =>
+                          previous is AuthFailure || current is AuthFailure,
+                      builder: (context, state) {
+                        if (state is! AuthFailure) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Text(
+                            state.message,
+                            style: TextStyle(color: Colors.red.shade900),
+                          ),
+                        );
+                      },
+                    ),
+
                     // Sign In Button
                     BlocBuilder<AuthBloc, AuthState>(
                       builder: (context, state) {
                         return state is AuthLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
                             : ElevatedButton.icon(
                                 onPressed: () {
-                                  context.read<AuthBloc>().add(AuthLoginRequested());
+                                  context.read<AuthBloc>().add(
+                                    AuthLoginRequested(),
+                                  );
                                 },
                                 icon: Image.asset(
                                   'assets/logo.png',
