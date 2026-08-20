@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'core/themes/app_theme.dart';
+import 'core/l10n/app_localizations.dart';
 import 'core/settings/app_settings_cubit.dart';
 import 'features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
@@ -24,15 +25,16 @@ import 'features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'features/reports/data/report_repository.dart';
 import 'features/reports/presentation/bloc/report_bloc.dart';
 
-final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
+final RouteObserver<ModalRoute<void>> routeObserver =
+    RouteObserver<ModalRoute<void>>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   final googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile', 'https://www.googleapis.com/auth/drive.file'],
   );
-  
+
   final authRepository = AuthRepository(googleSignIn: googleSignIn);
   final dbHelper = DatabaseHelper();
   final driveService = GoogleDriveService(googleSignIn);
@@ -45,24 +47,28 @@ void main() async {
   final reportRepository = ReportRepository(dbHelper: dbHelper);
 
   // Initialize Background Sync
-  BackgroundSyncHelper.initialize().then((_) {
-    BackgroundSyncHelper.registerPeriodicSync();
-  }).catchError((e) {
-    debugPrint('Background sync initialization failed: $e');
-  });
-  
-  runApp(MyApp(
-    authRepository: authRepository,
-    syncService: syncService,
-    dashboardRepository: dashboardRepository,
-    customerRepository: customerRepository,
-    salesRepository: salesRepository,
-    inventoryRepository: inventoryRepository,
-    reportRepository: reportRepository,
-    connectivityService: connectivityService,
-    dbHelper: dbHelper,
-    driveService: driveService,
-  ));
+  BackgroundSyncHelper.initialize()
+      .then((_) {
+        BackgroundSyncHelper.registerPeriodicSync();
+      })
+      .catchError((e) {
+        debugPrint('Background sync initialization failed: $e');
+      });
+
+  runApp(
+    MyApp(
+      authRepository: authRepository,
+      syncService: syncService,
+      dashboardRepository: dashboardRepository,
+      customerRepository: customerRepository,
+      salesRepository: salesRepository,
+      inventoryRepository: inventoryRepository,
+      reportRepository: reportRepository,
+      connectivityService: connectivityService,
+      dbHelper: dbHelper,
+      driveService: driveService,
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -122,13 +128,14 @@ class MyApp extends StatelessWidget {
             ),
           ),
           BlocProvider(
-            create: (context) => CustomerBloc(repository: customerRepository)..add(LoadCustomers()),
+            create: (context) =>
+                CustomerBloc(repository: customerRepository)
+                  ..add(LoadCustomers()),
           ),
           BlocProvider(
-            create: (context) => SalesBloc(
-              repository: salesRepository,
-              syncService: syncService,
-            )..add(LoadSalesInitialData()),
+            create: (context) =>
+                SalesBloc(repository: salesRepository, syncService: syncService)
+                  ..add(LoadSalesInitialData()),
           ),
           BlocProvider(
             create: (context) => InventoryBloc(
@@ -139,9 +146,7 @@ class MyApp extends StatelessWidget {
           BlocProvider(
             create: (context) => ReportBloc(repository: reportRepository),
           ),
-          BlocProvider(
-            create: (context) => AppSettingsCubit(),
-          ),
+          BlocProvider(create: (context) => AppSettingsCubit()),
         ],
 
         child: BlocBuilder<AppSettingsCubit, AppSettingsState>(
@@ -149,7 +154,7 @@ class MyApp extends StatelessWidget {
               prev.locale != curr.locale || prev.themeMode != curr.themeMode,
           builder: (context, settingsState) {
             return MaterialApp(
-              title: 'Karbar Pro',
+              onGenerateTitle: (context) => context.l10n.appName,
               debugShowCheckedModeBanner: false,
               theme: AppTheme.lightTheme,
               darkTheme: AppTheme.darkTheme,
@@ -159,10 +164,7 @@ class MyApp extends StatelessWidget {
                 GlobalWidgetsLocalizations.delegate,
                 GlobalCupertinoLocalizations.delegate,
               ],
-              supportedLocales: const [
-                Locale('bn', 'BD'),
-                Locale('en', 'US'),
-              ],
+              supportedLocales: const [Locale('bn', 'BD'), Locale('en', 'US')],
               locale: settingsState.locale,
               home: const AppView(),
               navigatorObservers: [routeObserver],
@@ -186,11 +188,8 @@ class AppView extends StatelessWidget {
         } else if (state is AuthUnauthenticated || state is AuthFailure) {
           return const LoginScreen();
         }
-        return const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        );
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
       },
     );
   }
 }
-

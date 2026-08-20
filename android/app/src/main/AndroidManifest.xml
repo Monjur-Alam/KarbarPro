@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.CAMERA"/>
 
     <application
-        android:label="Karbar Pro"
+        android:label="কারবার প্রো"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         

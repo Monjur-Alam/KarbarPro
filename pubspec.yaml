@@ -97,12 +97,12 @@ flutter_launcher_icons:
 
 flutter_native_splash:
   color: "#00102B"
-  image: assets/branding/karbar-pro-icon-master.png
+  image: assets/branding/karbar-pro-splash-padded.png
   android: true
   ios: true
   android_12:
     color: "#00102B"
-    image: assets/branding/karbar-pro-icon-master.png
+    image: assets/branding/karbar-pro-splash-padded.png
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -121,6 +121,9 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/logo.png
+    - assets/branding/karbar-pro-icon-master.png
+    - assets/branding/karbar-pro-splash-padded.png
+    - assets/branding/google_g_logo.svg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
