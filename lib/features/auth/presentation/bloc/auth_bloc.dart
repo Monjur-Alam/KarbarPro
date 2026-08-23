@@ -22,6 +22,8 @@ class AuthLoginRequested extends AuthEvent {}
 
 class AuthLogoutRequested extends AuthEvent {}
 
+class AuthDeleteAccountRequested extends AuthEvent {}
+
 // States
 abstract class AuthState extends Equatable {
   const AuthState();
@@ -66,6 +68,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthCheckRequested>(_onAuthCheckRequested);
     on<AuthLoginRequested>(_onAuthLoginRequested);
     on<AuthLogoutRequested>(_onAuthLogoutRequested);
+    on<AuthDeleteAccountRequested>(_onAuthDeleteAccountRequested);
   }
 
   /// Clears local DB + sync prefs when a DIFFERENT account signs in.
@@ -88,6 +91,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kLastUserId);
     await prefs.remove('sync_settings');
+  }
+
+  /// Wipes the complete local account, including business and app settings.
+  Future<void> _deleteLocalAccountData() async {
+    await _dbHelper.clearAllTables();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
   }
 
   Future<void> _onAuthCheckRequested(
@@ -163,5 +173,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     await _authRepository.signOut();
     await _clearLocalData(); // wipe data on every sign-out
     emit(AuthUnauthenticated());
+  }
+
+  Future<void> _onAuthDeleteAccountRequested(
+    AuthDeleteAccountRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+    try {
+      await _deleteLocalAccountData();
+      await _authRepository.disconnect();
+      emit(AuthUnauthenticated());
+    } catch (e, stackTrace) {
+      debugPrint('AUTH: account deletion failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
+
+      // Local app data has already been removed. Ensure the user is signed out
+      // even if Google access revocation fails because the device is offline.
+      try {
+        await _authRepository.signOut();
+      } catch (_) {}
+      emit(AuthUnauthenticated());
+    }
   }
 }

@@ -95,6 +95,14 @@ class AppDrawer extends StatelessWidget {
                 ),
                 _buildMenuItem(
                   context: context,
+                  icon: Icons.person_remove_outlined,
+                  label: l10n.deleteAccount,
+                  color: theme.colorScheme.error,
+                  onTap: () => _showDeleteAccountDialog(context, l10n),
+                  isDark: isDark,
+                ),
+                _buildMenuItem(
+                  context: context,
                   icon: Icons.logout,
                   label: l10n.logout,
                   color: theme.colorScheme.error,
@@ -109,7 +117,9 @@ class AppDrawer extends StatelessWidget {
             child: Text(
               'Version 1.1.0',
               style: TextStyle(
-                color: isDark ? AppColors.textSecondaryDark : AppColors.textTertiary,
+                color: isDark
+                    ? AppColors.textSecondaryDark
+                    : AppColors.textTertiary,
                 fontSize: 12,
               ),
             ),
@@ -135,15 +145,9 @@ class AppDrawer extends StatelessWidget {
         return UserAccountsDrawerHeader(
           accountName: Text(
             name,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
-          accountEmail: Text(
-            phone,
-            style: const TextStyle(fontSize: 13),
-          ),
+          accountEmail: Text(phone, style: const TextStyle(fontSize: 13)),
           currentAccountPicture: CircleAvatar(
             backgroundColor: theme.colorScheme.surface,
             child: Text(
@@ -155,9 +159,7 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
           ),
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-          ),
+          decoration: BoxDecoration(color: AppColors.primary),
         );
       },
     );
@@ -169,18 +171,16 @@ class AppDrawer extends StatelessWidget {
     bool isDark,
   ) {
     final theme = Theme.of(context);
-    final iconColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimary;
+    final iconColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimary;
 
     return BlocBuilder<AppSettingsCubit, AppSettingsState>(
       builder: (context, state) {
         final currentLocale = state.locale;
 
         return ExpansionTile(
-          leading: Icon(
-            Icons.language_rounded,
-            color: iconColor,
-            size: 24,
-          ),
+          leading: Icon(Icons.language_rounded, color: iconColor, size: 24),
           title: Text(
             l10n.language,
             style: TextStyle(
@@ -198,7 +198,9 @@ class AppDrawer extends StatelessWidget {
               label: l10n.bangla,
               isSelected: currentLocale.languageCode == 'bn',
               onTap: () {
-                context.read<AppSettingsCubit>().setLocale(const Locale('bn', 'BD'));
+                context.read<AppSettingsCubit>().setLocale(
+                  const Locale('bn', 'BD'),
+                );
               },
               isDark: isDark,
             ),
@@ -207,7 +209,9 @@ class AppDrawer extends StatelessWidget {
               label: l10n.english,
               isSelected: currentLocale.languageCode == 'en',
               onTap: () {
-                context.read<AppSettingsCubit>().setLocale(const Locale('en', 'US'));
+                context.read<AppSettingsCubit>().setLocale(
+                  const Locale('en', 'US'),
+                );
               },
               isDark: isDark,
             ),
@@ -225,7 +229,9 @@ class AppDrawer extends StatelessWidget {
     required bool isDark,
   }) {
     final theme = Theme.of(context);
-    final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimary;
+    final textColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimary;
 
     return ListTile(
       dense: true,
@@ -251,18 +257,16 @@ class AppDrawer extends StatelessWidget {
     bool isDark,
   ) {
     final theme = Theme.of(context);
-    final iconColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimary;
+    final iconColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimary;
 
     return BlocBuilder<AppSettingsCubit, AppSettingsState>(
       builder: (context, state) {
         final currentMode = state.themeMode;
 
         return ExpansionTile(
-          leading: Icon(
-            Icons.palette_outlined,
-            color: iconColor,
-            size: 24,
-          ),
+          leading: Icon(Icons.palette_outlined, color: iconColor, size: 24),
           title: Text(
             l10n.theme,
             style: TextStyle(
@@ -281,7 +285,9 @@ class AppDrawer extends StatelessWidget {
               icon: Icons.light_mode_rounded,
               isSelected: currentMode == AppThemeMode.light,
               onTap: () {
-                context.read<AppSettingsCubit>().setThemeMode(AppThemeMode.light);
+                context.read<AppSettingsCubit>().setThemeMode(
+                  AppThemeMode.light,
+                );
               },
               isDark: isDark,
             ),
@@ -291,7 +297,9 @@ class AppDrawer extends StatelessWidget {
               icon: Icons.dark_mode_rounded,
               isSelected: currentMode == AppThemeMode.dark,
               onTap: () {
-                context.read<AppSettingsCubit>().setThemeMode(AppThemeMode.dark);
+                context.read<AppSettingsCubit>().setThemeMode(
+                  AppThemeMode.dark,
+                );
               },
               isDark: isDark,
             ),
@@ -301,7 +309,9 @@ class AppDrawer extends StatelessWidget {
               icon: Icons.brightness_auto_rounded,
               isSelected: currentMode == AppThemeMode.system,
               onTap: () {
-                context.read<AppSettingsCubit>().setThemeMode(AppThemeMode.system);
+                context.read<AppSettingsCubit>().setThemeMode(
+                  AppThemeMode.system,
+                );
               },
               isDark: isDark,
             ),
@@ -319,7 +329,9 @@ class AppDrawer extends StatelessWidget {
     required VoidCallback onTap,
     required bool isDark,
   }) {
-    final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimary;
+    final textColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimary;
 
     return ListTile(
       dense: true,
@@ -345,13 +357,19 @@ class AppDrawer extends StatelessWidget {
     AppLocalizations l10n,
     bool isDark,
   ) {
-    final iconColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimary;
+    final iconColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimary;
 
     return ExpansionTile(
       leading: Icon(Icons.settings_outlined, color: iconColor, size: 24),
       title: Text(
         l10n.settings,
-        style: TextStyle(fontWeight: FontWeight.w600, color: iconColor, fontSize: 15),
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: iconColor,
+          fontSize: 15,
+        ),
       ),
       iconColor: iconColor,
       collapsedIconColor: iconColor,
@@ -363,7 +381,10 @@ class AppDrawer extends StatelessWidget {
           label: 'Printer Settings',
           onTap: () {
             Navigator.pop(context);
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()));
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()),
+            );
           },
           isDark: isDark,
         ),
@@ -373,7 +394,10 @@ class AppDrawer extends StatelessWidget {
           label: 'Receipt Settings',
           onTap: () {
             Navigator.pop(context);
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const ReceiptSettingsScreen()));
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ReceiptSettingsScreen()),
+            );
           },
           isDark: isDark,
         ),
@@ -386,13 +410,19 @@ class AppDrawer extends StatelessWidget {
     AppLocalizations l10n,
     bool isDark,
   ) {
-    final iconColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimary;
+    final iconColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimary;
 
     return ExpansionTile(
       leading: Icon(Icons.tune_outlined, color: iconColor, size: 24),
       title: Text(
         'Manage',
-        style: TextStyle(fontWeight: FontWeight.w600, color: iconColor, fontSize: 15),
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: iconColor,
+          fontSize: 15,
+        ),
       ),
       iconColor: iconColor,
       collapsedIconColor: iconColor,
@@ -404,7 +434,10 @@ class AppDrawer extends StatelessWidget {
           label: 'Categories',
           onTap: () {
             Navigator.pop(context);
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageCategoryScreen()));
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ManageCategoryScreen()),
+            );
           },
           isDark: isDark,
         ),
@@ -454,7 +487,10 @@ class AppDrawer extends StatelessWidget {
           label: 'Variations',
           onTap: () {
             Navigator.pop(context);
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageVariationScreen()));
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ManageVariationScreen()),
+            );
           },
           isDark: isDark,
         ),
@@ -469,7 +505,9 @@ class AppDrawer extends StatelessWidget {
     required VoidCallback onTap,
     required bool isDark,
   }) {
-    final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimary;
+    final textColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimary;
 
     return ListTile(
       dense: true,
@@ -477,7 +515,11 @@ class AppDrawer extends StatelessWidget {
       leading: Icon(icon, size: 20, color: textColor),
       title: Text(
         label,
-        style: TextStyle(fontSize: 14, color: textColor, fontWeight: FontWeight.normal),
+        style: TextStyle(
+          fontSize: 14,
+          color: textColor,
+          fontWeight: FontWeight.normal,
+        ),
       ),
       onTap: onTap,
     );
@@ -492,7 +534,8 @@ class AppDrawer extends StatelessWidget {
     required bool isDark,
   }) {
     final theme = Theme.of(context);
-    final iconColor = color ?? (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary);
+    final iconColor =
+        color ?? (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary);
     final textColor = color ?? iconColor;
 
     return ListTile(
@@ -543,7 +586,10 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Future<void> _performResetData(BuildContext context, AppLocalizations l10n) async {
+  Future<void> _performResetData(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) async {
     // Show loading dialog
     showDialog(
       context: context,
@@ -583,9 +629,9 @@ class AppDrawer extends StatelessWidget {
 
       // Show success snackbar
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.resetDataSuccess)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.resetDataSuccess)));
       }
 
       // Logout the user
@@ -597,9 +643,9 @@ class AppDrawer extends StatelessWidget {
       if (context.mounted) Navigator.pop(context);
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${l10n.errorPrefix}$e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${l10n.errorPrefix}$e')));
       }
     }
   }
@@ -613,19 +659,100 @@ class AppDrawer extends StatelessWidget {
         title: Text(l10n.logoutConfirmTitle),
         content: Text(l10n.logoutConfirmMessage),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.no),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.no)),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               context.read<AuthBloc>().add(AuthLogoutRequested());
             },
-            child: Text(l10n.yes, style: TextStyle(color: theme.colorScheme.error)),
+            child: Text(
+              l10n.yes,
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context, AppLocalizations l10n) {
+    final theme = Theme.of(context);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: Icon(
+          Icons.warning_amber_rounded,
+          color: theme.colorScheme.error,
+          size: 36,
+        ),
+        title: Text(
+          l10n.deleteAccountConfirmTitle,
+          textAlign: TextAlign.center,
+        ),
+        content: Text(l10n.deleteAccountConfirmMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _performDeleteAccount(context, l10n);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.error,
+              foregroundColor: theme.colorScheme.onError,
+            ),
+            child: Text(l10n.deleteAccountButton),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performDeleteAccount(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+              const SizedBox(width: 16),
+              Expanded(child: Text(l10n.deletingAccount)),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    // Delete cloud backups while Google authorization is still available.
+    try {
+      final driveService = context.read<GoogleDriveService>();
+      final folderId = await driveService.getOrCreateBackupFolder();
+      final backups = await driveService.listBackups(folderId);
+      for (final file in backups) {
+        final fileId = file.id;
+        if (fileId != null) await driveService.deleteFile(fileId);
+      }
+    } catch (_) {
+      // Local deletion must still complete if Drive is unavailable/offline.
+    }
+
+    if (!context.mounted) return;
+    Navigator.pop(context); // Loading dialog
+    Navigator.pop(context); // Drawer
+    context.read<AuthBloc>().add(AuthDeleteAccountRequested());
   }
 }

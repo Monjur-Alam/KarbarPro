@@ -80,6 +80,11 @@ class AuthRepository {
     await _googleSignIn.signOut();
   }
 
+  /// Revokes this app's Google access and removes the current account session.
+  Future<void> disconnect() async {
+    await _googleSignIn.disconnect();
+  }
+
   Future<GoogleSignInAccount?> getCurrentGoogleUser() async {
     return _googleSignIn.currentUser;
   }
